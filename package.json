@@ -1,0 +1,12 @@
+{
+  "name": "pygmy",
+  "version": "1.0.0",
+  "description": "Product showcase with studio images — Vue frontend + Node backend",
+  "scripts": {
+    "dev": "concurrently \"cd backend && npm run dev\" \"cd frontend && npm run dev\"",
+    "install:all": "cd backend && npm install && cd ../frontend && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
