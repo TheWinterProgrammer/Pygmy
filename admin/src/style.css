@@ -1,0 +1,173 @@
+/* Pygmy Admin — Global Styles (Lunexo dark glass) */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:          hsl(228, 4%, 10%);
+  --surface:     hsl(228, 4%, 15%);
+  --surface2:    hsl(228, 4%, 20%);
+  --accent:      hsl(355, 70%, 58%);
+  --accent-dim:  hsl(355, 70%, 48%);
+  --text:        hsl(228, 10%, 92%);
+  --text-muted:  hsl(228, 8%, 60%);
+  --border:      rgba(255,255,255,0.08);
+  --glass-bg:    rgba(255,255,255,0.05);
+  --glass-border:rgba(255,255,255,0.10);
+  --radius:      1rem;
+  --radius-sm:   0.5rem;
+  --sidebar-w:   240px;
+  --font:        'Poppins', sans-serif;
+}
+
+html, body, #app { height: 100%; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* ─── Scrollbar ─────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 3px; }
+
+/* ─── Typography ─────────────────────────────────────────────────────────── */
+h1 { font-size: 1.6rem; font-weight: 600; }
+h2 { font-size: 1.25rem; font-weight: 600; }
+h3 { font-size: 1rem; font-weight: 600; }
+a { color: var(--accent); text-decoration: none; }
+
+/* ─── Glass card ────────────────────────────────────────────────────────── */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+}
+
+/* ─── Buttons ───────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 1rem;
+  border-radius: var(--radius-sm);
+  border: none;
+  font-family: var(--font);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+.btn-primary:hover { background: var(--accent-dim); }
+.btn-ghost {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  color: var(--text);
+}
+.btn-ghost:hover { background: var(--surface2); }
+.btn-danger {
+  background: transparent;
+  border: 1px solid hsl(355,60%,40%);
+  color: hsl(355,70%,68%);
+}
+.btn-danger:hover { background: hsl(355,60%,20%); }
+.btn-sm { padding: 0.3rem 0.7rem; font-size: 0.78rem; }
+
+/* ─── Form inputs ───────────────────────────────────────────────────────── */
+.input, .select, textarea.input {
+  width: 100%;
+  padding: 0.55rem 0.8rem;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.input:focus, .select:focus, textarea.input:focus {
+  border-color: var(--accent);
+}
+.select option { background: var(--surface); }
+label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 0.3rem;
+  font-weight: 500;
+}
+.form-group { margin-bottom: 1rem; }
+
+/* ─── Badge ─────────────────────────────────────────────────────────────── */
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 2rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.badge-published { background: hsl(142,60%,20%); color: hsl(142,70%,60%); }
+.badge-draft     { background: hsl(228,10%,22%); color: var(--text-muted); }
+
+/* ─── Table ─────────────────────────────────────────────────────────────── */
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table th {
+  text-align: left;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+.data-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: var(--glass-bg); }
+
+/* ─── Toasts ─────────────────────────────────────────────────────────────── */
+.toast {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  background: var(--surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 1.2rem;
+  font-size: 0.88rem;
+  z-index: 9999;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  animation: slideUp 0.3s ease;
+}
+.toast-success { border-left: 3px solid hsl(142,70%,50%); }
+.toast-error   { border-left: 3px solid var(--accent); }
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(1rem); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Page layout ───────────────────────────────────────────────────────── */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+.page-header h1 { font-size: 1.4rem; }

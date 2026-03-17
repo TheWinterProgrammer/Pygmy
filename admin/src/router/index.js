@@ -1,0 +1,47 @@
+import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '../stores/auth.js'
+
+const routes = [
+  {
+    path: '/login',
+    name: 'Login',
+    component: () => import('../views/LoginView.vue'),
+    meta: { public: true }
+  },
+  {
+    path: '/',
+    component: () => import('../layouts/AdminLayout.vue'),
+    meta: { requiresAuth: true },
+    children: [
+      { path: '',        redirect: '/dashboard' },
+      { path: 'dashboard',    name: 'Dashboard',   component: () => import('../views/DashboardView.vue') },
+      { path: 'pages',        name: 'Pages',       component: () => import('../views/PagesView.vue') },
+      { path: 'pages/new',    name: 'PageNew',     component: () => import('../views/PageEditView.vue') },
+      { path: 'pages/:id',    name: 'PageEdit',    component: () => import('../views/PageEditView.vue') },
+      { path: 'posts',        name: 'Posts',       component: () => import('../views/PostsView.vue') },
+      { path: 'posts/new',    name: 'PostNew',     component: () => import('../views/PostEditView.vue') },
+      { path: 'posts/:id',    name: 'PostEdit',    component: () => import('../views/PostEditView.vue') },
+      { path: 'media',        name: 'Media',       component: () => import('../views/MediaView.vue') },
+      { path: 'navigation',   name: 'Navigation',  component: () => import('../views/NavigationView.vue') },
+      { path: 'settings',     name: 'Settings',    component: () => import('../views/SettingsView.vue') },
+    ]
+  },
+  { path: '/:pathMatch(.*)*', redirect: '/' }
+]
+
+const router = createRouter({
+  history: createWebHistory(),
+  routes
+})
+
+router.beforeEach(async (to) => {
+  const auth = useAuthStore()
+  if (to.meta.requiresAuth && !auth.isLoggedIn) {
+    return { name: 'Login' }
+  }
+  if (to.name === 'Login' && auth.isLoggedIn) {
+    return { name: 'Dashboard' }
+  }
+})
+
+export default router

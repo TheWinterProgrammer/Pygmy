@@ -1,43 +1,37 @@
 <template>
-  <div class="app">
-    <!-- Header -->
-    <header class="header">
-      <div class="header-inner">
-        <div class="logo">Pygmy<span class="logo-dot">.</span></div>
-        <nav class="nav">
-          <button class="btn-upload" @click="showUpload = !showUpload">
-            + Add Products
-          </button>
-        </nav>
-      </div>
-    </header>
-
-    <!-- Upload panel -->
-    <Transition name="slide-down">
-      <UploadPanel v-if="showUpload" @close="showUpload = false" />
-    </Transition>
-
-    <!-- Main showcase -->
-    <main class="main">
-      <div v-if="store.loading" class="state-msg">Loading products…</div>
-      <div v-else-if="store.total === 0" class="state-empty">
-        <div class="empty-icon">📦</div>
-        <h2>No products yet</h2>
-        <p>Click <strong>+ Add Products</strong> to upload your studio images.</p>
-      </div>
-      <ProductSlideshow v-else />
-    </main>
+  <div v-if="site.loaded">
+    <SiteNav />
+    <RouterView />
+    <SiteFooter />
+  </div>
+  <div v-else class="loading-screen">
+    <div class="spinner"></div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useProductStore } from './stores/products.js'
-import ProductSlideshow from './components/ProductSlideshow.vue'
-import UploadPanel from './components/UploadPanel.vue'
+import { onMounted } from 'vue'
+import { useSiteStore } from './stores/site.js'
+import SiteNav from './components/SiteNav.vue'
+import SiteFooter from './components/SiteFooter.vue'
 
-const store = useProductStore()
-const showUpload = ref(false)
-
-onMounted(() => store.fetchProducts())
+const site = useSiteStore()
+onMounted(() => site.load())
 </script>
+
+<style>
+.loading-screen {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.spinner {
+  width: 40px; height: 40px;
+  border: 3px solid rgba(255,255,255,0.1);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
