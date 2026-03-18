@@ -16,6 +16,8 @@ import seoRoutes from './routes/seo.js'
 import commentsRoutes from './routes/comments.js'
 import searchRoutes from './routes/search.js'
 import productsRoutes from './routes/products.js'
+import usersRoutes from './routes/users.js'
+import contactRoutes from './routes/contact.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
@@ -48,6 +50,8 @@ app.use('/api/dashboard', dashboardRoutes)
 app.use('/api/comments', commentsRoutes)
 app.use('/api/search', searchRoutes)
 app.use('/api/products', productsRoutes)
+app.use('/api/users', usersRoutes)
+app.use('/api/contact', contactRoutes)
 
 // ─── SEO (public) ─────────────────────────────────────────────────────────────
 app.use('/', seoRoutes)

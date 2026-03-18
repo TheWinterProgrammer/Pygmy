@@ -48,6 +48,8 @@ const navItems = [
   { to: '/media',      icon: '🖼️',  label: 'Media' },
   { to: '/navigation', icon: '🧭', label: 'Navigation' },
   { to: '/comments',   icon: '💬', label: 'Comments' },
+  { to: '/contact',    icon: '✉️',  label: 'Contact' },
+  { to: '/users',      icon: '👥', label: 'Users' },
   { to: '/settings',   icon: '⚙️',  label: 'Settings' },
 ]
 

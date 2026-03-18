@@ -19,6 +19,14 @@ export function authMiddleware(req, res, next) {
   }
 }
 
+/** Only allow users with role === 'admin'. Must be used AFTER authMiddleware. */
+export function adminOnly(req, res, next) {
+  if (req.user?.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin access required' })
+  }
+  next()
+}
+
 export function signToken(payload) {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' })
 }

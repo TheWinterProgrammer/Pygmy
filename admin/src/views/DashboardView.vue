@@ -51,6 +51,23 @@
           <div class="stat-label">Products <span class="badge badge-published">{{ stats.products?.published ?? 0 }} live</span></div>
         </div>
       </div>
+      <div class="stat-card glass">
+        <div class="stat-icon">✉️</div>
+        <div class="stat-body">
+          <div class="stat-num">{{ stats.contacts?.total ?? 0 }}</div>
+          <div class="stat-label">
+            Contact msgs
+            <span v-if="(stats.contacts?.unread ?? 0) > 0" class="badge badge-draft">{{ stats.contacts.unread }} new</span>
+          </div>
+        </div>
+      </div>
+      <div class="stat-card glass">
+        <div class="stat-icon">👥</div>
+        <div class="stat-body">
+          <div class="stat-num">{{ stats.users?.total ?? 0 }}</div>
+          <div class="stat-label">Users</div>
+        </div>
+      </div>
     </div>
 
     <div class="section glass" v-if="stats?.recentPosts?.length">

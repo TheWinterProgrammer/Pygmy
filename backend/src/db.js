@@ -127,6 +127,17 @@ db.exec(`
     created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
     updated_at  TEXT    NOT NULL DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS form_submissions (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT    NOT NULL,
+    email       TEXT    NOT NULL,
+    subject     TEXT    NOT NULL DEFAULT '',
+    message     TEXT    NOT NULL,
+    status      TEXT    NOT NULL DEFAULT 'unread',
+    ip          TEXT,
+    created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
 `)
 
 // ─── Default settings ─────────────────────────────────────────────────────────
@@ -142,6 +153,7 @@ const defaultSettings = {
   footer_text: '© 2026 My Pygmy Site',
   posts_per_page: '10',
   google_analytics: '',
+  contact_intro: 'Have a question or want to work together? Drop us a message and we\'ll get back to you.',
 }
 
 const insertSetting = db.prepare(`

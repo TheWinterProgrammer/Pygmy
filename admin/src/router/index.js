@@ -27,6 +27,8 @@ const routes = [
       { path: 'products/new',     name: 'ProductNew',   component: () => import('../views/ProductEditView.vue') },
       { path: 'products/:id',     name: 'ProductEdit',  component: () => import('../views/ProductEditView.vue') },
       { path: 'comments',     name: 'Comments',    component: () => import('../views/CommentsView.vue') },
+      { path: 'contact',      name: 'Contact',     component: () => import('../views/ContactView.vue') },
+      { path: 'users',        name: 'Users',       component: () => import('../views/UsersView.vue') },
       { path: 'settings',     name: 'Settings',    component: () => import('../views/SettingsView.vue') },
     ]
   },

@@ -72,6 +72,15 @@
       </div>
 
       <div class="glass section">
+        <h2 style="margin-bottom:1.25rem;">✉️ Contact Page</h2>
+        <div class="form-group">
+          <label>Intro Text</label>
+          <textarea v-model="form.contact_intro" class="input textarea" rows="3"
+            placeholder="Have a question? Drop us a message…" />
+        </div>
+      </div>
+
+      <div class="glass section">
         <h2 style="margin-bottom:1.25rem;">📊 Analytics</h2>
         <div class="form-group">
           <label>Google Analytics ID <small style="color:var(--text-muted)">(e.g. G-XXXXXXXXXX)</small></label>
@@ -136,7 +145,8 @@ const form = ref({
   hero_bg_url: '',
   footer_text: '',
   posts_per_page: 10,
-  google_analytics: ''
+  google_analytics: '',
+  contact_intro: ''
 })
 
 onMounted(async () => {

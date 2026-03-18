@@ -24,6 +24,11 @@ router.get('/stats', authMiddleware, (req, res) => {
   const products = db.prepare('SELECT COUNT(*) as count FROM products').get().count
   const publishedProducts = db.prepare("SELECT COUNT(*) as count FROM products WHERE status='published'").get().count
 
+  const totalContacts = db.prepare('SELECT COUNT(*) as count FROM form_submissions').get().count
+  const unreadContacts = db.prepare("SELECT COUNT(*) as count FROM form_submissions WHERE status='unread'").get().count
+
+  const totalUsers = db.prepare('SELECT COUNT(*) as count FROM users').get().count
+
   res.json({
     pages: { total: pages, published: publishedPages },
     posts: { total: posts, published: publishedPosts },
@@ -31,6 +36,8 @@ router.get('/stats', authMiddleware, (req, res) => {
     navigation: { total: navItems },
     comments: { total: totalComments, pending: pendingComments },
     products: { total: products, published: publishedProducts },
+    contacts: { total: totalContacts, unread: unreadContacts },
+    users: { total: totalUsers },
     recentPosts
   })
 })
