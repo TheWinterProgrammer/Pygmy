@@ -1,5 +1,10 @@
 <template>
   <div>
+    <MediaPickerModal
+      v-if="showPicker"
+      @select="url => { form.cover_image = url }"
+      @close="showPicker = false"
+    />
     <div class="page-header">
       <h1>{{ isNew ? 'New Post' : 'Edit Post' }}</h1>
       <div class="header-actions">
@@ -65,7 +70,10 @@
           <h3 style="margin-bottom:1rem;">Cover Image</h3>
           <div class="form-group">
             <label>Image URL or /uploads path</label>
-            <input v-model="form.cover_image" class="input" placeholder="/uploads/media/image.jpg" />
+            <div class="cover-row">
+              <input v-model="form.cover_image" class="input" placeholder="/uploads/media/image.jpg" />
+              <button type="button" class="btn btn-ghost btn-sm" @click="showPicker = true">🖼️ Pick</button>
+            </div>
           </div>
           <img v-if="form.cover_image" :src="form.cover_image" class="cover-preview" alt="cover" />
         </div>
@@ -100,6 +108,7 @@ import { useRoute, useRouter } from 'vue-router'
 import api from '../api.js'
 import { useToastStore } from '../stores/toast.js'
 import RichEditor from '../components/RichEditor.vue'
+import MediaPickerModal from '../components/MediaPickerModal.vue'
 
 const route  = useRoute()
 const router = useRouter()
@@ -107,6 +116,7 @@ const toast  = useToastStore()
 
 const isNew = computed(() => route.params.id === undefined)
 const saving = ref(false)
+const showPicker = ref(false)
 const slugManual = ref(false)
 const categories = ref([])
 const newCatName = ref('')
@@ -189,6 +199,8 @@ const publish   = () => savePost('published')
 .section { padding: 1.25rem; margin-bottom: 1rem; }
 .new-cat { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
 .cover-preview { width: 100%; border-radius: var(--radius-sm); margin-top: 0.5rem; max-height: 160px; object-fit: cover; }
+.cover-row { display: flex; gap: 0.5rem; align-items: center; }
+.cover-row .input { flex: 1; }
 @media (max-width: 768px) {
   .edit-layout { grid-template-columns: 1fr; }
 }

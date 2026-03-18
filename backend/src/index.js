@@ -12,6 +12,7 @@ import mediaRoutes from './routes/media.js'
 import navigationRoutes from './routes/navigation.js'
 import settingsRoutes from './routes/settings.js'
 import dashboardRoutes from './routes/dashboard.js'
+import seoRoutes from './routes/seo.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
@@ -41,6 +42,9 @@ app.use('/api/media', mediaRoutes)
 app.use('/api/navigation', navigationRoutes)
 app.use('/api/settings', settingsRoutes)
 app.use('/api/dashboard', dashboardRoutes)
+
+// ─── SEO (public) ─────────────────────────────────────────────────────────────
+app.use('/', seoRoutes)
 
 // ─── Health ───────────────────────────────────────────────────────────────────
 app.get('/api/health', (_, res) => {

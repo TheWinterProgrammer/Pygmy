@@ -20,7 +20,10 @@
         </div>
         <div class="form-group">
           <label>Logo URL</label>
-          <input v-model="form.site_logo" class="input" placeholder="/uploads/media/logo.png" />
+          <div class="pick-row">
+            <input v-model="form.site_logo" class="input" placeholder="/uploads/media/logo.png" />
+            <button type="button" class="btn btn-ghost btn-sm" @click="pickerTarget = 'site_logo'">🖼️</button>
+          </div>
         </div>
         <div class="form-group">
           <label>Footer Text</label>
@@ -55,7 +58,10 @@
         </div>
         <div class="form-group">
           <label>Hero Background URL (image or video)</label>
-          <input v-model="form.hero_bg_url" class="input" placeholder="/uploads/media/hero.jpg" />
+          <div class="pick-row">
+            <input v-model="form.hero_bg_url" class="input" placeholder="/uploads/media/hero.jpg" />
+            <button type="button" class="btn btn-ghost btn-sm" @click="pickerTarget = 'hero_bg_url'">🖼️</button>
+          </div>
         </div>
         <div v-if="form.hero_bg_url" class="hero-preview" :style="{ backgroundImage: `url(${form.hero_bg_url})` }">
           <div class="hero-overlay">
@@ -72,7 +78,37 @@
           <input v-model="form.google_analytics" class="input" placeholder="G-XXXXXXXXXX" />
         </div>
       </div>
+
+      <div class="glass section profile-section">
+        <h2 style="margin-bottom:1.25rem;">🔐 My Profile</h2>
+        <div class="form-group">
+          <label>Display Name</label>
+          <input v-model="profile.name" class="input" placeholder="Admin" />
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input v-model="profile.email" class="input" type="email" placeholder="admin@pygmy.local" />
+        </div>
+        <div class="form-group">
+          <label>New Password <small style="color:var(--text-muted)">(leave blank to keep current)</small></label>
+          <input v-model="profile.password" class="input" type="password" placeholder="••••••••" autocomplete="new-password" />
+        </div>
+        <div class="form-group">
+          <label>Confirm Password</label>
+          <input v-model="profile.confirm" class="input" type="password" placeholder="••••••••" autocomplete="new-password" />
+        </div>
+        <button class="btn btn-primary" @click="saveProfile" :disabled="savingProfile">
+          {{ savingProfile ? 'Saving…' : 'Update Profile' }}
+        </button>
+      </div>
     </div>
+
+    <!-- Media picker modal -->
+    <MediaPickerModal
+      v-if="pickerTarget"
+      @select="url => { form[pickerTarget] = url }"
+      @close="pickerTarget = null"
+    />
   </div>
 </template>
 
@@ -80,10 +116,15 @@
 import { ref, onMounted } from 'vue'
 import api from '../api.js'
 import { useToastStore } from '../stores/toast.js'
+import MediaPickerModal from '../components/MediaPickerModal.vue'
 
 const toast = useToastStore()
 const loaded = ref(false)
 const saving = ref(false)
+const savingProfile = ref(false)
+const pickerTarget = ref(null)
+
+const profile = ref({ name: '', email: '', password: '', confirm: '' })
 
 const form = ref({
   site_name: '',
@@ -99,8 +140,13 @@ const form = ref({
 })
 
 onMounted(async () => {
-  const { data } = await api.get('/settings')
-  Object.assign(form.value, data)
+  const [settingsRes, meRes] = await Promise.all([
+    api.get('/settings'),
+    api.get('/auth/me')
+  ])
+  Object.assign(form.value, settingsRes.data)
+  profile.value.name = meRes.data.name
+  profile.value.email = meRes.data.email
   loaded.value = true
 })
 
@@ -113,6 +159,26 @@ async function save() {
     toast.error('Failed to save')
   } finally {
     saving.value = false
+  }
+}
+
+async function saveProfile() {
+  if (profile.value.password && profile.value.password !== profile.value.confirm) {
+    toast.error('Passwords do not match')
+    return
+  }
+  savingProfile.value = true
+  try {
+    const payload = { name: profile.value.name, email: profile.value.email }
+    if (profile.value.password) payload.password = profile.value.password
+    await api.put('/auth/me', payload)
+    profile.value.password = ''
+    profile.value.confirm = ''
+    toast.success('Profile updated')
+  } catch (e) {
+    toast.error(e.response?.data?.error || 'Update failed')
+  } finally {
+    savingProfile.value = false
   }
 }
 
@@ -146,6 +212,9 @@ function hslToHex(hsl) {
 }
 .section { padding: 1.5rem; }
 .color-row { display: flex; gap: 0.5rem; align-items: center; }
+.pick-row { display: flex; gap: 0.5rem; align-items: center; }
+.pick-row .input { flex: 1; }
+.profile-section { grid-column: span 2; }
 .color-swatch {
   width: 40px; height: 38px;
   border: 1px solid var(--border);
