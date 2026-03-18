@@ -99,6 +99,34 @@ db.exec(`
     status      TEXT    NOT NULL DEFAULT 'pending',
     created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS product_categories (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT    NOT NULL,
+    slug       TEXT    UNIQUE NOT NULL,
+    created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS products (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT    NOT NULL,
+    slug        TEXT    UNIQUE NOT NULL,
+    excerpt     TEXT,
+    description TEXT    NOT NULL DEFAULT '',
+    price       REAL,
+    sale_price  REAL,
+    sku         TEXT,
+    cover_image TEXT,
+    gallery     TEXT    NOT NULL DEFAULT '[]',
+    category_id INTEGER REFERENCES product_categories(id) ON DELETE SET NULL,
+    tags        TEXT    NOT NULL DEFAULT '[]',
+    status      TEXT    NOT NULL DEFAULT 'draft',
+    featured    INTEGER NOT NULL DEFAULT 0,
+    meta_title  TEXT,
+    meta_desc   TEXT,
+    created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+    updated_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
 `)
 
 // ─── Default settings ─────────────────────────────────────────────────────────

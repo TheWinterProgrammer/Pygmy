@@ -44,6 +44,7 @@ const navItems = [
   { to: '/dashboard',  icon: '📊', label: 'Dashboard' },
   { to: '/pages',      icon: '📄', label: 'Pages' },
   { to: '/posts',      icon: '✍️',  label: 'Posts' },
+  { to: '/products',   icon: '🛍️',  label: 'Products' },
   { to: '/media',      icon: '🖼️',  label: 'Media' },
   { to: '/navigation', icon: '🧭', label: 'Navigation' },
   { to: '/comments',   icon: '💬', label: 'Comments' },

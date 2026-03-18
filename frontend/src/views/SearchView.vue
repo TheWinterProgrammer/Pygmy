@@ -27,7 +27,7 @@
       <!-- Results -->
       <template v-else-if="results">
         <!-- No results -->
-        <div class="empty-state" v-if="!results.posts.length && !results.pages.length">
+        <div class="empty-state" v-if="!results.posts.length && !results.pages.length && !results.products?.length">
           <p class="text-muted">No results found for <strong>"{{ results.query }}"</strong></p>
         </div>
 
@@ -52,6 +52,32 @@
                   <div class="result-meta">
                     <span v-if="post.category_name" class="tag">{{ post.category_name }}</span>
                     <span class="date text-muted">{{ formatDate(post.published_at) }}</span>
+                  </div>
+                </div>
+              </RouterLink>
+            </div>
+          </section>
+
+          <!-- Products -->
+          <section v-if="results.products?.length" class="result-section">
+            <h2 class="section-label">Products ({{ results.products.length }})</h2>
+            <div class="results-grid">
+              <RouterLink
+                v-for="p in results.products"
+                :key="p.id"
+                :to="`/shop/${p.slug}`"
+                class="result-card glass"
+              >
+                <div class="result-cover" v-if="p.cover_image">
+                  <img :src="p.cover_image" :alt="p.title" />
+                </div>
+                <div class="result-body">
+                  <div class="result-type">🛍️ Product</div>
+                  <h3 class="result-title" v-html="highlight(p.title)"></h3>
+                  <p class="result-excerpt text-muted" v-if="p.excerpt" v-html="highlight(p.excerpt)"></p>
+                  <div class="result-meta" v-if="p.price !== null">
+                    <span class="tag" v-if="p.sale_price">${{ p.sale_price }}</span>
+                    <span class="date text-muted" :style="p.sale_price ? 'text-decoration:line-through' : ''">${{ p.price }}</span>
                   </div>
                 </div>
               </RouterLink>

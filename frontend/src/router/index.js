@@ -14,6 +14,14 @@ const routes = [
     component: () => import('../views/SearchView.vue')
   },
   {
+    path: '/shop',
+    component: () => import('../views/ProductsView.vue')
+  },
+  {
+    path: '/shop/:slug',
+    component: () => import('../views/ProductView.vue')
+  },
+  {
     path: '/blog/:slug',
     component: () => import('../views/PostView.vue')
   },

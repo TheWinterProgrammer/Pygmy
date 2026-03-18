@@ -43,7 +43,21 @@ router.get('/', (req, res) => {
     LIMIT ?
   `).all(pattern, pattern, pattern, limit)
 
-  res.json({ posts, pages, query: q })
+  // Search products (published only)
+  const products = db.prepare(`
+    SELECT p.id, p.name AS title, p.slug, p.excerpt, p.cover_image, p.price, p.sale_price,
+           pc.name AS category_name
+    FROM products p
+    LEFT JOIN product_categories pc ON pc.id = p.category_id
+    WHERE p.status = 'published'
+      AND (p.name LIKE ? OR p.excerpt LIKE ? OR p.description LIKE ?)
+    ORDER BY
+      CASE WHEN p.name LIKE ? THEN 0 ELSE 1 END,
+      p.created_at DESC
+    LIMIT ?
+  `).all(pattern, pattern, pattern, pattern, limit)
+
+  res.json({ posts, pages, products, query: q })
 })
 
 export default router

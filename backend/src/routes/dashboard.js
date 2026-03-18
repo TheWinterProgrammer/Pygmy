@@ -21,12 +21,16 @@ router.get('/stats', authMiddleware, (req, res) => {
   const pendingComments = db.prepare("SELECT COUNT(*) as count FROM comments WHERE status='pending'").get().count
   const totalComments = db.prepare('SELECT COUNT(*) as count FROM comments').get().count
 
+  const products = db.prepare('SELECT COUNT(*) as count FROM products').get().count
+  const publishedProducts = db.prepare("SELECT COUNT(*) as count FROM products WHERE status='published'").get().count
+
   res.json({
     pages: { total: pages, published: publishedPages },
     posts: { total: posts, published: publishedPosts },
     media: { total: media },
     navigation: { total: navItems },
     comments: { total: totalComments, pending: pendingComments },
+    products: { total: products, published: publishedProducts },
     recentPosts
   })
 })

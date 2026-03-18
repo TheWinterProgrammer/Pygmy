@@ -44,6 +44,13 @@
           </div>
         </div>
       </div>
+      <div class="stat-card glass">
+        <div class="stat-icon">🛍️</div>
+        <div class="stat-body">
+          <div class="stat-num">{{ stats.products?.total ?? 0 }}</div>
+          <div class="stat-label">Products <span class="badge badge-published">{{ stats.products?.published ?? 0 }} live</span></div>
+        </div>
+      </div>
     </div>
 
     <div class="section glass" v-if="stats?.recentPosts?.length">
@@ -71,6 +78,7 @@
     <div class="quick-actions">
       <RouterLink to="/pages/new" class="btn btn-ghost">+ New Page</RouterLink>
       <RouterLink to="/posts/new" class="btn btn-ghost">+ New Post</RouterLink>
+      <RouterLink to="/products/new" class="btn btn-ghost">+ New Product</RouterLink>
       <RouterLink to="/media" class="btn btn-ghost">Upload Media</RouterLink>
     </div>
   </div>

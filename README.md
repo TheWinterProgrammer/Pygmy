@@ -53,8 +53,10 @@ admin/              ← wp-admin equivalent (port 5173)
     DashboardView.vue
     PagesView.vue / PageEditView.vue
     PostsView.vue  / PostEditView.vue
+    ProductsView.vue / ProductEditView.vue
     MediaView.vue
     NavigationView.vue
+    CommentsView.vue
     SettingsView.vue
 
 frontend/           ← public website (port 5174)
@@ -66,6 +68,9 @@ frontend/           ← public website (port 5174)
     BlogView.vue    ← paginated blog listing + category/tag filters
     PostView.vue    ← full post with SEO meta tags
     PageView.vue    ← dynamic CMS pages
+    ProductsView.vue ← /shop listing with filters + pagination
+    ProductView.vue  ← /shop/:slug detail with gallery + pricing
+    SearchView.vue  ← full-text search (posts + pages + products)
 ```
 
 ## Features
@@ -91,6 +96,15 @@ frontend/           ← public website (port 5174)
 - Post detail with cover image, tags, SEO meta + OG tags
 - Dynamic CMS page renderer
 - Loading skeletons + 404 states
+
+### Phase 6 — Product Catalog ✅
+- **SQLite-backed products** — `products` + `product_categories` tables; full CRUD REST API (`/api/products`)
+- **Rich product fields** — name, slug, excerpt, TipTap description, price, sale price, SKU, cover image, gallery (multi-image), category, tags, status draft/published, featured flag, SEO meta
+- **Admin panel** — `ProductsView` (sortable grid with thumbnails, price, status, featured star) + `ProductEditView` (two-column editor with MediaPickerModal for cover + multi-gallery, inline category creation, all fields)
+- **Dashboard stat** — product count + published count card added to Dashboard
+- **Public frontend** — `/shop` listing with category filter buttons + tag filter badges + pagination + sale/featured badges; `/shop/:slug` detail page with main image, gallery thumbnails, sale discount %, rich description prose
+- **Search** — products included in `/api/search` results; SearchView shows a Products section
+- **Sitemap** — `/shop` + all published `/shop/:slug` URLs included in `sitemap.xml`
 
 ### Phase 5 — Comments & Search ✅
 - **Comments system** — readers submit comments (name, email, content) → held as `pending`; admins approve/spam/delete from new 💬 Comments view in admin panel; approved comments rendered below each post
@@ -179,10 +193,24 @@ Font: **Poppins** via Google Fonts
 | PUT | `/api/comments/:id` | ✓ | Update status (pending/approved/spam) |
 | DELETE | `/api/comments/:id` | ✓ | Delete comment |
 
+### Products
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/products` | — | Published products (`?category=`, `?tag=`, `?featured=1`, `?limit=`, `?offset=`) |
+| GET | `/api/products?all=1` | ✓ | All products |
+| GET | `/api/products/:slug` | — | Single product by slug |
+| GET | `/api/products/id/:id` | ✓ | Single product by id (admin) |
+| POST | `/api/products` | ✓ | Create product |
+| PUT | `/api/products/:id` | ✓ | Update product |
+| DELETE | `/api/products/:id` | ✓ | Delete product |
+| GET | `/api/products/categories` | — | Product category list |
+| POST | `/api/products/categories` | ✓ | Add product category |
+| DELETE | `/api/products/categories/:id` | ✓ | Delete product category |
+
 ### Search
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/api/search?q=<term>` | — | Search published posts + pages |
+| GET | `/api/search?q=<term>` | — | Search published posts + pages + products |
 
 ### SEO (public)
 | Method | Path | Description |

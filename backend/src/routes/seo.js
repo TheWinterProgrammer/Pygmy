@@ -26,6 +26,7 @@ router.get('/sitemap.xml', (req, res) => {
 
   const pages = db.prepare("SELECT slug, updated_at FROM pages WHERE status = 'published' ORDER BY sort_order ASC").all()
   const posts = db.prepare("SELECT slug, published_at, updated_at FROM posts WHERE status = 'published' ORDER BY published_at DESC").all()
+  const products = db.prepare("SELECT slug, updated_at FROM products WHERE status = 'published' ORDER BY created_at DESC").all()
 
   const urls = []
 
@@ -68,6 +69,28 @@ router.get('/sitemap.xml', (req, res) => {
     ${lastmod ? `<lastmod>${lastmod}</lastmod>` : ''}
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
+  </url>`)
+  }
+
+  // Shop listing
+  if (products.length > 0) {
+    urls.push(`
+  <url>
+    <loc>${escapeXml(siteUrl)}/shop</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>`)
+  }
+
+  // Products
+  for (const product of products) {
+    const lastmod = (product.updated_at || '').split('T')[0]
+    urls.push(`
+  <url>
+    <loc>${escapeXml(siteUrl)}/shop/${escapeXml(product.slug)}</loc>
+    ${lastmod ? `<lastmod>${lastmod}</lastmod>` : ''}
+    <changefreq>weekly</changefreq>
+    <priority>0.65</priority>
   </url>`)
   }
 
