@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import api from '../api.js'
 
 const routes = [
   {
@@ -35,8 +36,25 @@ const routes = [
   }
 ]
 
-export default createRouter({
+const router = createRouter({
   history: createWebHistory(),
   routes,
   scrollBehavior() { return { top: 0 } }
 })
+
+// Check CMS-managed redirects before navigating
+router.beforeEach(async (to) => {
+  try {
+    const { data } = await api.get('/redirects/check', { params: { path: to.path } })
+    if (data && data.to_path) {
+      const code = parseInt(data.type) || 301
+      if (data.to_path.startsWith('http')) {
+        window.location.href = data.to_path
+        return false
+      }
+      return { path: data.to_path, replace: code === 301 }
+    }
+  } catch {}
+})
+
+export default router

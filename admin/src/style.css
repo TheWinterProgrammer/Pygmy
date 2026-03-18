@@ -118,8 +118,9 @@ label {
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
-.badge-published { background: hsl(142,60%,20%); color: hsl(142,70%,60%); }
-.badge-draft     { background: hsl(228,10%,22%); color: var(--text-muted); }
+.badge-published  { background: hsl(142,60%,20%); color: hsl(142,70%,60%); }
+.badge-draft      { background: hsl(228,10%,22%); color: var(--text-muted); }
+.badge-scheduled  { background: hsl(35,70%,20%); color: hsl(35,90%,65%); }
 
 /* ─── Table ─────────────────────────────────────────────────────────────── */
 .data-table { width: 100%; border-collapse: collapse; }

@@ -2,11 +2,12 @@
 import { Router } from 'express'
 import db from '../db.js'
 import { authMiddleware, adminOnly } from '../middleware/auth.js'
+import { notifyNewContact } from '../email.js'
 
 const router = Router()
 
 // POST /api/contact — public: submit a contact message
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const { name, email, subject = '', message } = req.body
   if (!name || !email || !message)
     return res.status(400).json({ error: 'name, email and message are required' })
@@ -20,6 +21,9 @@ router.post('/', (req, res) => {
   db.prepare(
     'INSERT INTO form_submissions (name, email, subject, message, ip) VALUES (?, ?, ?, ?, ?)'
   ).run(name, email, subject, message, ip)
+
+  // Fire-and-forget email notification
+  notifyNewContact({ name, email, subject, message }).catch(() => {})
 
   res.status(201).json({ message: 'Message received. Thank you!' })
 })

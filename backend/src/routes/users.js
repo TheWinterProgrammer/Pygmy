@@ -3,6 +3,7 @@ import { Router } from 'express'
 import bcrypt from 'bcryptjs'
 import db from '../db.js'
 import { authMiddleware, adminOnly } from '../middleware/auth.js'
+import { logActivity } from './activity.js'
 
 const router = Router()
 const guard = [authMiddleware, adminOnly]
@@ -31,7 +32,9 @@ router.post('/', ...guard, (req, res) => {
     'INSERT INTO users (email, name, password, role) VALUES (?, ?, ?, ?)'
   ).run(email, name, hashed, role)
 
-  res.status(201).json({ id: result.lastInsertRowid, email, name, role })
+  const newUser = { id: result.lastInsertRowid, email, name, role }
+  logActivity(req.user?.id, req.user?.name, 'created user', 'user', newUser.id, `${name} (${email})`)
+  res.status(201).json(newUser)
 })
 
 // PUT /api/users/:id — update a user (name, email, role, password)
@@ -67,6 +70,7 @@ router.put('/:id', ...guard, (req, res) => {
     'UPDATE users SET email=?, name=?, role=?, password=?, updated_at=? WHERE id=?'
   ).run(updates.email, updates.name, updates.role, updates.password, updates.updated_at, id)
 
+  logActivity(req.user?.id, req.user?.name, 'updated user', 'user', id, updates.name)
   res.json({ id, email: updates.email, name: updates.name, role: updates.role })
 })
 
@@ -76,10 +80,11 @@ router.delete('/:id', ...guard, (req, res) => {
   if (id === req.user.id)
     return res.status(400).json({ error: "You can't delete your own account" })
 
-  const user = db.prepare('SELECT id FROM users WHERE id = ?').get(id)
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id)
   if (!user) return res.status(404).json({ error: 'User not found' })
 
   db.prepare('DELETE FROM users WHERE id = ?').run(id)
+  logActivity(req.user?.id, req.user?.name, 'deleted user', 'user', id, user.name)
   res.json({ message: 'User deleted' })
 })
 

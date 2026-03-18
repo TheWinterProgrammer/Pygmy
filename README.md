@@ -99,6 +99,12 @@ frontend/           ← public website (port 5174)
 - Dynamic CMS page renderer
 - Loading skeletons + 404 states
 
+### Phase 8 — Activity Logging + Image Optimization + Redirect Manager ✅
+- **Comprehensive activity logging** — `logActivity` wired into all mutation routes: pages (create/update/delete), posts (update/delete; create already existed), products (create/update/delete), media (upload/delete), comments (status change/delete), users (create/update/delete), redirects (create/update/delete); all admin actions now appear in Dashboard → Recent Activity feed
+- **Image auto-optimization** — media upload now auto-converts JPEG/PNG images above 200 KB to WebP (max 1920px, 85% quality) using the already-installed `sharp`; file size significantly reduced; original swapped for `.webp` version transparently; SVG and GIF files are left untouched
+- **Redirect Manager** — full 301/302 redirect system: new `redirects` SQLite table; REST API at `GET/POST/PUT/DELETE /api/redirects`; Express middleware catches non-API paths on the backend; Vue frontend router guard checks `GET /api/redirects/check?path=` on every navigation and performs client-side redirect (supports both internal paths and external URLs); admin `RedirectsView` with add/edit/delete modals, type badges, creation date; sidebar entry 🔀 Redirects added
+- **Dashboard** — new Redirects stat card; quick-action button to `/redirects`
+
 ### Phase 7 — Multi-user Management + Contact Forms ✅
 - **Multi-user management** — full CRUD for user accounts at `GET/POST/PUT/DELETE /api/users` (admin-only); new `adminOnly` middleware; roles: `admin` (full access) vs `editor` (content only); can't delete yourself or change your own role; `UsersView` in admin with invite/edit/delete modals + role badges
 - **Contact form** — public `POST /api/contact` endpoint stores name, email, subject, message, IP + timestamps in new `form_submissions` SQLite table; admin `ContactView` with status cycling (unread → read → archived), detail modal with reply-via-email link, delete confirm; unread badge count in sidebar; `GET /api/contact/stats` for dashboard
@@ -237,6 +243,20 @@ Font: **Poppins** via Google Fonts
 | GET | `/api/contact/stats` | admin | Unread count for dashboard |
 | PUT | `/api/contact/:id` | admin | Update status |
 | DELETE | `/api/contact/:id` | admin | Delete submission |
+
+### Redirects
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/redirects` | ✓ | List all redirects |
+| POST | `/api/redirects` | ✓ | Create redirect `{from_path, to_path, type}` |
+| PUT | `/api/redirects/:id` | ✓ | Update redirect |
+| DELETE | `/api/redirects/:id` | ✓ | Delete redirect |
+| GET | `/api/redirects/check?path=` | — | Check if a path has a redirect (SPA guard) |
+
+### Activity Log
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/activity` | ✓ | Recent activity (last 20; `?limit=N`) |
 
 ### SEO (public)
 | Method | Path | Description |

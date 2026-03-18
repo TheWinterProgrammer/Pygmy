@@ -10,7 +10,13 @@
       <div class="header-actions">
         <RouterLink to="/posts" class="btn btn-ghost">← Back</RouterLink>
         <button class="btn btn-ghost" @click="saveDraft" :disabled="saving">Save Draft</button>
-        <button class="btn btn-primary" @click="publish" :disabled="saving">
+        <button
+          v-if="form.status === 'scheduled'"
+          class="btn btn-secondary"
+          @click="saveScheduled"
+          :disabled="saving"
+        >⏰ Schedule</button>
+        <button v-else class="btn btn-primary" @click="publish" :disabled="saving">
           {{ form.status === 'published' ? 'Update' : 'Publish' }}
         </button>
       </div>
@@ -42,7 +48,19 @@
             <select v-model="form.status" class="select">
               <option value="draft">Draft</option>
               <option value="published">Published</option>
+              <option value="scheduled">⏰ Scheduled</option>
             </select>
+          </div>
+          <div class="form-group" v-if="form.status === 'scheduled' || form.status === 'published'">
+            <label>{{ form.status === 'scheduled' ? 'Publish at (future date)' : 'Published at' }}</label>
+            <input
+              v-model="form.published_at"
+              type="datetime-local"
+              class="input"
+            />
+            <small style="color:var(--muted);font-size:0.75rem" v-if="form.status === 'scheduled'">
+              The post will auto-publish at the scheduled time.
+            </small>
           </div>
         </div>
 
@@ -160,21 +178,29 @@ async function addCategory() {
   toast.success('Category added')
 }
 
-async function savePost(status) {
+async function savePost(status, keepPublishedAt = false) {
   if (!form.value.title) { toast.error('Title is required'); return }
+  if (status === 'scheduled' && !form.value.published_at) {
+    toast.error('Please set a publish date/time for scheduled posts')
+    return
+  }
   saving.value = true
   try {
     const payload = {
       ...form.value,
       status,
-      tags: tagsInput.value.split(',').map(t => t.trim()).filter(Boolean)
+      tags: tagsInput.value.split(',').map(t => t.trim()).filter(Boolean),
+      // Convert local datetime-local value to ISO string if present
+      published_at: form.value.published_at
+        ? new Date(form.value.published_at).toISOString()
+        : null
     }
     if (isNew.value) {
       await api.post('/posts', payload)
-      toast.success('Post created')
+      toast.success(status === 'scheduled' ? 'Post scheduled ⏰' : 'Post created')
     } else {
       await api.put(`/posts/${route.params.id}`, payload)
-      toast.success('Post saved')
+      toast.success(status === 'scheduled' ? 'Post scheduled ⏰' : 'Post saved')
     }
     router.push('/posts')
   } catch (e) {
@@ -184,8 +210,9 @@ async function savePost(status) {
   }
 }
 
-const saveDraft = () => savePost('draft')
-const publish   = () => savePost('published')
+const saveDraft     = () => savePost('draft')
+const publish       = () => savePost('published')
+const saveScheduled = () => savePost('scheduled')
 </script>
 
 <style scoped>

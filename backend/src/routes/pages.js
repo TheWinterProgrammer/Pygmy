@@ -2,6 +2,7 @@
 import { Router } from 'express'
 import db from '../db.js'
 import { authMiddleware } from '../middleware/auth.js'
+import { logActivity } from './activity.js'
 
 const router = Router()
 
@@ -48,6 +49,7 @@ router.post('/', authMiddleware, (req, res) => {
     sort_order || 0
   )
   const page = db.prepare('SELECT * FROM pages WHERE id = ?').get(info.lastInsertRowid)
+  logActivity(req.user?.id, req.user?.name, 'created page', 'page', page.id, page.title)
   res.status(201).json(page)
 })
 
@@ -78,6 +80,7 @@ router.put('/:id', authMiddleware, (req, res) => {
   )
 
   const updated = db.prepare('SELECT * FROM pages WHERE id = ?').get(page.id)
+  logActivity(req.user?.id, req.user?.name, 'updated page', 'page', updated.id, updated.title)
   res.json(updated)
 })
 
@@ -86,6 +89,7 @@ router.delete('/:id', authMiddleware, (req, res) => {
   const page = db.prepare('SELECT * FROM pages WHERE id = ?').get(req.params.id)
   if (!page) return res.status(404).json({ error: 'Page not found' })
   db.prepare('DELETE FROM pages WHERE id = ?').run(page.id)
+  logActivity(req.user?.id, req.user?.name, 'deleted page', 'page', page.id, page.title)
   res.json({ message: 'Deleted' })
 })
 

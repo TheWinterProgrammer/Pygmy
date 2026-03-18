@@ -28,17 +28,34 @@ router.get('/stats', authMiddleware, (req, res) => {
   const unreadContacts = db.prepare("SELECT COUNT(*) as count FROM form_submissions WHERE status='unread'").get().count
 
   const totalUsers = db.prepare('SELECT COUNT(*) as count FROM users').get().count
+  const scheduledPosts = db.prepare("SELECT COUNT(*) as count FROM posts WHERE status='scheduled'").get().count
+
+  // Analytics summary
+  const viewsToday = db.prepare("SELECT COALESCE(SUM(count),0) as v FROM page_views WHERE view_date = date('now')").get().v
+  const viewsWeek  = db.prepare("SELECT COALESCE(SUM(count),0) as v FROM page_views WHERE view_date >= date('now','-7 days')").get().v
+  const viewsTotal = db.prepare("SELECT COALESCE(SUM(count),0) as v FROM page_views").get().v
+
+  // Redirects
+  const totalRedirects = db.prepare('SELECT COUNT(*) as count FROM redirects').get().count
+
+  // Recent activity
+  const recentActivity = db.prepare(`
+    SELECT * FROM activity_log ORDER BY created_at DESC LIMIT 10
+  `).all()
 
   res.json({
     pages: { total: pages, published: publishedPages },
-    posts: { total: posts, published: publishedPosts },
+    posts: { total: posts, published: publishedPosts, scheduled: scheduledPosts },
     media: { total: media },
     navigation: { total: navItems },
     comments: { total: totalComments, pending: pendingComments },
     products: { total: products, published: publishedProducts },
     contacts: { total: totalContacts, unread: unreadContacts },
     users: { total: totalUsers },
-    recentPosts
+    analytics: { today: viewsToday, week: viewsWeek, total: viewsTotal },
+    redirects: { total: totalRedirects },
+    recentPosts,
+    recentActivity
   })
 })
 

@@ -138,6 +138,36 @@ db.exec(`
     ip          TEXT,
     created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS page_views (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    entity_type  TEXT    NOT NULL,
+    entity_id    INTEGER NOT NULL,
+    entity_slug  TEXT    NOT NULL DEFAULT '',
+    entity_title TEXT    NOT NULL DEFAULT '',
+    view_date    TEXT    NOT NULL DEFAULT (date('now')),
+    count        INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(entity_type, entity_id, view_date)
+  );
+
+  CREATE TABLE IF NOT EXISTS activity_log (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    user_name   TEXT,
+    action      TEXT    NOT NULL,
+    entity_type TEXT,
+    entity_id   INTEGER,
+    entity_title TEXT,
+    created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS redirects (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    from_path   TEXT    UNIQUE NOT NULL,
+    to_path     TEXT    NOT NULL,
+    type        TEXT    NOT NULL DEFAULT '301',
+    created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
 `)
 
 // ─── Default settings ─────────────────────────────────────────────────────────
@@ -154,6 +184,15 @@ const defaultSettings = {
   posts_per_page: '10',
   google_analytics: '',
   contact_intro: 'Have a question or want to work together? Drop us a message and we\'ll get back to you.',
+  // Email / notifications
+  smtp_host: '',
+  smtp_port: '587',
+  smtp_user: '',
+  smtp_pass: '',
+  smtp_from: '',
+  notify_email: '',
+  notify_new_comment: '1',
+  notify_new_contact: '1',
 }
 
 const insertSetting = db.prepare(`

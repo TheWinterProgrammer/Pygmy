@@ -12,6 +12,7 @@
 import express from 'express'
 import db from '../db.js'
 import { authMiddleware } from '../middleware/auth.js'
+import { logActivity } from './activity.js'
 
 const router = express.Router()
 
@@ -164,6 +165,7 @@ router.post('/', authMiddleware, (req, res) => {
   )
 
   const product = db.prepare('SELECT * FROM products WHERE id = ?').get(info.lastInsertRowid)
+  logActivity(req.user?.id, req.user?.name, 'created product', 'product', product.id, product.name)
   res.status(201).json(parseProduct(product))
 })
 
@@ -217,14 +219,16 @@ router.put('/:id', authMiddleware, (req, res) => {
   )
 
   const updated = db.prepare('SELECT * FROM products WHERE id = ?').get(existing.id)
+  logActivity(req.user?.id, req.user?.name, 'updated product', 'product', updated.id, updated.name)
   res.json(parseProduct(updated))
 })
 
 // ─── delete ───────────────────────────────────────────────────────────────────
 router.delete('/:id', authMiddleware, (req, res) => {
-  const product = db.prepare('SELECT id FROM products WHERE id = ?').get(req.params.id)
+  const product = db.prepare('SELECT * FROM products WHERE id = ?').get(req.params.id)
   if (!product) return res.status(404).json({ error: 'Not found' })
   db.prepare('DELETE FROM products WHERE id = ?').run(req.params.id)
+  logActivity(req.user?.id, req.user?.name, 'deleted product', 'product', product.id, product.name)
   res.json({ success: true })
 })
 

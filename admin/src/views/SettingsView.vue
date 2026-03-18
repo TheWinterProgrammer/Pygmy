@@ -88,6 +88,58 @@
         </div>
       </div>
 
+      <!-- Email / Notifications -->
+      <div class="glass section email-section">
+        <h2 style="margin-bottom:1.25rem;">📧 Email &amp; Notifications</h2>
+        <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.25rem;">
+          Configure SMTP to receive email alerts for new comments and contact form submissions.
+        </p>
+        <div class="email-grid">
+          <div class="form-group">
+            <label>SMTP Host</label>
+            <input v-model="form.smtp_host" class="input" placeholder="smtp.gmail.com" />
+          </div>
+          <div class="form-group">
+            <label>SMTP Port</label>
+            <input v-model="form.smtp_port" class="input" placeholder="587" type="number" />
+          </div>
+          <div class="form-group">
+            <label>SMTP Username</label>
+            <input v-model="form.smtp_user" class="input" placeholder="you@gmail.com" />
+          </div>
+          <div class="form-group">
+            <label>SMTP Password</label>
+            <input v-model="form.smtp_pass" class="input" type="password" placeholder="App password" autocomplete="new-password" />
+          </div>
+          <div class="form-group">
+            <label>From Address <small style="color:var(--muted)">(optional, defaults to username)</small></label>
+            <input v-model="form.smtp_from" class="input" placeholder="Pygmy CMS &lt;noreply@example.com&gt;" />
+          </div>
+          <div class="form-group">
+            <label>Notify Email <small style="color:var(--muted)">(where alerts are sent)</small></label>
+            <input v-model="form.notify_email" class="input" type="email" placeholder="admin@example.com" />
+          </div>
+        </div>
+        <div class="notify-toggles">
+          <label class="toggle-label">
+            <input type="checkbox" v-model="notifyComment" />
+            <span>Email me on new comment</span>
+          </label>
+          <label class="toggle-label">
+            <input type="checkbox" v-model="notifyContact" />
+            <span>Email me on new contact message</span>
+          </label>
+        </div>
+        <div style="margin-top:1rem;display:flex;gap:0.75rem;align-items:center">
+          <button class="btn btn-ghost" @click="sendTestEmail" :disabled="testingEmail">
+            {{ testingEmail ? 'Sending…' : '📤 Send test email' }}
+          </button>
+          <span v-if="testEmailMsg" :style="{ color: testEmailOk ? 'hsl(142,70%,60%)' : 'var(--accent)', fontSize: '0.85rem' }">
+            {{ testEmailMsg }}
+          </span>
+        </div>
+      </div>
+
       <div class="glass section profile-section">
         <h2 style="margin-bottom:1.25rem;">🔐 My Profile</h2>
         <div class="form-group">
@@ -122,7 +174,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import api from '../api.js'
 import { useToastStore } from '../stores/toast.js'
 import MediaPickerModal from '../components/MediaPickerModal.vue'
@@ -132,6 +184,9 @@ const loaded = ref(false)
 const saving = ref(false)
 const savingProfile = ref(false)
 const pickerTarget = ref(null)
+const testingEmail = ref(false)
+const testEmailMsg = ref('')
+const testEmailOk = ref(false)
 
 const profile = ref({ name: '', email: '', password: '', confirm: '' })
 
@@ -146,7 +201,26 @@ const form = ref({
   footer_text: '',
   posts_per_page: 10,
   google_analytics: '',
-  contact_intro: ''
+  contact_intro: '',
+  // email
+  smtp_host: '',
+  smtp_port: '587',
+  smtp_user: '',
+  smtp_pass: '',
+  smtp_from: '',
+  notify_email: '',
+  notify_new_comment: '1',
+  notify_new_contact: '1',
+})
+
+// Checkbox helpers (settings stored as '1'/'0')
+const notifyComment = computed({
+  get: () => form.value.notify_new_comment === '1',
+  set: v => { form.value.notify_new_comment = v ? '1' : '0' }
+})
+const notifyContact = computed({
+  get: () => form.value.notify_new_contact === '1',
+  set: v => { form.value.notify_new_contact = v ? '1' : '0' }
 })
 
 onMounted(async () => {
@@ -192,6 +266,22 @@ async function saveProfile() {
   }
 }
 
+async function sendTestEmail() {
+  testingEmail.value = true
+  testEmailMsg.value = ''
+  try {
+    await api.post('/settings/test-email')
+    testEmailOk.value = true
+    testEmailMsg.value = '✓ Test email sent!'
+  } catch (e) {
+    testEmailOk.value = false
+    testEmailMsg.value = e.response?.data?.error || 'Failed to send'
+  } finally {
+    testingEmail.value = false
+    setTimeout(() => testEmailMsg.value = '', 5000)
+  }
+}
+
 function hslToHex(hsl) {
   // Quick approximation: return neutral if can't parse
   try {
@@ -225,6 +315,22 @@ function hslToHex(hsl) {
 .pick-row { display: flex; gap: 0.5rem; align-items: center; }
 .pick-row .input { flex: 1; }
 .profile-section { grid-column: span 2; }
+.email-section   { grid-column: span 2; }
+.email-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.notify-toggles { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.toggle-label input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; }
 .color-swatch {
   width: 40px; height: 38px;
   border: 1px solid var(--border);

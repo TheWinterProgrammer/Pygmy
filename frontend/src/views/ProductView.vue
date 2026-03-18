@@ -130,6 +130,13 @@ async function load() {
   try {
     const { data } = await api.get(`/products/${route.params.slug}`)
     product.value = data
+    // Track page view
+    api.post('/analytics/view', {
+      entity_type: 'product',
+      entity_id: data.id,
+      entity_slug: data.slug,
+      entity_title: data.name
+    }).catch(() => {})
   } catch {
     product.value = null
   } finally {

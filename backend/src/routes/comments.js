@@ -8,6 +8,8 @@
 import { Router } from 'express'
 import db from '../db.js'
 import { authMiddleware } from '../middleware/auth.js'
+import { notifyNewComment } from '../email.js'
+import { logActivity } from './activity.js'
 
 const router = Router()
 
@@ -47,7 +49,7 @@ router.get('/', (req, res) => {
 })
 
 // ─── Public: submit comment ───────────────────────────────────────────────────
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const { post_id, author_name, author_email, content } = req.body
 
   if (!post_id || !author_name?.trim() || !author_email?.trim() || !content?.trim()) {
@@ -60,7 +62,7 @@ router.post('/', (req, res) => {
   }
 
   // Validate post exists and is published
-  const post = db.prepare(`SELECT id FROM posts WHERE id = ? AND status = 'published'`).get(Number(post_id))
+  const post = db.prepare(`SELECT id, title, slug FROM posts WHERE id = ? AND status = 'published'`).get(Number(post_id))
   if (!post) return res.status(404).json({ error: 'Post not found' })
 
   const info = db.prepare(`
@@ -69,6 +71,17 @@ router.post('/', (req, res) => {
   `).run(Number(post_id), author_name.trim(), author_email.trim().toLowerCase(), content.trim())
 
   const comment = db.prepare('SELECT * FROM comments WHERE id = ?').get(info.lastInsertRowid)
+
+  // Fire-and-forget email notification
+  const siteUrl = process.env.SITE_URL || 'http://localhost:5174'
+  notifyNewComment({
+    postTitle: post.title,
+    authorName: author_name.trim(),
+    authorEmail: author_email.trim(),
+    content: content.trim(),
+    postUrl: `${siteUrl}/blog/${post.slug}`,
+  }).catch(() => {})
+
   res.status(201).json(comment)
 })
 
@@ -83,14 +96,16 @@ router.put('/:id', authMiddleware, (req, res) => {
   }
 
   db.prepare('UPDATE comments SET status = ? WHERE id = ?').run(status, comment.id)
+  logActivity(req.user?.id, req.user?.name, `${status} comment`, 'comment', comment.id, `by ${comment.author_name}`)
   res.json(db.prepare('SELECT * FROM comments WHERE id = ?').get(comment.id))
 })
 
 // ─── Admin: delete ────────────────────────────────────────────────────────────
 router.delete('/:id', authMiddleware, (req, res) => {
-  const comment = db.prepare('SELECT id FROM comments WHERE id = ?').get(Number(req.params.id))
+  const comment = db.prepare('SELECT * FROM comments WHERE id = ?').get(Number(req.params.id))
   if (!comment) return res.status(404).json({ error: 'Comment not found' })
   db.prepare('DELETE FROM comments WHERE id = ?').run(comment.id)
+  logActivity(req.user?.id, req.user?.name, 'deleted comment', 'comment', comment.id, `by ${comment.author_name}`)
   res.json({ message: 'Deleted' })
 })
 

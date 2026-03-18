@@ -159,6 +159,13 @@ async function load() {
     setMeta('og:type', 'article', 'property')
     // Load approved comments
     await loadComments(data.id)
+    // Track page view (fire-and-forget)
+    api.post('/analytics/view', {
+      entity_type: 'post',
+      entity_id: data.id,
+      entity_slug: data.slug,
+      entity_title: data.title
+    }).catch(() => {})
   } catch {
     post.value = null
   }

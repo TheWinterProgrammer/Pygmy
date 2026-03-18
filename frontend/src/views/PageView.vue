@@ -51,6 +51,13 @@ async function load() {
     setMeta('description', desc)
     setMeta('og:title', title, 'property')
     setMeta('og:description', desc, 'property')
+    // Track page view
+    api.post('/analytics/view', {
+      entity_type: 'page',
+      entity_id: data.id,
+      entity_slug: data.slug,
+      entity_title: data.title
+    }).catch(() => {})
   } catch {
     page.value = null
   }

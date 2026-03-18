@@ -29,6 +29,8 @@ const routes = [
       { path: 'comments',     name: 'Comments',    component: () => import('../views/CommentsView.vue') },
       { path: 'contact',      name: 'Contact',     component: () => import('../views/ContactView.vue') },
       { path: 'users',        name: 'Users',       component: () => import('../views/UsersView.vue') },
+      { path: 'analytics',    name: 'Analytics',   component: () => import('../views/AnalyticsView.vue') },
+      { path: 'redirects',    name: 'Redirects',   component: () => import('../views/RedirectsView.vue') },
       { path: 'settings',     name: 'Settings',    component: () => import('../views/SettingsView.vue') },
     ]
   },

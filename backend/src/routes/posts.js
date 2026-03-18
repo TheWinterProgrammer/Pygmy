@@ -2,6 +2,7 @@
 import { Router } from 'express'
 import db from '../db.js'
 import { authMiddleware } from '../middleware/auth.js'
+import { logActivity } from './activity.js'
 
 const router = Router()
 
@@ -99,7 +100,9 @@ router.post('/', authMiddleware, (req, res) => {
   if (existing) return res.status(409).json({ error: 'Slug already exists' })
 
   const finalStatus = status || 'draft'
-  const finalPublished = finalStatus === 'published' ? (published_at || new Date().toISOString()) : null
+  let finalPublished = null
+  if (finalStatus === 'published') finalPublished = published_at || new Date().toISOString()
+  else if (finalStatus === 'scheduled') finalPublished = published_at || null
 
   const info = db.prepare(`
     INSERT INTO posts (title, slug, excerpt, content, cover_image, category_id, tags, status, published_at, meta_title, meta_desc)
@@ -115,6 +118,7 @@ router.post('/', authMiddleware, (req, res) => {
   )
 
   const post = db.prepare('SELECT * FROM posts WHERE id = ?').get(info.lastInsertRowid)
+  logActivity(req.user?.id, req.user?.name, 'created post', 'post', post.id, post.title)
   res.status(201).json(parsePost(post))
 })
 
@@ -134,6 +138,7 @@ router.put('/:id', authMiddleware, (req, res) => {
   let newPublished = published_at ?? post.published_at
   if (newStatus === 'published' && !newPublished) newPublished = new Date().toISOString()
   if (newStatus === 'draft') newPublished = null
+  // 'scheduled' keeps the provided published_at (future date)
 
   db.prepare(`
     UPDATE posts SET title=?, slug=?, excerpt=?, content=?, cover_image=?, category_id=?,
@@ -153,7 +158,9 @@ router.put('/:id', authMiddleware, (req, res) => {
     post.id
   )
 
-  res.json(parsePost(db.prepare('SELECT * FROM posts WHERE id = ?').get(post.id)))
+  const updated = parsePost(db.prepare('SELECT * FROM posts WHERE id = ?').get(post.id))
+  logActivity(req.user?.id, req.user?.name, 'updated post', 'post', updated.id, updated.title)
+  res.json(updated)
 })
 
 // DELETE /api/posts/:id (auth)
@@ -161,6 +168,7 @@ router.delete('/:id', authMiddleware, (req, res) => {
   const post = db.prepare('SELECT * FROM posts WHERE id = ?').get(req.params.id)
   if (!post) return res.status(404).json({ error: 'Post not found' })
   db.prepare('DELETE FROM posts WHERE id = ?').run(post.id)
+  logActivity(req.user?.id, req.user?.name, 'deleted post', 'post', post.id, post.title)
   res.json({ message: 'Deleted' })
 })
 

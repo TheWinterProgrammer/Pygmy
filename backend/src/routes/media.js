@@ -3,10 +3,14 @@ import { Router } from 'express'
 import multer from 'multer'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { existsSync, mkdirSync, unlinkSync } from 'fs'
+import { existsSync, mkdirSync, unlinkSync, renameSync } from 'fs'
 import sharp from 'sharp'
 import db from '../db.js'
 import { authMiddleware } from '../middleware/auth.js'
+import { logActivity } from './activity.js'
+
+// File size threshold above which we auto-convert to WebP (200 KB)
+const OPTIMIZE_THRESHOLD = 200 * 1024
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const UPLOADS_DIR = path.join(__dirname, '../../uploads/media')
@@ -46,24 +50,59 @@ router.get('/', (req, res) => {
 router.post('/', authMiddleware, upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded or unsupported type' })
 
-  const file = req.file
+  let file = req.file
   let width = null, height = null
+  let finalFilename = file.filename
+  let finalMime = file.mimetype
+  let finalSize = file.size
 
   try {
-    if (file.mimetype !== 'image/svg+xml') {
+    if (!['image/svg+xml', 'image/gif'].includes(file.mimetype)) {
       const meta = await sharp(file.path).metadata()
       width = meta.width
       height = meta.height
-    }
-  } catch {}
 
-  const url = `/uploads/media/${file.filename}`
+      // Auto-optimize: convert JPEG/PNG/WebP to WebP when above threshold
+      const shouldOptimize = ['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)
+        && (file.size > OPTIMIZE_THRESHOLD || file.mimetype !== 'image/webp')
+
+      if (shouldOptimize) {
+        const base = path.basename(file.filename, path.extname(file.filename))
+        const webpFilename = `${base}.webp`
+        const webpPath = path.join(UPLOADS_DIR, webpFilename)
+
+        const optimized = await sharp(file.path)
+          .resize({ width: 1920, height: 1920, fit: 'inside', withoutEnlargement: true })
+          .webp({ quality: 85 })
+          .toFile(webpPath)
+
+        // Remove original, swap to WebP version
+        try { unlinkSync(file.path) } catch {}
+
+        finalFilename = webpFilename
+        finalMime = 'image/webp'
+        finalSize = optimized.size
+        width = optimized.width
+        height = optimized.height
+      }
+    }
+  } catch (e) {
+    console.warn('sharp processing error (non-fatal):', e.message)
+    // Continue with original file if optimization fails
+    finalFilename = file.filename
+    finalMime = file.mimetype
+    finalSize = file.size
+  }
+
+  const url = `/uploads/media/${finalFilename}`
   const info = db.prepare(`
     INSERT INTO media (filename, original, mime_type, size, width, height, alt, url)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(file.filename, file.originalname, file.mimetype, file.size, width, height, '', url)
+  `).run(finalFilename, file.originalname, finalMime, finalSize, width, height, '', url)
 
-  res.status(201).json(db.prepare('SELECT * FROM media WHERE id = ?').get(info.lastInsertRowid))
+  const media = db.prepare('SELECT * FROM media WHERE id = ?').get(info.lastInsertRowid)
+  logActivity(req.user?.id, req.user?.name, 'uploaded media', 'media', media.id, file.originalname)
+  res.status(201).json(media)
 })
 
 // PUT /api/media/:id — update alt text (auth)
@@ -84,6 +123,7 @@ router.delete('/:id', authMiddleware, (req, res) => {
   try { if (existsSync(filePath)) unlinkSync(filePath) } catch {}
 
   db.prepare('DELETE FROM media WHERE id = ?').run(media.id)
+  logActivity(req.user?.id, req.user?.name, 'deleted media', 'media', media.id, media.original)
   res.json({ message: 'Deleted' })
 })
 
