@@ -57,6 +57,8 @@ admin/              ← wp-admin equivalent (port 5173)
     MediaView.vue
     NavigationView.vue
     CommentsView.vue
+    ContactView.vue     ← contact form submissions inbox
+    UsersView.vue       ← user management (admin only)
     SettingsView.vue
 
 frontend/           ← public website (port 5174)
@@ -96,6 +98,13 @@ frontend/           ← public website (port 5174)
 - Post detail with cover image, tags, SEO meta + OG tags
 - Dynamic CMS page renderer
 - Loading skeletons + 404 states
+
+### Phase 7 — Multi-user Management + Contact Forms ✅
+- **Multi-user management** — full CRUD for user accounts at `GET/POST/PUT/DELETE /api/users` (admin-only); new `adminOnly` middleware; roles: `admin` (full access) vs `editor` (content only); can't delete yourself or change your own role; `UsersView` in admin with invite/edit/delete modals + role badges
+- **Contact form** — public `POST /api/contact` endpoint stores name, email, subject, message, IP + timestamps in new `form_submissions` SQLite table; admin `ContactView` with status cycling (unread → read → archived), detail modal with reply-via-email link, delete confirm; unread badge count in sidebar; `GET /api/contact/stats` for dashboard
+- **Public /contact page** — glass-card form with client-side validation, required fields, success state, `contact_intro` customisable from Settings → Contact Page section
+- **Dashboard** — two new stat cards: Contact messages (unread badge alert) and Users count
+- **Bug fix** — installed missing `@vueuse/head` dep that broke frontend `vite build`
 
 ### Phase 6 — Product Catalog ✅
 - **SQLite-backed products** — `products` + `product_categories` tables; full CRUD REST API (`/api/products`)
@@ -211,6 +220,23 @@ Font: **Poppins** via Google Fonts
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/api/search?q=<term>` | — | Search published posts + pages + products |
+
+### Users (admin only)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/users` | admin | List all users |
+| POST | `/api/users` | admin | Create user `{email, name, password, role}` |
+| PUT | `/api/users/:id` | admin | Update user (name/email/role/password) |
+| DELETE | `/api/users/:id` | admin | Delete user |
+
+### Contact Form
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/api/contact` | — | Submit contact message (public) |
+| GET | `/api/contact` | admin | List submissions (`?status=unread\|read\|archived`) |
+| GET | `/api/contact/stats` | admin | Unread count for dashboard |
+| PUT | `/api/contact/:id` | admin | Update status |
+| DELETE | `/api/contact/:id` | admin | Delete submission |
 
 ### SEO (public)
 | Method | Path | Description |
