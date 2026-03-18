@@ -38,6 +38,10 @@ router.get('/stats', authMiddleware, (req, res) => {
   // Redirects
   const totalRedirects = db.prepare('SELECT COUNT(*) as count FROM redirects').get().count
 
+  // Newsletter
+  const totalSubscribers = db.prepare('SELECT COUNT(*) as count FROM subscribers').get().count
+  const activeSubscribers = db.prepare("SELECT COUNT(*) as count FROM subscribers WHERE status='active'").get().count
+
   // Recent activity
   const recentActivity = db.prepare(`
     SELECT * FROM activity_log ORDER BY created_at DESC LIMIT 10
@@ -54,6 +58,7 @@ router.get('/stats', authMiddleware, (req, res) => {
     users: { total: totalUsers },
     analytics: { today: viewsToday, week: viewsWeek, total: viewsTotal },
     redirects: { total: totalRedirects },
+    newsletter: { total: totalSubscribers, active: activeSubscribers },
     recentPosts,
     recentActivity
   })

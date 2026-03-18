@@ -92,6 +92,16 @@
           <div class="stat-label">Redirects</div>
         </div>
       </div>
+      <div class="stat-card glass">
+        <div class="stat-icon">📨</div>
+        <div class="stat-body">
+          <div class="stat-num">{{ stats.newsletter?.active ?? 0 }}</div>
+          <div class="stat-label">
+            Subscribers
+            <RouterLink to="/newsletter" class="stat-link">→ Newsletter</RouterLink>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="section glass" v-if="stats?.recentPosts?.length">
@@ -136,6 +146,8 @@
       <RouterLink to="/media" class="btn btn-ghost">Upload Media</RouterLink>
       <RouterLink to="/analytics" class="btn btn-ghost">📈 Analytics</RouterLink>
       <RouterLink to="/redirects" class="btn btn-ghost">🔀 Redirects</RouterLink>
+      <RouterLink to="/newsletter" class="btn btn-ghost">📨 Newsletter</RouterLink>
+      <RouterLink to="/backup" class="btn btn-ghost">🗄️ Backup</RouterLink>
     </div>
   </div>
 </template>

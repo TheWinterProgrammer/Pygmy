@@ -21,6 +21,8 @@ import contactRoutes from './routes/contact.js'
 import analyticsRoutes from './routes/analytics.js'
 import activityRoutes from './routes/activity.js'
 import redirectsRoutes from './routes/redirects.js'
+import newsletterRoutes from './routes/newsletter.js'
+import backupRoutes from './routes/backup.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -59,6 +61,8 @@ app.use('/api/contact', contactRoutes)
 app.use('/api/analytics', analyticsRoutes)
 app.use('/api/activity', activityRoutes)
 app.use('/api/redirects', redirectsRoutes)
+app.use('/api/newsletter', newsletterRoutes)
+app.use('/api/backup', backupRoutes)
 
 // ─── SEO (public) ─────────────────────────────────────────────────────────────
 app.use('/', seoRoutes)

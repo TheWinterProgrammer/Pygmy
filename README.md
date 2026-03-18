@@ -59,6 +59,8 @@ admin/              ← wp-admin equivalent (port 5173)
     CommentsView.vue
     ContactView.vue     ← contact form submissions inbox
     UsersView.vue       ← user management (admin only)
+    NewsletterView.vue  ← subscriber list + campaign compose + send
+    BackupView.vue      ← JSON + CSV export/backup
     SettingsView.vue
 
 frontend/           ← public website (port 5174)
@@ -98,6 +100,13 @@ frontend/           ← public website (port 5174)
 - Post detail with cover image, tags, SEO meta + OG tags
 - Dynamic CMS page renderer
 - Loading skeletons + 404 states
+
+### Phase 9 — Newsletter Subscribers + Content Backup/Export ✅
+- **Newsletter subscriber system** — `subscribers` + `newsletter_campaigns` SQLite tables; public `POST /api/newsletter/subscribe` (with re-subscribe support); public `GET /api/newsletter/unsubscribe?token=` (branded HTML page); admin CRUD: list/filter/status-toggle/delete subscribers; `POST /api/newsletter/send` sends HTML email to all active subscribers using nodemailer (unsubscribe link auto-appended); campaign history stored and viewable; `NewsletterView` admin panel with compose modal + campaigns tab + CSV export
+- **Newsletter frontend widget** — `NewsletterForm.vue` component shown in `SiteFooter.vue` when `newsletter_enabled = 1`; Settings → Newsletter section: enable/disable toggle + intro text customisation + link to subscriber management
+- **Dashboard** — new Subscribers stat card with active count; quick-action buttons for Newsletter and Backup
+- **Full backup/export** — `GET /api/backup/export` → full JSON snapshot of all content (pages, posts, categories, products, navigation, subscribers, redirects, settings) with site name + export date in filename; `GET /api/backup/export/csv?type=posts|pages|products|subscribers` → typed CSV exports; `BackupView` admin panel with content summary stats, one-click JSON download, four CSV export cards, and best-practice notes; 🗄️ Backup sidebar entry added
+- **better-sqlite3 rebuilt** for Node v25.8.0 (prebuilt binary now resolves correctly)
 
 ### Phase 8 — Activity Logging + Image Optimization + Redirect Manager ✅
 - **Comprehensive activity logging** — `logActivity` wired into all mutation routes: pages (create/update/delete), posts (update/delete; create already existed), products (create/update/delete), media (upload/delete), comments (status change/delete), users (create/update/delete), redirects (create/update/delete); all admin actions now appear in Dashboard → Recent Activity feed
@@ -252,6 +261,25 @@ Font: **Poppins** via Google Fonts
 | PUT | `/api/redirects/:id` | ✓ | Update redirect |
 | DELETE | `/api/redirects/:id` | ✓ | Delete redirect |
 | GET | `/api/redirects/check?path=` | — | Check if a path has a redirect (SPA guard) |
+
+### Newsletter
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/api/newsletter/subscribe` | — | Subscribe email (public) |
+| GET  | `/api/newsletter/unsubscribe?token=` | — | Unsubscribe via token link (public) |
+| GET  | `/api/newsletter/subscribers` | ✓ | List subscribers (`?status=active\|unsubscribed&q=`) |
+| PUT  | `/api/newsletter/subscribers/:id` | ✓ | Update subscriber status |
+| DELETE | `/api/newsletter/subscribers/:id` | ✓ | Remove subscriber |
+| GET  | `/api/newsletter/stats` | ✓ | Total/active/unsubscribed counts |
+| GET  | `/api/newsletter/campaigns` | ✓ | List sent campaigns |
+| POST | `/api/newsletter/send` | ✓ | Send campaign `{subject, content}` to all active |
+
+### Backup & Export
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/backup/export` | ✓ | Full JSON backup (all content) |
+| GET | `/api/backup/export/csv?type=` | ✓ | CSV export: `posts`, `pages`, `products`, `subscribers` |
+| GET | `/api/backup/stats` | ✓ | Content item counts |
 
 ### Activity Log
 | Method | Path | Auth | Description |

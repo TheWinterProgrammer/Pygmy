@@ -168,6 +168,24 @@ db.exec(`
     type        TEXT    NOT NULL DEFAULT '301',
     created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS subscribers (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    email           TEXT    UNIQUE NOT NULL,
+    name            TEXT    NOT NULL DEFAULT '',
+    status          TEXT    NOT NULL DEFAULT 'active',
+    token           TEXT    UNIQUE NOT NULL,
+    subscribed_at   TEXT    NOT NULL DEFAULT (datetime('now')),
+    unsubscribed_at TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS newsletter_campaigns (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    subject     TEXT    NOT NULL,
+    content     TEXT    NOT NULL DEFAULT '',
+    sent_to     INTEGER NOT NULL DEFAULT 0,
+    sent_at     TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
 `)
 
 // ─── Default settings ─────────────────────────────────────────────────────────
@@ -193,6 +211,9 @@ const defaultSettings = {
   notify_email: '',
   notify_new_comment: '1',
   notify_new_contact: '1',
+  // Newsletter
+  newsletter_enabled: '0',
+  newsletter_intro: 'Get the latest updates delivered straight to your inbox.',
 }
 
 const insertSetting = db.prepare(`

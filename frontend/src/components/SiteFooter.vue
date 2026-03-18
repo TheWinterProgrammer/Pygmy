@@ -1,5 +1,8 @@
 <template>
   <footer class="site-footer">
+    <!-- Newsletter subscribe box (shown when enabled in Settings) -->
+    <NewsletterForm />
+
     <div class="container footer-inner">
       <div class="footer-brand">
         <img v-if="site.settings.site_logo" :src="site.settings.site_logo" alt="logo" class="footer-logo" />
@@ -24,6 +27,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useSiteStore } from '../stores/site.js'
+import NewsletterForm from './NewsletterForm.vue'
 
 const site = useSiteStore()
 const year = new Date().getFullYear()

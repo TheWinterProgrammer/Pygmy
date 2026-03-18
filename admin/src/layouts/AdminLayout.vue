@@ -52,6 +52,8 @@ const navItems = [
   { to: '/users',      icon: '👥', label: 'Users' },
   { to: '/analytics',  icon: '📈', label: 'Analytics' },
   { to: '/redirects',  icon: '🔀', label: 'Redirects' },
+  { to: '/newsletter', icon: '📨', label: 'Newsletter' },
+  { to: '/backup',     icon: '🗄️',  label: 'Backup' },
   { to: '/settings',   icon: '⚙️',  label: 'Settings' },
 ]
 

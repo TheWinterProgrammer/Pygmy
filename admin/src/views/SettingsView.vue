@@ -140,6 +140,26 @@
         </div>
       </div>
 
+      <!-- Newsletter -->
+      <div class="glass section">
+        <h2 style="margin-bottom:1.25rem;">📨 Newsletter</h2>
+        <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.25rem;">
+          Enable the newsletter subscribe box on the public frontend. Requires SMTP to be configured above.
+        </p>
+        <label class="toggle-label" style="margin-bottom:1.25rem">
+          <input type="checkbox" v-model="newsletterEnabled" />
+          <span>Enable newsletter subscribe form on public site</span>
+        </label>
+        <div class="form-group" style="margin-top:1rem">
+          <label>Subscribe Form Intro Text</label>
+          <textarea v-model="form.newsletter_intro" class="input textarea" rows="2"
+            placeholder="Get the latest updates delivered straight to your inbox." />
+        </div>
+        <div style="margin-top:0.5rem">
+          <RouterLink to="/newsletter" class="btn btn-ghost btn-sm">📨 Manage Subscribers →</RouterLink>
+        </div>
+      </div>
+
       <div class="glass section profile-section">
         <h2 style="margin-bottom:1.25rem;">🔐 My Profile</h2>
         <div class="form-group">
@@ -211,6 +231,9 @@ const form = ref({
   notify_email: '',
   notify_new_comment: '1',
   notify_new_contact: '1',
+  // newsletter
+  newsletter_enabled: '0',
+  newsletter_intro: '',
 })
 
 // Checkbox helpers (settings stored as '1'/'0')
@@ -221,6 +244,10 @@ const notifyComment = computed({
 const notifyContact = computed({
   get: () => form.value.notify_new_contact === '1',
   set: v => { form.value.notify_new_contact = v ? '1' : '0' }
+})
+const newsletterEnabled = computed({
+  get: () => form.value.newsletter_enabled === '1',
+  set: v => { form.value.newsletter_enabled = v ? '1' : '0' }
 })
 
 onMounted(async () => {

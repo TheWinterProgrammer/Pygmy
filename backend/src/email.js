@@ -92,3 +92,40 @@ export async function sendTestEmail() {
     html: '<p>If you received this, your <strong>SMTP settings</strong> are working correctly. 🎉</p>',
   })
 }
+
+export async function sendNewsletterCampaign({ to, name, subject, content, unsubscribeToken, siteName, siteUrl }) {
+  const cfg = getSmtpConfig()
+  if (!cfg) return
+
+  const unsubUrl = `${siteUrl.replace(/\/$/, '')}/api/newsletter/unsubscribe?token=${unsubscribeToken}`
+  const greeting = name ? `Hi ${name},` : 'Hello,'
+
+  try {
+    const transport = nodemailer.createTransport({
+      host: cfg.smtp_host,
+      port: parseInt(cfg.smtp_port) || 587,
+      secure: parseInt(cfg.smtp_port) === 465,
+      auth: { user: cfg.smtp_user, pass: cfg.smtp_pass },
+    })
+
+    await transport.sendMail({
+      from: cfg.smtp_from || cfg.smtp_user,
+      to,
+      subject: `[${siteName}] ${subject}`,
+      text: `${greeting}\n\n${content}\n\n---\nUnsubscribe: ${unsubUrl}`,
+      html: `
+        <div style="font-family:sans-serif;max-width:600px;margin:0 auto">
+          <p>${greeting}</p>
+          <div style="line-height:1.6">${content.replace(/\n/g, '<br>')}</div>
+          <hr style="margin-top:2rem;border:none;border-top:1px solid #ddd">
+          <p style="font-size:0.8rem;color:#888">
+            You're receiving this because you subscribed to ${siteName}.<br>
+            <a href="${unsubUrl}" style="color:#888">Unsubscribe</a>
+          </p>
+        </div>
+      `,
+    })
+  } catch (err) {
+    console.warn(`📧 Newsletter send to ${to} failed (non-fatal):`, err.message)
+  }
+}
