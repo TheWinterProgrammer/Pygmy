@@ -18,11 +18,15 @@ router.get('/stats', authMiddleware, (req, res) => {
     SELECT id, title, slug, status, created_at FROM posts ORDER BY created_at DESC LIMIT 5
   `).all()
 
+  const pendingComments = db.prepare("SELECT COUNT(*) as count FROM comments WHERE status='pending'").get().count
+  const totalComments = db.prepare('SELECT COUNT(*) as count FROM comments').get().count
+
   res.json({
     pages: { total: pages, published: publishedPages },
     posts: { total: posts, published: publishedPosts },
     media: { total: media },
     navigation: { total: navItems },
+    comments: { total: totalComments, pending: pendingComments },
     recentPosts
   })
 })

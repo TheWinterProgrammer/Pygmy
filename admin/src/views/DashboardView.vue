@@ -34,6 +34,16 @@
           <div class="stat-label">Nav items</div>
         </div>
       </div>
+      <div class="stat-card glass">
+        <div class="stat-icon">💬</div>
+        <div class="stat-body">
+          <div class="stat-num">{{ stats.comments?.total ?? 0 }}</div>
+          <div class="stat-label">
+            Comments
+            <span v-if="stats.comments?.pending > 0" class="badge badge-draft">{{ stats.comments.pending }} pending</span>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="section glass" v-if="stats?.recentPosts?.length">

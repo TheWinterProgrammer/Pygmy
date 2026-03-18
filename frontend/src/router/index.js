@@ -10,6 +10,10 @@ const routes = [
     component: () => import('../views/BlogView.vue')
   },
   {
+    path: '/search',
+    component: () => import('../views/SearchView.vue')
+  },
+  {
     path: '/blog/:slug',
     component: () => import('../views/PostView.vue')
   },

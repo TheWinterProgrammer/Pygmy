@@ -23,6 +23,7 @@ const routes = [
       { path: 'posts/:id',    name: 'PostEdit',    component: () => import('../views/PostEditView.vue') },
       { path: 'media',        name: 'Media',       component: () => import('../views/MediaView.vue') },
       { path: 'navigation',   name: 'Navigation',  component: () => import('../views/NavigationView.vue') },
+      { path: 'comments',     name: 'Comments',    component: () => import('../views/CommentsView.vue') },
       { path: 'settings',     name: 'Settings',    component: () => import('../views/SettingsView.vue') },
     ]
   },

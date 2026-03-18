@@ -32,6 +32,13 @@
         </template>
       </ul>
 
+      <!-- Search button -->
+      <RouterLink to="/search" class="nav-search-btn" aria-label="Search" title="Search">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+      </RouterLink>
+
       <!-- Hamburger -->
       <button class="hamburger" @click="mobileOpen = !mobileOpen" aria-label="Menu">
         <span></span><span></span><span></span>
@@ -197,6 +204,25 @@ const flatNav = computed(() => {
 .dropdown-link:hover {
   color: var(--text);
   background: rgba(255,255,255,0.05);
+}
+
+/* Search button */
+.nav-search-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color 0.2s, background 0.2s;
+  flex-shrink: 0;
+}
+.nav-search-btn:hover,
+.nav-search-btn.router-link-active {
+  color: var(--text);
+  background: rgba(255,255,255,0.06);
+  text-decoration: none;
 }
 
 /* Hamburger */

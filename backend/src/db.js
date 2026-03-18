@@ -89,6 +89,16 @@ db.exec(`
     value       TEXT    NOT NULL,
     updated_at  TEXT    NOT NULL DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS comments (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id     INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+    author_name TEXT    NOT NULL,
+    author_email TEXT   NOT NULL,
+    content     TEXT    NOT NULL,
+    status      TEXT    NOT NULL DEFAULT 'pending',
+    created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
 `)
 
 // ─── Default settings ─────────────────────────────────────────────────────────

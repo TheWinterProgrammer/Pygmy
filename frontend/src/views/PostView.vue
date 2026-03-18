@@ -56,6 +56,68 @@
       <div class="post-footer">
         <RouterLink to="/blog" class="btn btn-outline">← All Posts</RouterLink>
       </div>
+
+      <!-- Comments section -->
+      <section class="comments-section" v-if="post">
+        <h2 class="comments-heading">
+          <span>💬 Comments</span>
+          <span class="comment-count" v-if="comments.length">({{ comments.length }})</span>
+        </h2>
+
+        <!-- Approved comments -->
+        <div class="comments-list" v-if="comments.length">
+          <div class="comment glass" v-for="c in comments" :key="c.id">
+            <div class="comment-avatar">{{ c.author_name[0].toUpperCase() }}</div>
+            <div class="comment-inner">
+              <div class="comment-header">
+                <span class="comment-author">{{ c.author_name }}</span>
+                <span class="comment-date">{{ formatDate(c.created_at) }}</span>
+              </div>
+              <p class="comment-text">{{ c.content }}</p>
+            </div>
+          </div>
+        </div>
+        <p class="no-comments text-muted" v-else>No comments yet. Be the first!</p>
+
+        <!-- Submit form -->
+        <div class="comment-form glass">
+          <h3 class="form-heading">Leave a comment</h3>
+          <form @submit.prevent="submitComment" v-if="!submitSuccess">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Name *</label>
+                <input v-model="form.author_name" type="text" placeholder="Your name" required maxlength="80" />
+              </div>
+              <div class="form-group">
+                <label>Email *</label>
+                <input v-model="form.author_email" type="email" placeholder="your@email.com" required maxlength="120" />
+                <span class="field-hint">Not displayed publicly</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Comment *</label>
+              <textarea
+                v-model="form.content"
+                rows="4"
+                placeholder="Write your comment..."
+                required
+                maxlength="2000"
+              ></textarea>
+            </div>
+            <div class="form-footer">
+              <button class="btn btn-primary" type="submit" :disabled="submitting">
+                {{ submitting ? 'Sending…' : 'Post Comment' }}
+              </button>
+              <span class="submit-error text-error" v-if="submitError">{{ submitError }}</span>
+            </div>
+          </form>
+          <div class="submit-success" v-else>
+            <span class="success-icon">✅</span>
+            <p>Your comment is awaiting moderation. Thank you!</p>
+            <button class="btn btn-ghost btn-sm" @click="submitSuccess = false; form.content = ''">Post another</button>
+          </div>
+        </div>
+      </section>
     </article>
   </div>
 </template>
@@ -70,10 +132,19 @@ const site = useSiteStore()
 const route = useRoute()
 const post = ref(null)
 const loading = ref(true)
+const comments = ref([])
+
+// Comment form state
+const form = ref({ author_name: '', author_email: '', content: '' })
+const submitting = ref(false)
+const submitSuccess = ref(false)
+const submitError = ref('')
 
 async function load() {
   loading.value = true
   post.value = null
+  comments.value = []
+  submitSuccess.value = false
   try {
     const { data } = await api.get(`/posts/${route.params.slug}`)
     post.value = data
@@ -86,10 +157,39 @@ async function load() {
     setMeta('og:title', title, 'property')
     setMeta('og:description', desc, 'property')
     setMeta('og:type', 'article', 'property')
+    // Load approved comments
+    await loadComments(data.id)
   } catch {
     post.value = null
   }
   loading.value = false
+}
+
+async function loadComments(postId) {
+  try {
+    const { data } = await api.get('/comments', { params: { post_id: postId } })
+    comments.value = data
+  } catch {
+    comments.value = []
+  }
+}
+
+async function submitComment() {
+  submitError.value = ''
+  submitting.value = true
+  try {
+    await api.post('/comments', {
+      post_id: post.value.id,
+      author_name: form.value.author_name,
+      author_email: form.value.author_email,
+      content: form.value.content,
+    })
+    submitSuccess.value = true
+    form.value = { author_name: form.value.author_name, author_email: form.value.author_email, content: '' }
+  } catch (err) {
+    submitError.value = err?.response?.data?.error || 'Failed to post comment. Please try again.'
+  }
+  submitting.value = false
 }
 
 function setMeta(name, content, attr = 'name') {
@@ -246,4 +346,140 @@ function formatDate(iso) {
   padding-top: 1rem;
   border-top: 1px solid var(--border);
 }
+
+/* ─── Comments ─────────────────────────────────────────────────────────── */
+.comments-section {
+  margin-top: 3rem;
+}
+
+.comments-heading {
+  font-size: 1.3rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+.comment-count {
+  font-size: 1rem;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.comment {
+  display: flex;
+  gap: 1rem;
+  padding: 1.1rem 1.4rem;
+  align-items: flex-start;
+}
+.comment-avatar {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.9rem;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.comment-inner { flex: 1; }
+.comment-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.4rem;
+}
+.comment-author {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.comment-date {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.comment-text {
+  font-size: 0.9rem;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.no-comments {
+  margin-bottom: 2rem;
+  font-size: 0.9rem;
+}
+
+/* Form */
+.comment-form {
+  padding: 2rem;
+}
+.form-heading {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 1.25rem;
+}
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+@media (max-width: 560px) {
+  .form-row { grid-template-columns: 1fr; }
+}
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+}
+.form-group label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.form-group input,
+.form-group textarea {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  padding: 0.6rem 0.9rem;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 0.9rem;
+  transition: border-color 0.2s;
+  width: 100%;
+}
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.form-group textarea { resize: vertical; min-height: 100px; }
+.field-hint { font-size: 0.73rem; color: var(--text-muted); }
+
+.form-footer {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.text-error { font-size: 0.85rem; color: var(--accent); }
+
+.submit-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 0;
+  text-align: center;
+}
+.success-icon { font-size: 2rem; }
+.submit-success p { color: var(--text-muted); }
 </style>
