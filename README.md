@@ -92,6 +92,11 @@ frontend/           ← public website (port 5174)
 - Dynamic CMS page renderer
 - Loading skeletons + 404 states
 
+### Phase 5 — Comments & Search ✅
+- **Comments system** — readers submit comments (name, email, content) → held as `pending`; admins approve/spam/delete from new 💬 Comments view in admin panel; approved comments rendered below each post
+- **Full-text search** — `GET /api/search?q=` searches published posts + pages (title, excerpt, content) with title-match priority; `/search` page in frontend with debounced input, result grid (posts + pages), keyword highlight; search icon in floating nav
+- **Dashboard comment stats** — total + pending count in Dashboard stat card with badge alert
+
 ### Phase 4 — Polish & SEO ✅
 - **`/sitemap.xml`** — auto-generated XML sitemap of all published pages + posts
 - **`/feed.xml`** — RSS 2.0 feed of the latest 20 published posts
@@ -163,7 +168,21 @@ Font: **Poppins** via Google Fonts
 ### Dashboard
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/api/dashboard/stats` | ✓ | Count stats + recent posts |
+| GET | `/api/dashboard/stats` | ✓ | Count stats + recent posts + comment counts |
+
+### Comments
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/comments?post_id=<id>` | — | Approved comments for a post |
+| GET | `/api/comments?status=pending` | ✓ | Admin: filter by status |
+| POST | `/api/comments` | — | Submit comment (creates as pending) |
+| PUT | `/api/comments/:id` | ✓ | Update status (pending/approved/spam) |
+| DELETE | `/api/comments/:id` | ✓ | Delete comment |
+
+### Search
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/search?q=<term>` | — | Search published posts + pages |
 
 ### SEO (public)
 | Method | Path | Description |
