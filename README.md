@@ -38,7 +38,8 @@ backend/
     middleware/
       auth.js       ← JWT guard
     routes/
-      auth.js       ← POST /api/auth/login, /logout, /me
+      auth.js       ← POST /api/auth/login, GET/PUT /me
+      seo.js        ← GET /sitemap.xml, /feed.xml
       pages.js      ← CRUD /api/pages
       posts.js      ← CRUD /api/posts + categories
       media.js      ← Upload /api/media
@@ -91,6 +92,12 @@ frontend/           ← public website (port 5174)
 - Dynamic CMS page renderer
 - Loading skeletons + 404 states
 
+### Phase 4 — Polish & SEO ✅
+- **`/sitemap.xml`** — auto-generated XML sitemap of all published pages + posts
+- **`/feed.xml`** — RSS 2.0 feed of the latest 20 published posts
+- **MediaPickerModal** — inline media library picker in PostEditView cover image field + Settings logo/hero bg fields (browse + search + double-click to insert)
+- **User Profile** — change display name, email, and password from Settings panel (`PUT /api/auth/me`)
+
 ## Design System (Lunexo-inspired dark glass)
 
 ```css
@@ -109,6 +116,7 @@ Font: **Poppins** via Google Fonts
 |--------|------|------|-------------|
 | POST | `/api/auth/login` | — | `{email, password}` → `{token, user}` |
 | GET  | `/api/auth/me` | ✓ | Current user |
+| PUT  | `/api/auth/me` | ✓ | Update name/email/password |
 
 ### Pages
 | Method | Path | Auth | Description |
@@ -156,3 +164,9 @@ Font: **Poppins** via Google Fonts
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/api/dashboard/stats` | ✓ | Count stats + recent posts |
+
+### SEO (public)
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/sitemap.xml` | XML sitemap of all published pages + posts |
+| GET | `/feed.xml` | RSS 2.0 feed of latest 20 posts |
