@@ -55,6 +55,7 @@ const navItems = [
   { to: '/newsletter', icon: '📨', label: 'Newsletter' },
   { to: '/tags',       icon: '🏷️',  label: 'Tags' },
   { to: '/forms',      icon: '📋', label: 'Forms' },
+  { to: '/webhooks',   icon: '🔗', label: 'Webhooks' },
   { to: '/backup',     icon: '🗄️',  label: 'Backup' },
   { to: '/settings',   icon: '⚙️',  label: 'Settings' },
 ]

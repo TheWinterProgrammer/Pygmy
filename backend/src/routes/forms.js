@@ -3,6 +3,7 @@ import { Router } from 'express'
 import db from '../db.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { logActivity } from './activity.js'
+import { fireWebhooks } from './webhooks.js'
 import nodemailer from 'nodemailer'
 
 const router = Router()
@@ -161,6 +162,7 @@ router.post('/:slug/submit', (req, res) => {
     } catch {}
   }
 
+  fireWebhooks('form.submitted', { form_name: form.name, form_slug: form.slug, data })
   res.json({ ok: true, message: form.success_message })
 })
 

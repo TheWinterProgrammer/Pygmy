@@ -5,6 +5,7 @@ import db from '../db.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { logActivity } from './activity.js'
 import { saveRevision } from './revisions.js'
+import { fireWebhooks } from './webhooks.js'
 
 const router = Router()
 const JWT_SECRET = process.env.JWT_SECRET || 'pygmy-secret-change-me'
@@ -97,6 +98,8 @@ router.post('/', authMiddleware, (req, res) => {
   )
   const page = db.prepare('SELECT * FROM pages WHERE id = ?').get(info.lastInsertRowid)
   logActivity(req.user?.id, req.user?.name, 'created page', 'page', page.id, page.title)
+  fireWebhooks('page.created', page)
+  if (finalStatus === 'published') fireWebhooks('page.published', page)
   res.status(201).json(page)
 })
 
@@ -136,6 +139,8 @@ router.put('/:id', authMiddleware, (req, res) => {
   // Save a revision snapshot of the pre-update state
   saveRevision('page', page.id, page.title, page, req.user?.id, req.user?.name)
   logActivity(req.user?.id, req.user?.name, 'updated page', 'page', updated.id, updated.title)
+  fireWebhooks('page.updated', updated)
+  if (newStatus === 'published' && page.status !== 'published') fireWebhooks('page.published', updated)
   res.json(updated)
 })
 
@@ -145,6 +150,7 @@ router.delete('/:id', authMiddleware, (req, res) => {
   if (!page) return res.status(404).json({ error: 'Page not found' })
   db.prepare('DELETE FROM pages WHERE id = ?').run(page.id)
   logActivity(req.user?.id, req.user?.name, 'deleted page', 'page', page.id, page.title)
+  fireWebhooks('page.deleted', { id: page.id, title: page.title, slug: page.slug })
   res.json({ message: 'Deleted' })
 })
 

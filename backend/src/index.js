@@ -26,6 +26,7 @@ import backupRoutes from './routes/backup.js'
 import revisionsRoutes from './routes/revisions.js'
 import tagsRoutes from './routes/tags.js'
 import formsRoutes from './routes/forms.js'
+import webhooksRoutes from './routes/webhooks.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -99,6 +100,7 @@ app.use('/api/backup', backupRoutes)
 app.use('/api/revisions', revisionsRoutes)
 app.use('/api/tags', tagsRoutes)
 app.use('/api/forms', formsRoutes)
+app.use('/api/webhooks', webhooksRoutes)
 
 // ─── SEO (public) ─────────────────────────────────────────────────────────────
 app.use('/', seoRoutes)

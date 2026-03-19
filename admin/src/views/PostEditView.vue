@@ -124,6 +124,20 @@
             <textarea v-model="form.meta_desc" class="input" rows="3"></textarea>
           </div>
         </div>
+
+        <div class="glass section">
+          <h3 style="margin-bottom:1rem;">SEO Analyzer</h3>
+          <SeoAnalyzer
+            :title="form.title"
+            :slug="form.slug"
+            :excerpt="form.excerpt"
+            :content="form.content"
+            :meta-title="form.meta_title"
+            :meta-desc="form.meta_desc"
+            :cover-image="form.cover_image"
+            type="post"
+          />
+        </div>
       </div>
     </div>
   </div>
@@ -137,6 +151,7 @@ import { useToastStore } from '../stores/toast.js'
 import RichEditor from '../components/RichEditor.vue'
 import MediaPickerModal from '../components/MediaPickerModal.vue'
 import RevisionsModal from '../components/RevisionsModal.vue'
+import SeoAnalyzer from '../components/SeoAnalyzer.vue'
 
 const route  = useRoute()
 const router = useRouter()

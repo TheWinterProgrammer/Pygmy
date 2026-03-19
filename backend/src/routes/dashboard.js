@@ -47,6 +47,10 @@ router.get('/stats', authMiddleware, (req, res) => {
   const activeForms = db.prepare("SELECT COUNT(*) as count FROM custom_forms WHERE status='active'").get().count
   const unreadFormSubs = db.prepare("SELECT COUNT(*) as count FROM custom_form_submissions WHERE status='unread'").get().count
 
+  // Webhooks
+  const totalWebhooks = db.prepare('SELECT COUNT(*) as count FROM webhooks').get().count
+  const activeWebhooks = db.prepare('SELECT COUNT(*) as count FROM webhooks WHERE active = 1').get().count
+
   // Recent activity
   const recentActivity = db.prepare(`
     SELECT * FROM activity_log ORDER BY created_at DESC LIMIT 10
@@ -65,6 +69,7 @@ router.get('/stats', authMiddleware, (req, res) => {
     redirects: { total: totalRedirects },
     newsletter: { total: totalSubscribers, active: activeSubscribers },
     forms: { total: totalForms, active: activeForms, unread: unreadFormSubs },
+    webhooks: { total: totalWebhooks, active: activeWebhooks },
     recentPosts,
     recentActivity
   })

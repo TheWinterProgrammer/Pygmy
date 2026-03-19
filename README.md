@@ -39,13 +39,15 @@ backend/
       auth.js       ← JWT guard
     routes/
       auth.js       ← POST /api/auth/login, GET/PUT /me
-      seo.js        ← GET /sitemap.xml, /feed.xml
+      seo.js        ← GET /sitemap.xml, /feed.xml, /robots.txt
       pages.js      ← CRUD /api/pages
       posts.js      ← CRUD /api/posts + categories
       media.js      ← Upload /api/media
       navigation.js ← CRUD /api/navigation
       settings.js   ← GET/PUT /api/settings
       dashboard.js  ← GET /api/dashboard/stats
+      analytics.js  ← POST /api/analytics/view, GET summary/daily/top
+      webhooks.js   ← CRUD /api/webhooks + test delivery + fireWebhooks() helper
 
 admin/              ← wp-admin equivalent (port 5173)
   views/
@@ -61,6 +63,10 @@ admin/              ← wp-admin equivalent (port 5173)
     UsersView.vue       ← user management (admin only)
     NewsletterView.vue  ← subscriber list + campaign compose + send
     BackupView.vue      ← JSON + CSV export/backup
+    FormsView.vue       ← custom form builder list
+    FormEditView.vue    ← field builder (10 field types, reorder, options)
+    FormSubmissionsView.vue ← submissions inbox with CSV export
+    WebhooksView.vue    ← webhook manager (CRUD, test delivery, event selection)
     SettingsView.vue
 
 frontend/           ← public website (port 5174)
@@ -100,6 +106,23 @@ frontend/           ← public website (port 5174)
 - Post detail with cover image, tags, SEO meta + OG tags
 - Dynamic CMS page renderer
 - Loading skeletons + 404 states
+
+### Phase 13 — SEO Analyzer + Webhook Manager ✅
+- **SEO Analyzer** — live analysis panel in every post and page editor; shows a real-time Google SERP preview (title, URL, description formatted as Google would display them), character count progress bars for meta title (optimal 10–60 chars) and meta description (optimal 50–160 chars), a 9-point weighted checklist (meta title/desc present & right length, has slug, cover image, excerpt, ≥ 300 words of content, differentiated meta title), and a 0–100 score with Great / Needs work / Poor rating
+- **Webhook Manager** — full webhook system: `webhooks` SQLite table; REST API at `GET/POST/PUT/DELETE /api/webhooks`; webhooks fire on 17 event types (`post.created`, `post.published`, `post.updated`, `post.deleted`, `page.*`, `product.*`, `comment.approved`, `form.submitted`, `subscriber.new`, `media.uploaded`, plus wildcard `*`); each delivery is signed with HMAC-SHA256 (`X-Pygmy-Signature: sha256=…`) when a secret is configured; 10-second timeout per delivery; last delivery timestamp + HTTP status + error stored per webhook; admin `WebhooksView` with active/inactive toggle, event badges, URL display, ✅ one-click test delivery button, add/edit modal with event multi-select checkboxes, delete confirm; 🔗 Webhooks sidebar entry added
+- **Backend event wiring** — `fireWebhooks()` helper called from posts, pages, forms, and newsletter routes; runs asynchronously (non-blocking, fire-and-forget); scheduler auto-publishes scheduled content every 60s (already live since previous session)
+- **Analytics dashboard** (previously code-complete, now fully documented) — `page_views` table tracks daily view counts per entity; `POST /api/analytics/view` (public, fire-and-forget); admin `AnalyticsView` shows summary cards (total/today/week/month), bar chart (filled zero-view days), top-10 pages table, content-type breakdown; PostView/PageView/ProductView auto-track on load; `/api/analytics/daily`, `/api/analytics/top`, `/api/analytics/summary` endpoints
+- **Scheduled publishing** (previously code-complete, now fully documented) — `status = 'scheduled'` + `publish_at` / `published_at` on posts/pages/products; backend scheduler runs every 60s and auto-publishes due items; admin editors show a ⏰ Scheduled option + datetime picker; preview mode lets admins view drafts via `?preview_token=JWT` without publishing
+- **Dashboard** — Webhooks quick-action button added; dashboard stats API now includes webhook count
+
+### Phase 12 — Custom Form Builder + Maintenance Mode UI ✅
+- **Custom Form Builder** — admins can create unlimited forms with 10 field types (text, email, phone, number, textarea, dropdown, radio buttons, checkbox, date, file upload); each field has label, name, placeholder, required toggle, and type-specific options (options list for select/radio, rows for textarea, checkbox text); fields are reordered with ↑/↓ arrows; form has name, slug, description, success message, email notification address, and active/inactive status
+- **Form Submissions inbox** — every public submission is stored in `custom_form_submissions`; admin submissions view shows a paginated table with status cycling (unread → read → archived), a detail modal with all field values, and one-click CSV export per form; unread count badge on Dashboard and sidebar
+- **Public form renderer** — `/forms/:slug` renders any active form on the public frontend with full client-side validation, server-side error handling, all 10 field types rendered natively, and a branded success screen using the form's custom success message
+- **Embed code** — each form in the admin shows an embed modal with the direct URL and an `<iframe>` snippet for embedding on external pages
+- **Maintenance Mode UI** — fixed the missing maintenance screen in the public frontend; `App.vue` now shows a full-page glassmorphism card with the CMS-configured maintenance message when `maintenance_mode = 1` in Settings (previously the backend returned 503 but the frontend had no visual)
+- **Backend** — `custom_forms` + `custom_form_submissions` SQLite tables; `routes/forms.js` (GET list/single, POST create, PUT update, DELETE, POST submit, GET/PUT/DELETE submissions); mounted at `/api/forms`; active forms included in `sitemap.xml`; forms count/unread in dashboard stats; custom_forms included in JSON backup export
+- **Dashboard** — 📋 Forms stat card with active count + unread submissions badge; Forms quick-action button
 
 ### Phase 11 — Content Revisions + Tag Manager ✅
 - **Content revision history** — every `PUT` to a page or post auto-saves a snapshot into the new `revisions` table (up to 20 revisions per entity, oldest pruned automatically); new `RevisionsModal.vue` component lets editors browse the full history, preview pre-save field values, and **restore** any revision back into the editor form for review before re-saving; 🕓 History button added to `PostEditView` and `PageEditView` headers (hidden for new content)
@@ -319,9 +342,33 @@ Font: **Poppins** via Google Fonts
 | PUT | `/api/tags/rename` | ✓ | Rename tag across all content `{from, to}` |
 | DELETE | `/api/tags` | ✓ | Remove tag from all content `{tag}` |
 
+### Custom Forms
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/forms` | — | List active forms (public) |
+| GET | `/api/forms?all=1` | ✓ | All forms with submission counts (admin) |
+| GET | `/api/forms/:slug` | — | Single active form by slug |
+| POST | `/api/forms` | ✓ | Create form |
+| PUT | `/api/forms/:id` | ✓ | Update form |
+| DELETE | `/api/forms/:id` | ✓ | Delete form (cascades submissions) |
+| POST | `/api/forms/:slug/submit` | — | Submit a form (public) |
+| GET | `/api/forms/:id/submissions` | ✓ | List submissions (`?status=&limit=&offset=`) |
+| PUT | `/api/forms/:id/submissions/:subId` | ✓ | Update submission status |
+| DELETE | `/api/forms/:id/submissions/:subId` | ✓ | Delete submission |
+
+### Webhooks
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/webhooks` | ✓ | List all webhooks |
+| GET | `/api/webhooks/events` | ✓ | List supported event names |
+| POST | `/api/webhooks` | ✓ | Create webhook `{name, url, events[], secret?, active?}` |
+| PUT | `/api/webhooks/:id` | ✓ | Update webhook |
+| DELETE | `/api/webhooks/:id` | ✓ | Delete webhook |
+| POST | `/api/webhooks/:id/test` | ✓ | Send a test delivery |
+
 ### SEO (public)
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/sitemap.xml` | XML sitemap of all published pages + posts |
+| GET | `/sitemap.xml` | XML sitemap of all published pages + posts + active forms |
 | GET | `/feed.xml` | RSS 2.0 feed of latest 20 posts |
 | GET | `/robots.txt` | Robots exclusion file (managed via Settings) |

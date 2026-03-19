@@ -4,6 +4,7 @@ import { randomBytes } from 'crypto'
 import db from '../db.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { sendNewsletterCampaign } from '../email.js'
+import { fireWebhooks } from './webhooks.js'
 
 const router = Router()
 
@@ -48,6 +49,7 @@ router.post('/subscribe', (req, res) => {
       VALUES (?, ?, ?)
     `).run(email.toLowerCase(), name.trim(), makeToken())
 
+    fireWebhooks('subscriber.new', { email: email.toLowerCase(), name: name.trim() })
     res.status(201).json({ ok: true, message: 'Subscribed successfully!' })
   } catch (err) {
     res.status(500).json({ error: err.message })

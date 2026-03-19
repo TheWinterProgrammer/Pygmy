@@ -161,6 +161,7 @@
       <RouterLink to="/redirects" class="btn btn-ghost">🔀 Redirects</RouterLink>
       <RouterLink to="/newsletter" class="btn btn-ghost">📨 Newsletter</RouterLink>
       <RouterLink to="/forms" class="btn btn-ghost">📋 Forms</RouterLink>
+      <RouterLink to="/webhooks" class="btn btn-ghost">🔗 Webhooks</RouterLink>
       <RouterLink to="/backup" class="btn btn-ghost">🗄️ Backup</RouterLink>
     </div>
   </div>

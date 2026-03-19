@@ -5,6 +5,7 @@ import db from '../db.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { logActivity } from './activity.js'
 import { saveRevision } from './revisions.js'
+import { fireWebhooks } from './webhooks.js'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'pygmy-secret-change-me'
 
@@ -204,6 +205,8 @@ router.post('/', authMiddleware, (req, res) => {
 
   const post = db.prepare('SELECT * FROM posts WHERE id = ?').get(info.lastInsertRowid)
   logActivity(req.user?.id, req.user?.name, 'created post', 'post', post.id, post.title)
+  fireWebhooks('post.created', parsePost(post))
+  if (finalStatus === 'published') fireWebhooks('post.published', parsePost(post))
   res.status(201).json(parsePost(post))
 })
 
@@ -247,6 +250,8 @@ router.put('/:id', authMiddleware, (req, res) => {
   // Save a revision snapshot of the pre-update state
   saveRevision('post', post.id, post.title, parsePost(post), req.user?.id, req.user?.name)
   logActivity(req.user?.id, req.user?.name, 'updated post', 'post', updated.id, updated.title)
+  fireWebhooks('post.updated', updated)
+  if (newStatus === 'published' && post.status !== 'published') fireWebhooks('post.published', updated)
   res.json(updated)
 })
 
@@ -256,6 +261,7 @@ router.delete('/:id', authMiddleware, (req, res) => {
   if (!post) return res.status(404).json({ error: 'Post not found' })
   db.prepare('DELETE FROM posts WHERE id = ?').run(post.id)
   logActivity(req.user?.id, req.user?.name, 'deleted post', 'post', post.id, post.title)
+  fireWebhooks('post.deleted', { id: post.id, title: post.title, slug: post.slug })
   res.json({ message: 'Deleted' })
 })
 

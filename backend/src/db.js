@@ -224,6 +224,19 @@ db.exec(`
   );
 
   CREATE INDEX IF NOT EXISTS idx_cfs_form ON custom_form_submissions(form_id, created_at DESC);
+
+  CREATE TABLE IF NOT EXISTS webhooks (
+    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+    name               TEXT    NOT NULL,
+    url                TEXT    NOT NULL,
+    events             TEXT    NOT NULL DEFAULT '[]',
+    secret             TEXT    NOT NULL DEFAULT '',
+    active             INTEGER NOT NULL DEFAULT 1,
+    last_triggered_at  TEXT,
+    last_status        INTEGER,
+    last_error         TEXT,
+    created_at         TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
 `)
 
 // ─── Migrations (safe ALTER TABLE if column not already present) ──────────────
