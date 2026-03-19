@@ -1,9 +1,19 @@
 // Pygmy CMS — Posts CRUD
 import { Router } from 'express'
+import jwt from 'jsonwebtoken'
 import db from '../db.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { logActivity } from './activity.js'
 import { saveRevision } from './revisions.js'
+
+const JWT_SECRET = process.env.JWT_SECRET || 'pygmy-secret-change-me'
+
+function hasValidAuth(req) {
+  const authHeader = req.headers['authorization'] || ''
+  const raw = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : (req.query.preview_token || '')
+  if (!raw) return false
+  try { jwt.verify(raw, JWT_SECRET); return true } catch { return false }
+}
 
 const router = Router()
 
@@ -79,6 +89,35 @@ router.get('/', (req, res) => {
   res.json({ posts: result, total: totalRow.total })
 })
 
+// POST /api/posts/bulk (auth) — { action: 'publish'|'unpublish'|'delete', ids: [] }
+router.post('/bulk', authMiddleware, (req, res) => {
+  const { action, ids } = req.body
+  if (!action || !Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: 'action and ids[] required' })
+  }
+  const placeholders = ids.map(() => '?').join(',')
+
+  if (action === 'delete') {
+    const rows = db.prepare(`SELECT id, title FROM posts WHERE id IN (${placeholders})`).all(...ids)
+    db.prepare(`DELETE FROM posts WHERE id IN (${placeholders})`).run(...ids)
+    rows.forEach(r => logActivity(req.user?.id, req.user?.name, 'deleted post', 'post', r.id, r.title))
+    return res.json({ affected: rows.length })
+  }
+
+  if (action === 'publish' || action === 'unpublish') {
+    const newStatus = action === 'publish' ? 'published' : 'draft'
+    const publishedAt = action === 'publish' ? new Date().toISOString() : null
+    db.prepare(
+      `UPDATE posts SET status=?, published_at=?, updated_at=datetime('now') WHERE id IN (${placeholders})`
+    ).run(newStatus, publishedAt, ...ids)
+    const rows = db.prepare(`SELECT id, title FROM posts WHERE id IN (${placeholders})`).all(...ids)
+    rows.forEach(r => logActivity(req.user?.id, req.user?.name, `${action}ed post`, 'post', r.id, r.title))
+    return res.json({ affected: rows.length })
+  }
+
+  res.status(400).json({ error: 'Unknown action' })
+})
+
 // GET /api/posts/:slug/related — 3 related posts by same category, falling back to recent
 router.get('/:slug/related', (req, res) => {
   const post = db.prepare('SELECT id, category_id, tags FROM posts WHERE slug = ?').get(req.params.slug)
@@ -120,15 +159,20 @@ router.get('/:slug/related', (req, res) => {
 })
 
 // GET /api/posts/:slug
+// If a valid admin JWT is passed (Authorization header or ?preview_token=), drafts are returned too.
 router.get('/:slug', (req, res) => {
+  const isAdmin = hasValidAuth(req)
+  const statusFilter = isAdmin
+    ? "p.status IN ('published','draft','scheduled')"
+    : "p.status = 'published'"
   const post = db.prepare(`
     SELECT p.*, c.name as category_name, c.slug as category_slug
     FROM posts p
     LEFT JOIN categories c ON c.id = p.category_id
-    WHERE p.slug = ?
+    WHERE p.slug = ? AND ${statusFilter}
   `).get(req.params.slug)
   if (!post) return res.status(404).json({ error: 'Post not found' })
-  res.json(parsePost(post))
+  res.json({ ...parsePost(post), _preview: isAdmin && post.status !== 'published' })
 })
 
 // POST /api/posts (auth)

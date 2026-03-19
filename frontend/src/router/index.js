@@ -27,6 +27,10 @@ const routes = [
     component: () => import('../views/ProductView.vue')
   },
   {
+    path: '/forms/:slug',
+    component: () => import('../views/FormView.vue')
+  },
+  {
     path: '/blog/:slug',
     component: () => import('../views/PostView.vue')
   },

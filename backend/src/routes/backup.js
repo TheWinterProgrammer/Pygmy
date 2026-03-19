@@ -45,6 +45,7 @@ router.get('/export', authMiddleware, (req, res) => {
       navigation:  db.prepare('SELECT * FROM navigation').all(),
       subscribers: db.prepare('SELECT id, email, name, status, subscribed_at, unsubscribed_at FROM subscribers').all(),
       redirects:   db.prepare('SELECT * FROM redirects').all(),
+      custom_forms: db.prepare('SELECT * FROM custom_forms').all(),
     }
   }
 

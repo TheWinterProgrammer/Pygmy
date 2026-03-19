@@ -1,5 +1,10 @@
 <template>
   <div class="post-page">
+    <!-- Preview banner -->
+    <div class="preview-banner" v-if="isPreview">
+      👁 <strong>Preview mode</strong> — this content is not yet published. Only you can see it.
+    </div>
+
     <!-- Loading -->
     <div class="container skeleton-wrap" v-if="loading">
       <div class="skeleton-title"></div>
@@ -172,6 +177,7 @@ const loading = ref(true)
 const comments = ref([])
 const related = ref([])
 const copied = ref(false)
+const isPreview = ref(false)
 
 // Comment form state
 const form = ref({ author_name: '', author_email: '', content: '' })
@@ -213,7 +219,10 @@ async function load() {
   related.value = []
   submitSuccess.value = false
   try {
-    const { data } = await api.get(`/posts/${route.params.slug}`)
+    const previewToken = route.query.preview_token || ''
+    const config = previewToken ? { headers: { Authorization: `Bearer ${previewToken}` } } : {}
+    const { data } = await api.get(`/posts/${route.params.slug}`, config)
+    isPreview.value = !!data._preview
     post.value = data
     // SEO
     const title = data.meta_title || data.title
@@ -298,6 +307,16 @@ function formatDate(iso) {
 </script>
 
 <style scoped>
+.preview-banner {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 9999;
+  background: hsl(45, 90%, 40%);
+  color: #000;
+  text-align: center;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+}
 .post-page {
   padding-top: 6rem;
   min-height: 100vh;

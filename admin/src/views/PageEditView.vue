@@ -12,6 +12,7 @@
       <div class="header-actions">
         <RouterLink to="/pages" class="btn btn-ghost">← Back</RouterLink>
         <button v-if="!isNew" class="btn btn-ghost" @click="showRevisions = true">🕓 History</button>
+        <button v-if="!isNew && form.slug" class="btn btn-ghost" @click="openPreview" title="Preview this page in the public frontend">👁 Preview</button>
       </div>
     </div>
 
@@ -109,6 +110,12 @@ const isNew = computed(() => route.params.id === undefined)
 const saving = ref(false)
 const showRevisions = ref(false)
 const slugManual = ref(false)
+
+function openPreview() {
+  const token = localStorage.getItem('pygmy_token') || ''
+  const url = `http://localhost:5174/${form.value.slug}?preview_token=${encodeURIComponent(token)}`
+  window.open(url, '_blank', 'noopener')
+}
 
 const form = ref({
   title: '',

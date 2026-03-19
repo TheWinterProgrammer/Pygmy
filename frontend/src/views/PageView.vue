@@ -1,5 +1,10 @@
 <template>
   <div class="page-view">
+    <!-- Preview banner -->
+    <div class="preview-banner" v-if="isPreview">
+      👁 <strong>Preview mode</strong> — this page is not yet published. Only you can see it.
+    </div>
+
     <!-- Loading -->
     <div class="container" v-if="loading" style="padding:8rem 1.5rem;">
       <div class="skeleton-title"></div>
@@ -37,12 +42,16 @@ const site = useSiteStore()
 const route = useRoute()
 const page = ref(null)
 const loading = ref(true)
+const isPreview = ref(false)
 
 async function load() {
   loading.value = true
   page.value = null
   try {
-    const { data } = await api.get(`/pages/${route.params.slug}`)
+    const previewToken = route.query.preview_token || ''
+    const config = previewToken ? { headers: { Authorization: `Bearer ${previewToken}` } } : {}
+    const { data } = await api.get(`/pages/${route.params.slug}`, config)
+    isPreview.value = !!data._preview
     page.value = data
     // SEO
     const title = data.meta_title || data.title
@@ -79,6 +88,16 @@ onMounted(load)
 </script>
 
 <style scoped>
+.preview-banner {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 9999;
+  background: hsl(45, 90%, 40%);
+  color: #000;
+  text-align: center;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+}
 .page-view {
   padding-top: 6rem;
   min-height: 100vh;

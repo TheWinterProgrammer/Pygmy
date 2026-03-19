@@ -94,6 +94,19 @@ router.get('/sitemap.xml', (req, res) => {
   </url>`)
   }
 
+  // Custom forms (active only)
+  const forms = db.prepare("SELECT slug, updated_at FROM custom_forms WHERE status = 'active' ORDER BY created_at DESC").all()
+  for (const form of forms) {
+    const lastmod = (form.updated_at || '').split('T')[0]
+    urls.push(`
+  <url>
+    <loc>${escapeXml(siteUrl)}/forms/${escapeXml(form.slug)}</loc>
+    ${lastmod ? `<lastmod>${lastmod}</lastmod>` : ''}
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>`)
+  }
+
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.join('')}
 </urlset>`

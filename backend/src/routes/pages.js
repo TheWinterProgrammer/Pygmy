@@ -1,15 +1,53 @@
 // Pygmy CMS — Pages CRUD
 import { Router } from 'express'
+import jwt from 'jsonwebtoken'
 import db from '../db.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { logActivity } from './activity.js'
 import { saveRevision } from './revisions.js'
 
 const router = Router()
+const JWT_SECRET = process.env.JWT_SECRET || 'pygmy-secret-change-me'
 
 function slugify(str) {
   return str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
 }
+
+function hasValidAuth(req) {
+  const authHeader = req.headers['authorization'] || ''
+  const raw = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : (req.query.preview_token || '')
+  if (!raw) return false
+  try { jwt.verify(raw, JWT_SECRET); return true } catch { return false }
+}
+
+// POST /api/pages/bulk (auth) — { action: 'publish'|'unpublish'|'delete', ids: [] }
+router.post('/bulk', authMiddleware, (req, res) => {
+  const { action, ids } = req.body
+  if (!action || !Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: 'action and ids[] required' })
+  }
+  const placeholders = ids.map(() => '?').join(',')
+
+  if (action === 'delete') {
+    const rows = db.prepare(`SELECT id, title FROM pages WHERE id IN (${placeholders})`).all(...ids)
+    db.prepare(`DELETE FROM pages WHERE id IN (${placeholders})`).run(...ids)
+    rows.forEach(r => logActivity(req.user?.id, req.user?.name, 'deleted page', 'page', r.id, r.title))
+    return res.json({ affected: rows.length })
+  }
+
+  if (action === 'publish' || action === 'unpublish') {
+    const newStatus = action === 'publish' ? 'published' : 'draft'
+    const publishAt = action === 'publish' ? new Date().toISOString() : null
+    db.prepare(
+      `UPDATE pages SET status=?, publish_at=?, updated_at=datetime('now') WHERE id IN (${placeholders})`
+    ).run(newStatus, publishAt, ...ids)
+    const rows = db.prepare(`SELECT id, title FROM pages WHERE id IN (${placeholders})`).all(...ids)
+    rows.forEach(r => logActivity(req.user?.id, req.user?.name, `${action}ed page`, 'page', r.id, r.title))
+    return res.json({ affected: rows.length })
+  }
+
+  res.status(400).json({ error: 'Unknown action' })
+})
 
 // GET /api/pages — public list (published)
 router.get('/', (req, res) => {
@@ -21,11 +59,13 @@ router.get('/', (req, res) => {
   res.json(rows)
 })
 
-// GET /api/pages/:slug — public single page
+// GET /api/pages/:slug — public single page (drafts visible with valid admin JWT)
 router.get('/:slug', (req, res) => {
-  const page = db.prepare('SELECT * FROM pages WHERE slug = ?').get(req.params.slug)
+  const isAdmin = hasValidAuth(req)
+  const statusFilter = isAdmin ? "status IN ('published','draft','scheduled')" : "status='published'"
+  const page = db.prepare(`SELECT * FROM pages WHERE slug = ? AND ${statusFilter}`).get(req.params.slug)
   if (!page) return res.status(404).json({ error: 'Page not found' })
-  res.json(page)
+  res.json({ ...page, _preview: isAdmin && page.status !== 'published' })
 })
 
 // POST /api/pages — create (auth)

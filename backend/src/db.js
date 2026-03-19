@@ -199,6 +199,31 @@ db.exec(`
   );
 
   CREATE INDEX IF NOT EXISTS idx_revisions_entity ON revisions(entity_type, entity_id, created_at DESC);
+
+  CREATE TABLE IF NOT EXISTS custom_forms (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    name             TEXT    NOT NULL,
+    slug             TEXT    UNIQUE NOT NULL,
+    description      TEXT    NOT NULL DEFAULT '',
+    fields           TEXT    NOT NULL DEFAULT '[]',
+    success_message  TEXT    NOT NULL DEFAULT 'Thank you! Your message has been sent.',
+    email_notify     TEXT    NOT NULL DEFAULT '',
+    status           TEXT    NOT NULL DEFAULT 'active',
+    created_at       TEXT    NOT NULL DEFAULT (datetime('now')),
+    updated_at       TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS custom_form_submissions (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    form_id    INTEGER NOT NULL REFERENCES custom_forms(id) ON DELETE CASCADE,
+    form_name  TEXT    NOT NULL DEFAULT '',
+    data       TEXT    NOT NULL DEFAULT '{}',
+    status     TEXT    NOT NULL DEFAULT 'unread',
+    ip         TEXT,
+    created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_cfs_form ON custom_form_submissions(form_id, created_at DESC);
 `)
 
 // ─── Migrations (safe ALTER TABLE if column not already present) ──────────────

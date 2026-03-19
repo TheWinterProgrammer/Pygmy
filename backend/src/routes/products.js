@@ -10,9 +10,19 @@
 // DELETE /api/products/categories/:id  → delete category (auth)
 
 import express from 'express'
+import jwt from 'jsonwebtoken'
 import db from '../db.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { logActivity } from './activity.js'
+
+const JWT_SECRET = process.env.JWT_SECRET || 'pygmy-secret-change-me'
+
+function hasValidAuth(req) {
+  const authHeader = req.headers['authorization'] || ''
+  const raw = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : (req.query.preview_token || '')
+  if (!raw) return false
+  try { jwt.verify(raw, JWT_SECRET); return true } catch { return false }
+}
 
 const router = express.Router()
 
@@ -123,15 +133,48 @@ router.get('/', (req, res) => {
 })
 
 // ─── single ───────────────────────────────────────────────────────────────────
+// POST /api/products/bulk (auth)
+router.post('/bulk', authMiddleware, (req, res) => {
+  const { action, ids } = req.body
+  if (!action || !Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: 'action and ids[] required' })
+  }
+  const placeholders = ids.map(() => '?').join(',')
+
+  if (action === 'delete') {
+    const rows = db.prepare(`SELECT id, name FROM products WHERE id IN (${placeholders})`).all(...ids)
+    db.prepare(`DELETE FROM products WHERE id IN (${placeholders})`).run(...ids)
+    rows.forEach(r => logActivity(req.user?.id, req.user?.name, 'deleted product', 'product', r.id, r.name))
+    return res.json({ affected: rows.length })
+  }
+
+  if (action === 'publish' || action === 'unpublish') {
+    const newStatus = action === 'publish' ? 'published' : 'draft'
+    const publishAt = action === 'publish' ? new Date().toISOString() : null
+    db.prepare(
+      `UPDATE products SET status=?, publish_at=?, updated_at=datetime('now') WHERE id IN (${placeholders})`
+    ).run(newStatus, publishAt, ...ids)
+    const rows = db.prepare(`SELECT id, name FROM products WHERE id IN (${placeholders})`).all(...ids)
+    rows.forEach(r => logActivity(req.user?.id, req.user?.name, `${action}ed product`, 'product', r.id, r.name))
+    return res.json({ affected: rows.length })
+  }
+
+  res.status(400).json({ error: 'Unknown action' })
+})
+
+// GET /api/products/:slug — draft visible with valid admin JWT
 router.get('/:slug', (req, res) => {
+  const isAdmin = hasValidAuth(req)
+  const statusFilter = isAdmin ? "p.status IN ('published','draft')" : "p.status = 'published'"
   const row = db.prepare(`
     SELECT p.*, pc.name AS category_name
     FROM products p
     LEFT JOIN product_categories pc ON pc.id = p.category_id
-    WHERE p.slug = ?
+    WHERE p.slug = ? AND ${statusFilter}
   `).get(req.params.slug)
   if (!row) return res.status(404).json({ error: 'Not found' })
-  res.json(parseProduct(row))
+  const parsed = parseProduct(row)
+  res.json({ ...parsed, _preview: isAdmin && row.status !== 'published' })
 })
 
 // ─── create ───────────────────────────────────────────────────────────────────

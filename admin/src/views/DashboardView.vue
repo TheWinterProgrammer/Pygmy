@@ -102,6 +102,19 @@
           </div>
         </div>
       </div>
+      <div class="stat-card glass" :class="{ 'accent-card': stats.forms?.unread > 0 }">
+        <div class="stat-icon">📋</div>
+        <div class="stat-body">
+          <div class="stat-num">
+            {{ stats.forms?.active ?? 0 }}
+            <span v-if="stats.forms?.unread > 0" class="badge-alert">{{ stats.forms.unread }} new</span>
+          </div>
+          <div class="stat-label">
+            Active Forms
+            <RouterLink to="/forms" class="stat-link">→ Forms</RouterLink>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="section glass" v-if="stats?.recentPosts?.length">
@@ -147,6 +160,7 @@
       <RouterLink to="/analytics" class="btn btn-ghost">📈 Analytics</RouterLink>
       <RouterLink to="/redirects" class="btn btn-ghost">🔀 Redirects</RouterLink>
       <RouterLink to="/newsletter" class="btn btn-ghost">📨 Newsletter</RouterLink>
+      <RouterLink to="/forms" class="btn btn-ghost">📋 Forms</RouterLink>
       <RouterLink to="/backup" class="btn btn-ghost">🗄️ Backup</RouterLink>
     </div>
   </div>

@@ -34,6 +34,10 @@ const routes = [
       { path: 'newsletter',   name: 'Newsletter',  component: () => import('../views/NewsletterView.vue') },
       { path: 'backup',       name: 'Backup',      component: () => import('../views/BackupView.vue') },
       { path: 'tags',         name: 'Tags',        component: () => import('../views/TagsView.vue') },
+      { path: 'forms',        name: 'Forms',       component: () => import('../views/FormsView.vue') },
+      { path: 'forms/new',    name: 'FormNew',     component: () => import('../views/FormEditView.vue') },
+      { path: 'forms/:id',    name: 'FormEdit',    component: () => import('../views/FormEditView.vue') },
+      { path: 'forms/:id/submissions', name: 'FormSubmissions', component: () => import('../views/FormSubmissionsView.vue') },
       { path: 'settings',     name: 'Settings',    component: () => import('../views/SettingsView.vue') },
     ]
   },

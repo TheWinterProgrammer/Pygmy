@@ -11,6 +11,7 @@
       <h1>{{ isNew ? 'New Product' : 'Edit Product' }}</h1>
       <div class="header-actions">
         <RouterLink to="/products" class="btn btn-ghost">← Back</RouterLink>
+        <button v-if="!isNew && form.slug" class="btn btn-ghost" @click="openPreview" title="Preview in public store">👁 Preview</button>
         <button class="btn btn-ghost" @click="save('draft')" :disabled="saving">Save Draft</button>
         <button class="btn btn-primary" @click="save('published')" :disabled="saving">
           {{ form.status === 'published' ? 'Update' : 'Publish' }}
@@ -163,6 +164,12 @@ const toast  = useToastStore()
 const isNew    = computed(() => !route.params.id)
 const saving   = ref(false)
 const showPicker  = ref(false)
+
+function openPreview() {
+  const token = localStorage.getItem('pygmy_token') || ''
+  const url = `http://localhost:5174/shop/${form.value.slug}?preview_token=${encodeURIComponent(token)}`
+  window.open(url, '_blank', 'noopener')
+}
 const pickerMulti = ref(false)
 const categories  = ref([])
 const newCatName  = ref('')

@@ -17,6 +17,7 @@
       <div class="header-actions">
         <RouterLink to="/posts" class="btn btn-ghost">← Back</RouterLink>
         <button v-if="!isNew" class="btn btn-ghost" @click="showRevisions = true">🕓 History</button>
+        <button v-if="!isNew && form.slug" class="btn btn-ghost" @click="openPreview" title="Preview this post in the public frontend">👁 Preview</button>
         <button class="btn btn-ghost" @click="saveDraft" :disabled="saving">Save Draft</button>
         <button
           v-if="form.status === 'scheduled'"
@@ -145,6 +146,12 @@ const isNew = computed(() => route.params.id === undefined)
 const saving = ref(false)
 const showPicker = ref(false)
 const showRevisions = ref(false)
+
+function openPreview() {
+  const token = localStorage.getItem('pygmy_token') || ''
+  const url = `http://localhost:5174/blog/${form.value.slug}?preview_token=${encodeURIComponent(token)}`
+  window.open(url, '_blank', 'noopener')
+}
 const slugManual = ref(false)
 const categories = ref([])
 const newCatName = ref('')

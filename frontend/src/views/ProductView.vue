@@ -106,6 +106,7 @@ const route   = useRoute()
 const site    = useSiteStore()
 const product = ref(null)
 const loading = ref(true)
+const isPreview = ref(false)
 const activeImage = ref(null)
 
 const allImages = computed(() => {
@@ -128,7 +129,10 @@ async function load() {
   loading.value = true
   activeImage.value = null
   try {
-    const { data } = await api.get(`/products/${route.params.slug}`)
+    const previewToken = route.query.preview_token || ''
+    const config = previewToken ? { headers: { Authorization: `Bearer ${previewToken}` } } : {}
+    const { data } = await api.get(`/products/${route.params.slug}`, config)
+    isPreview.value = !!data._preview
     product.value = data
     // Track page view
     api.post('/analytics/view', {

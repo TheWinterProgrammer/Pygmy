@@ -25,6 +25,7 @@ import newsletterRoutes from './routes/newsletter.js'
 import backupRoutes from './routes/backup.js'
 import revisionsRoutes from './routes/revisions.js'
 import tagsRoutes from './routes/tags.js'
+import formsRoutes from './routes/forms.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -97,6 +98,7 @@ app.use('/api/newsletter', newsletterRoutes)
 app.use('/api/backup', backupRoutes)
 app.use('/api/revisions', revisionsRoutes)
 app.use('/api/tags', tagsRoutes)
+app.use('/api/forms', formsRoutes)
 
 // ─── SEO (public) ─────────────────────────────────────────────────────────────
 app.use('/', seoRoutes)
