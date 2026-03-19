@@ -160,6 +160,62 @@
         </div>
       </div>
 
+      <!-- Custom Code Injection -->
+      <div class="glass section">
+        <h2 style="margin-bottom:1.25rem;">💻 Custom Code Injection</h2>
+        <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.25rem;">
+          Inject custom scripts or tracking pixels into every public page. Header scripts go inside
+          <code style="background:rgba(255,255,255,0.08);padding:0.1em 0.35em;border-radius:0.3em;">&lt;head&gt;</code>
+          (e.g. fonts, meta tags); footer scripts go just before
+          <code style="background:rgba(255,255,255,0.08);padding:0.1em 0.35em;border-radius:0.3em;">&lt;/body&gt;</code>
+          (e.g. chat widgets, pixels, analytics).
+        </p>
+        <div class="form-group">
+          <label>Header Scripts</label>
+          <textarea v-model="form.header_scripts" class="input textarea code-area" rows="5"
+            placeholder="<!-- e.g. custom fonts, meta tags, structured data -->" />
+        </div>
+        <div class="form-group">
+          <label>Footer Scripts</label>
+          <textarea v-model="form.footer_scripts" class="input textarea code-area" rows="5"
+            placeholder="<!-- e.g. analytics pixels, chat widgets, cookie scripts -->" />
+        </div>
+      </div>
+
+      <!-- robots.txt -->
+      <div class="glass section">
+        <h2 style="margin-bottom:1.25rem;">🤖 robots.txt</h2>
+        <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.25rem;">
+          Control how search engine bots crawl your site. Served at
+          <code style="background:rgba(255,255,255,0.08);padding:0.1em 0.35em;border-radius:0.3em;">/robots.txt</code>.
+        </p>
+        <div class="form-group">
+          <label>robots.txt content</label>
+          <textarea v-model="form.robots_txt" class="input textarea code-area" rows="6"
+            placeholder="User-agent: *&#10;Allow: /" />
+        </div>
+      </div>
+
+      <!-- Maintenance Mode -->
+      <div class="glass section">
+        <h2 style="margin-bottom:1.25rem;">🚧 Maintenance Mode</h2>
+        <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.25rem;">
+          When enabled, the public site returns a maintenance message. Admin panel access is unaffected.
+        </p>
+        <label class="toggle-label" style="margin-bottom:1.25rem">
+          <input type="checkbox" v-model="maintenanceMode" />
+          <span>Enable maintenance mode</span>
+        </label>
+        <div v-if="maintenanceMode" style="margin-top:0.25rem;padding:0.5rem 0.75rem;background:rgba(255,180,0,0.08);border:1px solid rgba(255,180,0,0.3);border-radius:0.5rem;font-size:0.82rem;color:hsl(40,90%,65%);margin-bottom:1rem">
+          ⚠️ Maintenance mode is <strong>ON</strong> — your public site is currently inaccessible to visitors.
+        </div>
+        <div class="form-group">
+          <label>Maintenance Message</label>
+          <textarea v-model="form.maintenance_message" class="input textarea" rows="3"
+            placeholder="We're currently down for maintenance. We'll be back shortly!" />
+        </div>
+      </div>
+
       <div class="glass section profile-section">
         <h2 style="margin-bottom:1.25rem;">🔐 My Profile</h2>
         <div class="form-group">
@@ -234,6 +290,14 @@ const form = ref({
   // newsletter
   newsletter_enabled: '0',
   newsletter_intro: '',
+  // maintenance
+  maintenance_mode: '0',
+  maintenance_message: '',
+  // custom code
+  header_scripts: '',
+  footer_scripts: '',
+  // robots.txt
+  robots_txt: 'User-agent: *\nAllow: /',
 })
 
 // Checkbox helpers (settings stored as '1'/'0')
@@ -248,6 +312,10 @@ const notifyContact = computed({
 const newsletterEnabled = computed({
   get: () => form.value.newsletter_enabled === '1',
   set: v => { form.value.newsletter_enabled = v ? '1' : '0' }
+})
+const maintenanceMode = computed({
+  get: () => form.value.maintenance_mode === '1',
+  set: v => { form.value.maintenance_mode = v ? '1' : '0' }
 })
 
 onMounted(async () => {
@@ -386,5 +454,11 @@ function hslToHex(hsl) {
 }
 @media (max-width: 768px) {
   .settings-grid { grid-template-columns: 1fr; }
+}
+.code-area {
+  font-family: 'SFMono-Regular', 'Consolas', 'Liberation Mono', monospace;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  resize: vertical;
 }
 </style>

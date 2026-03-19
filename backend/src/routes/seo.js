@@ -151,4 +151,18 @@ router.get('/feed.xml', (req, res) => {
   res.send(rss)
 })
 
+// GET /robots.txt — served from the robots_txt setting
+router.get('/robots.txt', (req, res) => {
+  try {
+    const row = db.prepare("SELECT value FROM settings WHERE key = 'robots_txt'").get()
+    const content = row?.value || 'User-agent: *\nAllow: /'
+    res.set('Content-Type', 'text/plain; charset=utf-8')
+    res.set('Cache-Control', 'public, max-age=3600')
+    res.send(content)
+  } catch {
+    res.set('Content-Type', 'text/plain')
+    res.send('User-agent: *\nAllow: /')
+  }
+})
+
 export default router

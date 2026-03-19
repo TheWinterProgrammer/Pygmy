@@ -78,12 +78,23 @@
             <select v-model="form.status" class="select">
               <option value="draft">Draft</option>
               <option value="published">Published</option>
+              <option value="scheduled">⏰ Scheduled</option>
             </select>
+          </div>
+          <div class="form-group" v-if="form.status === 'scheduled' || form.status === 'published'">
+            <label>{{ form.status === 'scheduled' ? 'Publish at (future date/time)' : 'Published at' }}</label>
+            <input v-model="form.publish_at" type="datetime-local" class="input" />
+            <small style="color:var(--muted);font-size:0.75rem" v-if="form.status === 'scheduled'">
+              Product auto-publishes at the scheduled time.
+            </small>
           </div>
           <label class="checkbox-row">
             <input type="checkbox" v-model="form.featured" />
             <span>Featured product</span>
           </label>
+          <div style="margin-top:1rem;display:flex;gap:0.5rem;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm" @click="saveScheduled" :disabled="saving">⏰ Schedule</button>
+          </div>
         </div>
 
         <!-- Pricing -->
@@ -162,7 +173,8 @@ const form = ref({
   price: null, sale_price: null, sku: '',
   cover_image: '', gallery: [],
   category_id: null, tags: [], status: 'draft',
-  featured: false, meta_title: '', meta_desc: ''
+  featured: false, meta_title: '', meta_desc: '',
+  publish_at: ''
 })
 
 onMounted(async () => {
@@ -188,6 +200,7 @@ onMounted(async () => {
         featured: product.featured,
         meta_title: product.meta_title || '',
         meta_desc: product.meta_desc || '',
+        publish_at: product.publish_at ? product.publish_at.slice(0, 16) : '',
       }
       tagsInput.value = (product.tags || []).join(', ')
     } catch {
@@ -237,22 +250,27 @@ async function addCategory() {
 
 async function save(status) {
   if (!form.value.name.trim()) { toast.error('Name is required'); return }
+  const finalStatus = status || form.value.status
+  if (finalStatus === 'scheduled' && !form.value.publish_at) {
+    toast.error('Please set a publish date/time for scheduled products')
+    return
+  }
   saving.value = true
   try {
     const payload = {
       ...form.value,
-      status,
+      status: finalStatus,
       tags: tagsInput.value.split(',').map(t => t.trim()).filter(Boolean),
       price: form.value.price || null,
       sale_price: form.value.sale_price || null,
     }
     if (isNew.value) {
       const { data } = await api.post('/products', payload)
-      toast.success('Product created')
+      toast.success(finalStatus === 'scheduled' ? 'Product scheduled ⏰' : 'Product created')
       router.push(`/products/${data.id}`)
     } else {
       await api.put(`/products/${route.params.id}`, payload)
-      toast.success('Product saved')
+      toast.success(finalStatus === 'scheduled' ? 'Product scheduled ⏰' : 'Product saved')
     }
   } catch (e) {
     toast.error(e.response?.data?.error || 'Save failed')
@@ -260,6 +278,8 @@ async function save(status) {
     saving.value = false
   }
 }
+
+const saveScheduled = () => save('scheduled')
 </script>
 
 <style scoped>

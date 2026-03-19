@@ -124,4 +124,196 @@ router.get('/stats', authMiddleware, (req, res) => {
   })
 })
 
+// ─── JSON Import/Restore ──────────────────────────────────────────────────────
+
+// POST /api/backup/import — restore from a JSON backup (admin only)
+// Body: { data: <backup JSON object>, mode: 'merge' | 'replace' }
+//   merge  — insert/update records, keep existing data that's not in the file
+//   replace — wipe content tables first, then import everything
+router.post('/import', authMiddleware, (req, res) => {
+  const { data, mode = 'merge' } = req.body
+  if (!data) return res.status(400).json({ error: 'No data provided' })
+
+  const report = { imported: {}, skipped: {}, errors: [] }
+
+  const run = db.transaction(() => {
+    // ── Settings ──────────────────────────────────────────────────────────────
+    if (Array.isArray(data.settings)) {
+      let n = 0
+      // Skip sensitive keys on import
+      const skipKeys = ['smtp_pass']
+      for (const { key, value } of data.settings) {
+        if (skipKeys.includes(key)) continue
+        db.prepare(`INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
+        n++
+      }
+      report.imported.settings = n
+    }
+
+    // ── Pages ─────────────────────────────────────────────────────────────────
+    if (Array.isArray(data.pages)) {
+      if (mode === 'replace') db.prepare('DELETE FROM pages').run()
+      let n = 0
+      for (const p of data.pages) {
+        try {
+          db.prepare(`
+            INSERT OR REPLACE INTO pages
+              (id, title, slug, content, meta_title, meta_desc, status, sort_order, publish_at, created_at, updated_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?)
+          `).run(
+            p.id, p.title, p.slug, p.content || '',
+            p.meta_title || null, p.meta_desc || null,
+            p.status || 'draft', p.sort_order || 0,
+            p.publish_at || null,
+            p.created_at || new Date().toISOString(),
+            p.updated_at || new Date().toISOString()
+          )
+          n++
+        } catch (e) { report.errors.push(`page "${p.slug}": ${e.message}`) }
+      }
+      report.imported.pages = n
+    }
+
+    // ── Post categories ───────────────────────────────────────────────────────
+    if (Array.isArray(data.categories)) {
+      if (mode === 'replace') db.prepare('DELETE FROM categories').run()
+      let n = 0
+      for (const c of data.categories) {
+        try {
+          db.prepare(`INSERT OR REPLACE INTO categories (id, name, slug, created_at) VALUES (?,?,?,?)`).run(
+            c.id, c.name, c.slug, c.created_at || new Date().toISOString()
+          )
+          n++
+        } catch (e) { report.errors.push(`category "${c.slug}": ${e.message}`) }
+      }
+      report.imported.categories = n
+    }
+
+    // ── Posts ─────────────────────────────────────────────────────────────────
+    if (Array.isArray(data.posts)) {
+      if (mode === 'replace') db.prepare('DELETE FROM posts').run()
+      let n = 0
+      for (const p of data.posts) {
+        try {
+          db.prepare(`
+            INSERT OR REPLACE INTO posts
+              (id, title, slug, excerpt, content, cover_image, category_id,
+               tags, status, published_at, meta_title, meta_desc, created_at, updated_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+          `).run(
+            p.id, p.title, p.slug, p.excerpt || '', p.content || '',
+            p.cover_image || null, p.category_id || null,
+            p.tags || '[]', p.status || 'draft',
+            p.published_at || null,
+            p.meta_title || null, p.meta_desc || null,
+            p.created_at || new Date().toISOString(),
+            p.updated_at || new Date().toISOString()
+          )
+          n++
+        } catch (e) { report.errors.push(`post "${p.slug}": ${e.message}`) }
+      }
+      report.imported.posts = n
+    }
+
+    // ── Product categories ────────────────────────────────────────────────────
+    if (Array.isArray(data.product_categories)) {
+      if (mode === 'replace') db.prepare('DELETE FROM product_categories').run()
+      let n = 0
+      for (const c of data.product_categories) {
+        try {
+          db.prepare(`INSERT OR REPLACE INTO product_categories (id, name, slug, created_at) VALUES (?,?,?,?)`).run(
+            c.id, c.name, c.slug, c.created_at || new Date().toISOString()
+          )
+          n++
+        } catch (e) { report.errors.push(`product_category "${c.slug}": ${e.message}`) }
+      }
+      report.imported.product_categories = n
+    }
+
+    // ── Products ──────────────────────────────────────────────────────────────
+    if (Array.isArray(data.products)) {
+      if (mode === 'replace') db.prepare('DELETE FROM products').run()
+      let n = 0
+      for (const p of data.products) {
+        try {
+          db.prepare(`
+            INSERT OR REPLACE INTO products
+              (id, name, slug, excerpt, description, price, sale_price, sku,
+               cover_image, gallery, category_id, tags, status, featured,
+               meta_title, meta_desc, publish_at, created_at, updated_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+          `).run(
+            p.id, p.name, p.slug, p.excerpt || '', p.description || '',
+            p.price || null, p.sale_price || null, p.sku || null,
+            p.cover_image || null, p.gallery || '[]',
+            p.category_id || null, p.tags || '[]',
+            p.status || 'draft', p.featured ? 1 : 0,
+            p.meta_title || null, p.meta_desc || null,
+            p.publish_at || null,
+            p.created_at || new Date().toISOString(),
+            p.updated_at || new Date().toISOString()
+          )
+          n++
+        } catch (e) { report.errors.push(`product "${p.slug}": ${e.message}`) }
+      }
+      report.imported.products = n
+    }
+
+    // ── Navigation ────────────────────────────────────────────────────────────
+    if (Array.isArray(data.navigation)) {
+      if (mode === 'replace') db.prepare('DELETE FROM navigation').run()
+      let n = 0
+      for (const item of data.navigation) {
+        try {
+          db.prepare(`
+            INSERT OR REPLACE INTO navigation (id, label, url, target, sort_order, parent_id)
+            VALUES (?,?,?,?,?,?)
+          `).run(item.id, item.label, item.url, item.target || '_self', item.sort_order || 0, item.parent_id || null)
+          n++
+        } catch (e) { report.errors.push(`nav "${item.label}": ${e.message}`) }
+      }
+      report.imported.navigation = n
+    }
+
+    // ── Subscribers ───────────────────────────────────────────────────────────
+    if (Array.isArray(data.subscribers)) {
+      let n = 0
+      for (const s of data.subscribers) {
+        try {
+          db.prepare(`
+            INSERT OR IGNORE INTO subscribers (email, name, status, subscribed_at, unsubscribed_at)
+            VALUES (?,?,?,?,?)
+          `).run(s.email, s.name || null, s.status || 'active',
+            s.subscribed_at || new Date().toISOString(), s.unsubscribed_at || null)
+          n++
+        } catch (e) { report.errors.push(`subscriber "${s.email}": ${e.message}`) }
+      }
+      report.imported.subscribers = n
+    }
+
+    // ── Redirects ─────────────────────────────────────────────────────────────
+    if (Array.isArray(data.redirects)) {
+      if (mode === 'replace') db.prepare('DELETE FROM redirects').run()
+      let n = 0
+      for (const r of data.redirects) {
+        try {
+          db.prepare(`
+            INSERT OR REPLACE INTO redirects (id, from_path, to_path, type, created_at)
+            VALUES (?,?,?,?,?)
+          `).run(r.id, r.from_path, r.to_path, r.type || 301, r.created_at || new Date().toISOString())
+          n++
+        } catch (e) { report.errors.push(`redirect "${r.from_path}": ${e.message}`) }
+      }
+      report.imported.redirects = n
+    }
+  })
+
+  try {
+    run()
+    res.json({ ok: true, mode, report })
+  } catch (e) {
+    res.status(500).json({ error: 'Import failed', detail: e.message })
+  }
+})
+
 export default router

@@ -4,9 +4,6 @@
       <h1>{{ isNew ? 'New Page' : 'Edit Page' }}</h1>
       <div class="header-actions">
         <RouterLink to="/pages" class="btn btn-ghost">← Back</RouterLink>
-        <button class="btn btn-primary" @click="save" :disabled="saving">
-          {{ saving ? 'Saving…' : 'Save' }}
-        </button>
       </div>
     </div>
 
@@ -23,6 +20,9 @@
             <RichEditor v-model="form.content" placeholder="Write your page content…" />
           </div>
         </div>
+        <div v-if="form.status === 'scheduled'" class="glass section scheduled-banner">
+          ⏰ This page is scheduled to publish at <strong>{{ form.publish_at ? new Date(form.publish_at).toLocaleString() : '(no time set)' }}</strong>
+        </div>
       </div>
 
       <!-- Sidebar -->
@@ -34,11 +34,30 @@
             <select v-model="form.status" class="select">
               <option value="draft">Draft</option>
               <option value="published">Published</option>
+              <option value="scheduled">⏰ Scheduled</option>
             </select>
+          </div>
+          <div class="form-group" v-if="form.status === 'scheduled' || form.status === 'published'">
+            <label>{{ form.status === 'scheduled' ? 'Publish at (future date/time)' : 'Published at' }}</label>
+            <input v-model="form.publish_at" type="datetime-local" class="input" />
+            <small style="color:var(--muted);font-size:0.75rem" v-if="form.status === 'scheduled'">
+              The page will auto-publish at the scheduled time.
+            </small>
           </div>
           <div class="form-group">
             <label>Sort Order</label>
             <input v-model.number="form.sort_order" type="number" class="input" />
+          </div>
+          <div class="btn-group" style="display:flex;gap:0.5rem;flex-wrap:wrap">
+            <button class="btn btn-primary" @click="save('published')" :disabled="saving" style="flex:1">
+              {{ saving ? 'Saving…' : 'Publish' }}
+            </button>
+            <button class="btn btn-ghost" @click="save('draft')" :disabled="saving" style="flex:1">
+              Save Draft
+            </button>
+            <button v-if="form.status !== 'scheduled'" class="btn btn-ghost" @click="saveScheduled" :disabled="saving" style="flex:1;font-size:0.8rem">
+              ⏰ Schedule
+            </button>
           </div>
         </div>
 
@@ -87,6 +106,7 @@ const form = ref({
   content: '',
   status: 'draft',
   sort_order: 0,
+  publish_at: '',
   meta_title: '',
   meta_desc: ''
 })
@@ -109,16 +129,25 @@ function autoSlug() {
   if (!slugManual.value) form.value.slug = slugify(form.value.title)
 }
 
-async function save() {
+async function save(statusOverride) {
   if (!form.value.title) { toast.error('Title is required'); return }
+  if ((statusOverride || form.value.status) === 'scheduled' && !form.value.publish_at) {
+    toast.error('Please set a publish date/time for scheduled pages')
+    return
+  }
   saving.value = true
   try {
+    const payload = { ...form.value }
+    if (statusOverride) payload.status = statusOverride
+
     if (isNew.value) {
-      await api.post('/pages', form.value)
-      toast.success('Page created')
+      await api.post('/pages', payload)
+      const s = payload.status
+      toast.success(s === 'scheduled' ? 'Page scheduled ⏰' : s === 'published' ? 'Page published' : 'Page saved as draft')
     } else {
-      await api.put(`/pages/${route.params.id}`, form.value)
-      toast.success('Page saved')
+      await api.put(`/pages/${route.params.id}`, payload)
+      const s = payload.status
+      toast.success(s === 'scheduled' ? 'Page scheduled ⏰' : s === 'published' ? 'Page published' : 'Page saved as draft')
     }
     router.push('/pages')
   } catch (e) {
@@ -127,6 +156,8 @@ async function save() {
     saving.value = false
   }
 }
+
+const saveScheduled = () => save('scheduled')
 </script>
 
 <style scoped>
@@ -138,6 +169,12 @@ async function save() {
   align-items: start;
 }
 .section { padding: 1.25rem; margin-bottom: 1rem; }
+.scheduled-banner {
+  padding: 0.75rem 1.25rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+  border-left: 3px solid var(--accent);
+}
 @media (max-width: 768px) {
   .edit-layout { grid-template-columns: 1fr; }
 }

@@ -31,6 +31,7 @@
             class="tag"
           >{{ post.category_name }}</RouterLink>
           <span class="date">{{ formatDate(post.published_at || post.created_at) }}</span>
+          <span class="reading-time">{{ readingTime }} min read</span>
         </div>
         <h1 class="post-title">{{ post.title }}</h1>
         <p class="post-excerpt" v-if="post.excerpt">{{ post.excerpt }}</p>
@@ -41,21 +42,57 @@
         <div class="prose" v-html="post.content"></div>
       </div>
 
-      <!-- Tags -->
-      <div class="post-tags" v-if="post.tags?.length">
-        <span class="tags-label">Tags:</span>
-        <RouterLink
-          v-for="tag in post.tags"
-          :key="tag"
-          :to="`/blog?tag=${tag}`"
-          class="pill"
-        >#{{ tag }}</RouterLink>
+      <!-- Tags + Share -->
+      <div class="post-bottom-row">
+        <div class="post-tags" v-if="post.tags?.length">
+          <span class="tags-label">Tags:</span>
+          <RouterLink
+            v-for="tag in post.tags"
+            :key="tag"
+            :to="`/blog?tag=${tag}`"
+            class="pill"
+          >#{{ tag }}</RouterLink>
+        </div>
+        <div class="share-row">
+          <span class="share-label">Share:</span>
+          <a :href="shareTwitter" target="_blank" rel="noopener" class="share-btn share-x" title="Share on X / Twitter">𝕏</a>
+          <a :href="shareLinkedIn" target="_blank" rel="noopener" class="share-btn share-li" title="Share on LinkedIn">in</a>
+          <button class="share-btn share-copy" @click="copyLink" :title="copied ? 'Copied!' : 'Copy link'">
+            {{ copied ? '✓' : '🔗' }}
+          </button>
+        </div>
       </div>
 
       <!-- Back -->
       <div class="post-footer">
         <RouterLink to="/blog" class="btn btn-outline">← All Posts</RouterLink>
       </div>
+
+      <!-- Related Posts -->
+      <section class="related-section" v-if="related.length">
+        <h2 class="related-heading">You might also like</h2>
+        <div class="related-grid">
+          <RouterLink
+            v-for="r in related"
+            :key="r.id"
+            :to="`/blog/${r.slug}`"
+            class="related-card glass"
+          >
+            <div class="related-cover" v-if="r.cover_image">
+              <img :src="r.cover_image" :alt="r.title" />
+            </div>
+            <div class="related-cover related-cover-placeholder" v-else></div>
+            <div class="related-body">
+              <div class="related-meta">
+                <span class="tag" v-if="r.category_name">{{ r.category_name }}</span>
+                <span class="date">{{ formatDate(r.published_at || r.created_at) }}</span>
+              </div>
+              <h3 class="related-title">{{ r.title }}</h3>
+              <p class="related-excerpt" v-if="r.excerpt">{{ r.excerpt }}</p>
+            </div>
+          </RouterLink>
+        </div>
+      </section>
 
       <!-- Comments section -->
       <section class="comments-section" v-if="post">
@@ -123,7 +160,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useSiteStore } from '../stores/site.js'
 import api from '../api.js'
@@ -133,6 +170,8 @@ const route = useRoute()
 const post = ref(null)
 const loading = ref(true)
 const comments = ref([])
+const related = ref([])
+const copied = ref(false)
 
 // Comment form state
 const form = ref({ author_name: '', author_email: '', content: '' })
@@ -140,10 +179,38 @@ const submitting = ref(false)
 const submitSuccess = ref(false)
 const submitError = ref('')
 
+// Reading time (avg 200 wpm)
+const readingTime = computed(() => {
+  if (!post.value?.content) return 1
+  const plain = post.value.content.replace(/<[^>]*>/g, ' ')
+  const words = plain.trim().split(/\s+/).filter(Boolean).length
+  return Math.max(1, Math.round(words / 200))
+})
+
+// Social share URLs
+const shareTwitter = computed(() => {
+  const url = encodeURIComponent(window.location.href)
+  const text = encodeURIComponent(post.value?.title || '')
+  return `https://twitter.com/intent/tweet?text=${text}&url=${url}`
+})
+const shareLinkedIn = computed(() => {
+  const url = encodeURIComponent(window.location.href)
+  return `https://www.linkedin.com/sharing/share-offsite/?url=${url}`
+})
+
+async function copyLink() {
+  try {
+    await navigator.clipboard.writeText(window.location.href)
+    copied.value = true
+    setTimeout(() => { copied.value = false }, 2000)
+  } catch {}
+}
+
 async function load() {
   loading.value = true
   post.value = null
   comments.value = []
+  related.value = []
   submitSuccess.value = false
   try {
     const { data } = await api.get(`/posts/${route.params.slug}`)
@@ -157,8 +224,11 @@ async function load() {
     setMeta('og:title', title, 'property')
     setMeta('og:description', desc, 'property')
     setMeta('og:type', 'article', 'property')
-    // Load approved comments
-    await loadComments(data.id)
+    // Load approved comments + related posts in parallel
+    await Promise.all([
+      loadComments(data.id),
+      loadRelated(data.slug)
+    ])
     // Track page view (fire-and-forget)
     api.post('/analytics/view', {
       entity_type: 'post',
@@ -170,6 +240,15 @@ async function load() {
     post.value = null
   }
   loading.value = false
+}
+
+async function loadRelated(slug) {
+  try {
+    const { data } = await api.get(`/posts/${slug}/related`)
+    related.value = data
+  } catch {
+    related.value = []
+  }
 }
 
 async function loadComments(postId) {
@@ -322,12 +401,28 @@ function formatDate(iso) {
   margin-bottom: 2rem;
 }
 
+.reading-time {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  opacity: 0.8;
+}
+.reading-time::before { content: '·'; margin-right: 0.5rem; }
+
+/* Tags + share row */
+.post-bottom-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 2.5rem;
+}
 .post-tags {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 0.5rem;
-  margin-bottom: 2.5rem;
+  flex: 1;
 }
 .tags-label {
   font-size: 0.82rem;
@@ -349,9 +444,101 @@ function formatDate(iso) {
   text-decoration: none;
 }
 
+/* Social share */
+.share-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+.share-label {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+.share-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-decoration: none;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05);
+  color: var(--text);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+.share-btn:hover { background: rgba(255,255,255,0.12); color: #fff; text-decoration: none; }
+.share-x:hover { background: #000; border-color: #555; }
+.share-li:hover { background: #0a66c2; border-color: #0a66c2; }
+.share-copy:hover { background: var(--accent); border-color: var(--accent); }
+
 .post-footer {
   padding-top: 1rem;
   border-top: 1px solid var(--border);
+  margin-bottom: 3rem;
+}
+
+/* Related posts */
+.related-section { margin-top: 3.5rem; }
+.related-heading {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+}
+.related-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 3rem;
+}
+.related-card {
+  border-radius: 1.25rem;
+  overflow: hidden;
+  text-decoration: none;
+  color: var(--text);
+  display: block;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.related-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.35);
+  text-decoration: none;
+  color: var(--text);
+}
+.related-cover {
+  width: 100%;
+  height: 140px;
+  overflow: hidden;
+  background: var(--surface2);
+}
+.related-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.related-cover-placeholder { background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%); }
+.related-body { padding: 1rem; }
+.related-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+.related-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.35;
+  margin-bottom: 0.4rem;
+}
+.related-excerpt {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 /* ─── Comments ─────────────────────────────────────────────────────────── */

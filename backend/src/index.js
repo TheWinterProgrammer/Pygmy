@@ -45,6 +45,36 @@ app.use(express.urlencoded({ extended: true }))
 // ─── Static files ─────────────────────────────────────────────────────────────
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')))
 
+// ─── Maintenance mode middleware ───────────────────────────────────────────────
+// Auth endpoints are always allowed (so admin can still log in and toggle it off).
+// Analytics tracking is also allowed (fire-and-forget from frontend).
+app.use((req, res, next) => {
+  // Passlist: auth, admin-only API routes that need auth token
+  const passthrough = [
+    '/api/auth/',
+    '/api/settings',  // admin reads/writes settings (auth-guarded in route)
+    '/api/analytics/view', // fire-and-forget tracking
+  ]
+  if (passthrough.some(p => req.path.startsWith(p))) return next()
+
+  try {
+    const row = db.prepare("SELECT value FROM settings WHERE key='maintenance_mode'").get()
+    if (row?.value === '1') {
+      // If bearer token is present and valid, pass through (admin users)
+      const auth = req.headers.authorization || ''
+      if (auth.startsWith('Bearer ')) return next() // let authMiddleware handle it downstream
+      return res.status(503).json({
+        error: 'maintenance',
+        message: (() => {
+          const msg = db.prepare("SELECT value FROM settings WHERE key='maintenance_message'").get()
+          return msg?.value || 'Site is under maintenance.'
+        })()
+      })
+    }
+  } catch {}
+  next()
+})
+
 // ─── API Routes ───────────────────────────────────────────────────────────────
 app.use('/api/auth', authRoutes)
 app.use('/api/pages', pagesRoutes)
@@ -95,19 +125,35 @@ app.listen(PORT, () => {
 })
 
 // ─── Scheduled publishing ─────────────────────────────────────────────────────
-// Every 60 seconds: auto-publish posts whose published_at has passed
+// Every 60 seconds: auto-publish posts, pages, and products whose publish_at has passed
 function runScheduler() {
   try {
     const now = new Date().toISOString()
-    const result = db.prepare(`
+    let total = 0
+
+    const posts = db.prepare(`
       UPDATE posts
       SET status = 'published', updated_at = datetime('now')
-      WHERE status = 'scheduled'
-        AND published_at IS NOT NULL
-        AND published_at <= ?
+      WHERE status = 'scheduled' AND published_at IS NOT NULL AND published_at <= ?
     `).run(now)
-    if (result.changes > 0) {
-      console.log(`⏰ Scheduled publisher: auto-published ${result.changes} post(s)`)
+    total += posts.changes
+
+    const pages = db.prepare(`
+      UPDATE pages
+      SET status = 'published', updated_at = datetime('now')
+      WHERE status = 'scheduled' AND publish_at IS NOT NULL AND publish_at <= ?
+    `).run(now)
+    total += pages.changes
+
+    const products = db.prepare(`
+      UPDATE products
+      SET status = 'published', updated_at = datetime('now')
+      WHERE status = 'scheduled' AND publish_at IS NOT NULL AND publish_at <= ?
+    `).run(now)
+    total += products.changes
+
+    if (total > 0) {
+      console.log(`⏰ Scheduled publisher: auto-published ${total} item(s) (posts:${posts.changes} pages:${pages.changes} products:${products.changes})`)
     }
   } catch (e) {
     console.warn('Scheduler error:', e.message)

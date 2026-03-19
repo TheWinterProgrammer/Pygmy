@@ -141,7 +141,8 @@ router.post('/', authMiddleware, (req, res) => {
     price = null, sale_price = null, sku = null,
     cover_image = null, gallery = [],
     category_id = null, tags = [], status = 'draft',
-    featured = false, meta_title = null, meta_desc = null
+    featured = false, meta_title = null, meta_desc = null,
+    publish_at = null
   } = req.body
 
   if (!name?.trim()) return res.status(400).json({ error: 'name required' })
@@ -151,17 +152,22 @@ router.post('/', authMiddleware, (req, res) => {
   let existing = db.prepare('SELECT id FROM products WHERE slug = ?').get(slug)
   if (existing) slug = `${slug}-${Date.now()}`
 
+  const finalStatus = status || 'draft'
+  let finalPublishAt = null
+  if (finalStatus === 'published') finalPublishAt = publish_at || new Date().toISOString()
+  else if (finalStatus === 'scheduled') finalPublishAt = publish_at || null
+
   const info = db.prepare(`
     INSERT INTO products
       (name, slug, excerpt, description, price, sale_price, sku, cover_image, gallery,
-       category_id, tags, status, featured, meta_title, meta_desc)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+       category_id, tags, status, featured, meta_title, meta_desc, publish_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `).run(
     name.trim(), slug, excerpt, description,
     price, sale_price, sku, cover_image,
     JSON.stringify(gallery), category_id,
-    JSON.stringify(tags), status,
-    featured ? 1 : 0, meta_title, meta_desc
+    JSON.stringify(tags), finalStatus,
+    featured ? 1 : 0, meta_title, meta_desc, finalPublishAt
   )
 
   const product = db.prepare('SELECT * FROM products WHERE id = ?').get(info.lastInsertRowid)
@@ -179,7 +185,7 @@ router.put('/:id', authMiddleware, (req, res) => {
     price, sale_price, sku,
     cover_image, gallery,
     category_id, tags, status, featured,
-    meta_title, meta_desc
+    meta_title, meta_desc, publish_at
   } = req.body
 
   // only regenerate slug if name changed and no slug conflict
@@ -190,13 +196,18 @@ router.put('/:id', authMiddleware, (req, res) => {
     if (!conflict) slug = candidate
   }
 
+  const newStatus = status ?? existing.status
+  let newPublishAt = publish_at !== undefined ? publish_at : existing.publish_at
+  if (newStatus === 'published' && !newPublishAt) newPublishAt = new Date().toISOString()
+  if (newStatus === 'draft') newPublishAt = null
+
   db.prepare(`
     UPDATE products SET
       name = ?, slug = ?, excerpt = ?, description = ?,
       price = ?, sale_price = ?, sku = ?,
       cover_image = ?, gallery = ?, category_id = ?,
       tags = ?, status = ?, featured = ?,
-      meta_title = ?, meta_desc = ?,
+      meta_title = ?, meta_desc = ?, publish_at = ?,
       updated_at = datetime('now')
     WHERE id = ?
   `).run(
@@ -211,10 +222,11 @@ router.put('/:id', authMiddleware, (req, res) => {
     gallery !== undefined ? JSON.stringify(gallery) : existing.gallery,
     category_id !== undefined ? category_id : existing.category_id,
     tags !== undefined ? JSON.stringify(tags) : existing.tags,
-    status ?? existing.status,
+    newStatus,
     featured !== undefined ? (featured ? 1 : 0) : existing.featured,
     meta_title !== undefined ? meta_title : existing.meta_title,
     meta_desc !== undefined ? meta_desc : existing.meta_desc,
+    newPublishAt,
     existing.id
   )
 

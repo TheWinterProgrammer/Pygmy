@@ -188,6 +188,17 @@ db.exec(`
   );
 `)
 
+// ─── Migrations (safe ALTER TABLE if column not already present) ──────────────
+const existingPageCols = db.pragma('table_info(pages)').map(c => c.name)
+if (!existingPageCols.includes('publish_at')) {
+  db.exec(`ALTER TABLE pages ADD COLUMN publish_at TEXT`)
+}
+
+const existingProductCols = db.pragma('table_info(products)').map(c => c.name)
+if (!existingProductCols.includes('publish_at')) {
+  db.exec(`ALTER TABLE products ADD COLUMN publish_at TEXT`)
+}
+
 // ─── Default settings ─────────────────────────────────────────────────────────
 
 const defaultSettings = {
@@ -214,6 +225,14 @@ const defaultSettings = {
   // Newsletter
   newsletter_enabled: '0',
   newsletter_intro: 'Get the latest updates delivered straight to your inbox.',
+  // Maintenance mode
+  maintenance_mode: '0',
+  maintenance_message: 'We\'re currently down for maintenance. We\'ll be back shortly!',
+  // Custom code injection
+  header_scripts: '',
+  footer_scripts: '',
+  // robots.txt
+  robots_txt: 'User-agent: *\nAllow: /',
 }
 
 const insertSetting = db.prepare(`

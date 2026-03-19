@@ -29,7 +29,7 @@ router.get('/:slug', (req, res) => {
 
 // POST /api/pages — create (auth)
 router.post('/', authMiddleware, (req, res) => {
-  const { title, slug, content, meta_title, meta_desc, status, sort_order } = req.body
+  const { title, slug, content, meta_title, meta_desc, status, sort_order, publish_at } = req.body
   if (!title) return res.status(400).json({ error: 'Title required' })
 
   const finalSlug = slug || slugify(title)
@@ -37,16 +37,22 @@ router.post('/', authMiddleware, (req, res) => {
   const existing = db.prepare('SELECT id FROM pages WHERE slug = ?').get(finalSlug)
   if (existing) return res.status(409).json({ error: 'Slug already exists' })
 
+  const finalStatus = status || 'draft'
+  let finalPublishAt = null
+  if (finalStatus === 'published') finalPublishAt = publish_at || new Date().toISOString()
+  else if (finalStatus === 'scheduled') finalPublishAt = publish_at || null
+
   const stmt = db.prepare(`
-    INSERT INTO pages (title, slug, content, meta_title, meta_desc, status, sort_order)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO pages (title, slug, content, meta_title, meta_desc, status, sort_order, publish_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `)
   const info = stmt.run(
     title, finalSlug,
     content || '',
     meta_title || null, meta_desc || null,
-    status || 'draft',
-    sort_order || 0
+    finalStatus,
+    sort_order || 0,
+    finalPublishAt
   )
   const page = db.prepare('SELECT * FROM pages WHERE id = ?').get(info.lastInsertRowid)
   logActivity(req.user?.id, req.user?.name, 'created page', 'page', page.id, page.title)
@@ -58,15 +64,20 @@ router.put('/:id', authMiddleware, (req, res) => {
   const page = db.prepare('SELECT * FROM pages WHERE id = ?').get(req.params.id)
   if (!page) return res.status(404).json({ error: 'Page not found' })
 
-  const { title, slug, content, meta_title, meta_desc, status, sort_order } = req.body
+  const { title, slug, content, meta_title, meta_desc, status, sort_order, publish_at } = req.body
   const newSlug = slug || page.slug
 
   // Check slug conflict (excluding self)
   const conflict = db.prepare('SELECT id FROM pages WHERE slug = ? AND id != ?').get(newSlug, page.id)
   if (conflict) return res.status(409).json({ error: 'Slug already in use' })
 
+  const newStatus = status ?? page.status
+  let newPublishAt = publish_at !== undefined ? publish_at : page.publish_at
+  if (newStatus === 'published' && !newPublishAt) newPublishAt = new Date().toISOString()
+  if (newStatus === 'draft') newPublishAt = null
+
   db.prepare(`
-    UPDATE pages SET title=?, slug=?, content=?, meta_title=?, meta_desc=?, status=?, sort_order=?, updated_at=datetime('now')
+    UPDATE pages SET title=?, slug=?, content=?, meta_title=?, meta_desc=?, status=?, sort_order=?, publish_at=?, updated_at=datetime('now')
     WHERE id=?
   `).run(
     title ?? page.title,
@@ -74,8 +85,9 @@ router.put('/:id', authMiddleware, (req, res) => {
     content ?? page.content,
     meta_title ?? page.meta_title,
     meta_desc ?? page.meta_desc,
-    status ?? page.status,
+    newStatus,
     sort_order ?? page.sort_order,
+    newPublishAt,
     page.id
   )
 

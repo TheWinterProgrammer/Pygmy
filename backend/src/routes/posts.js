@@ -78,6 +78,46 @@ router.get('/', (req, res) => {
   res.json({ posts: result, total: totalRow.total })
 })
 
+// GET /api/posts/:slug/related — 3 related posts by same category, falling back to recent
+router.get('/:slug/related', (req, res) => {
+  const post = db.prepare('SELECT id, category_id, tags FROM posts WHERE slug = ?').get(req.params.slug)
+  if (!post) return res.json([])
+
+  const limit = Math.min(parseInt(req.query.limit) || 3, 10)
+
+  let related = []
+
+  // 1. Try same category (excluding self)
+  if (post.category_id) {
+    related = db.prepare(`
+      SELECT p.*, c.name as category_name, c.slug as category_slug
+      FROM posts p
+      LEFT JOIN categories c ON c.id = p.category_id
+      WHERE p.status = 'published' AND p.category_id = ? AND p.id != ?
+      ORDER BY p.published_at DESC, p.created_at DESC
+      LIMIT ?
+    `).all(post.category_id, post.id, limit)
+  }
+
+  // 2. If not enough, fill with recent posts
+  if (related.length < limit) {
+    const existing = related.map(r => r.id)
+    existing.push(post.id)
+    const placeholders = existing.map(() => '?').join(',')
+    const extras = db.prepare(`
+      SELECT p.*, c.name as category_name, c.slug as category_slug
+      FROM posts p
+      LEFT JOIN categories c ON c.id = p.category_id
+      WHERE p.status = 'published' AND p.id NOT IN (${placeholders})
+      ORDER BY p.published_at DESC, p.created_at DESC
+      LIMIT ?
+    `).all(...existing, limit - related.length)
+    related = [...related, ...extras]
+  }
+
+  res.json(related.map(parsePost))
+})
+
 // GET /api/posts/:slug
 router.get('/:slug', (req, res) => {
   const post = db.prepare(`

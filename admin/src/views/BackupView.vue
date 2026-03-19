@@ -48,6 +48,63 @@
     </div>
 
     <!-- Restore note -->
+    <!-- JSON Import / Restore -->
+    <div class="glass section">
+      <div class="section-header">
+        <div>
+          <h2>📥 Restore from JSON Backup</h2>
+          <p class="hint">Upload a Pygmy JSON backup file to restore content. Choose <strong>Merge</strong> to add/update records without deleting existing data, or <strong>Replace</strong> to wipe content tables and restore from the file.</p>
+        </div>
+      </div>
+
+      <div class="import-area">
+        <div class="form-group">
+          <label>Select backup file (.json)</label>
+          <input ref="fileInput" type="file" accept=".json" class="input" @change="onFileChange" />
+        </div>
+
+        <div class="form-group">
+          <label>Import mode</label>
+          <select v-model="importMode" class="import-select">
+            <option value="merge">Merge — add/update (safe)</option>
+            <option value="replace">Replace — wipe + restore (destructive)</option>
+          </select>
+        </div>
+
+        <div v-if="importMode === 'replace'" class="warning-box">
+          ⚠️ <strong>Replace mode</strong> will permanently delete all existing pages, posts, products, navigation, and redirects before importing. This cannot be undone.
+        </div>
+
+        <div style="display:flex;gap:0.75rem;margin-top:1rem">
+          <button class="btn btn-primary" @click="runImport" :disabled="importing || !importFile">
+            {{ importing ? 'Importing…' : '📥 Import' }}
+          </button>
+          <button v-if="importFile" class="btn btn-ghost" @click="clearImport">Clear</button>
+        </div>
+      </div>
+
+      <!-- Import result -->
+      <div v-if="importResult" class="import-result">
+        <div class="result-ok" v-if="importResult.ok">
+          ✅ Import complete (mode: {{ importResult.mode }})
+          <div class="result-counts">
+            <span v-for="(n, k) in importResult.report.imported" :key="k" class="result-badge">
+              {{ k }}: {{ n }}
+            </span>
+          </div>
+          <div v-if="importResult.report.errors?.length" class="result-errors">
+            <strong>Errors ({{ importResult.report.errors.length }}):</strong>
+            <ul>
+              <li v-for="(e, i) in importResult.report.errors" :key="i">{{ e }}</li>
+            </ul>
+          </div>
+        </div>
+        <div class="result-fail" v-else>
+          ❌ Import failed: {{ importResult.error }}
+        </div>
+      </div>
+    </div>
+
     <div class="glass section info-section">
       <h2>ℹ️ About Backups</h2>
       <ul class="info-list">
@@ -71,6 +128,56 @@ const toast = useToastStore()
 const BASE = 'http://localhost:3200'
 const stats = ref(null)
 const downloading = ref({})
+
+// ── Import state ──────────────────────────────────────────────────────────────
+const fileInput  = ref(null)
+const importFile = ref(null)
+const importMode = ref('merge')
+const importing  = ref(false)
+const importResult = ref(null)
+
+function onFileChange(e) {
+  importFile.value = e.target.files[0] || null
+  importResult.value = null
+}
+
+function clearImport() {
+  importFile.value = null
+  importResult.value = null
+  if (fileInput.value) fileInput.value.value = ''
+}
+
+async function runImport() {
+  if (!importFile.value) return
+  importing.value = true
+  importResult.value = null
+  try {
+    const text = await importFile.value.text()
+    const backup = JSON.parse(text)
+    const data = backup.data ?? backup // support raw data or wrapped { data: {...} }
+    const res = await fetch(`${BASE}/api/backup/import`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${auth.token}`,
+      },
+      body: JSON.stringify({ data, mode: importMode.value }),
+    })
+    const result = await res.json()
+    importResult.value = result
+    if (result.ok) {
+      toast.success('Import successful!')
+      loadStats()
+    } else {
+      toast.error(result.error || 'Import failed')
+    }
+  } catch (e) {
+    importResult.value = { ok: false, error: e.message }
+    toast.error('Import error: ' + e.message)
+  } finally {
+    importing.value = false
+  }
+}
 
 const labels = {
   pages: 'Pages',
@@ -221,4 +328,53 @@ onMounted(loadStats)
   padding: 0.1rem 0.35rem;
   font-size: 0.82rem;
 }
+
+/* Import */
+.import-area { margin-top: 1rem; }
+.import-select {
+  background: var(--surface);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: var(--text);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+  width: 100%;
+}
+.warning-box {
+  margin-top: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: rgba(220,50,50,0.12);
+  border: 1px solid rgba(220,50,50,0.3);
+  border-radius: 0.5rem;
+  font-size: 0.85rem;
+  color: hsl(0,75%,70%);
+  line-height: 1.5;
+}
+.import-result { margin-top: 1.25rem; }
+.result-ok {
+  padding: 1rem;
+  background: rgba(50,200,100,0.08);
+  border: 1px solid rgba(50,200,100,0.25);
+  border-radius: 0.75rem;
+  font-size: 0.9rem;
+}
+.result-fail {
+  padding: 1rem;
+  background: rgba(220,50,50,0.1);
+  border: 1px solid rgba(220,50,50,0.3);
+  border-radius: 0.75rem;
+  font-size: 0.9rem;
+  color: hsl(0,75%,70%);
+}
+.result-counts { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.6rem; }
+.result-badge {
+  background: rgba(255,255,255,0.08);
+  border-radius: 99px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.result-errors { margin-top: 0.75rem; font-size: 0.8rem; color: hsl(0,75%,70%); }
+.result-errors ul { margin: 0.3rem 0 0; padding-left: 1.2rem; }
 </style>

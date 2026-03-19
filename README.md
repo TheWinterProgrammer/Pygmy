@@ -101,6 +101,14 @@ frontend/           ← public website (port 5174)
 - Dynamic CMS page renderer
 - Loading skeletons + 404 states
 
+### Phase 10 — Reading Time, Related Posts, Social Share, Custom Code Injection, robots.txt ✅
+- **Reading time estimate** — computed from post word count (÷ 200 wpm) and displayed alongside the date in the post header (e.g. "5 min read")
+- **Related posts** — new `GET /api/posts/:slug/related` endpoint returns up to 3 related posts (same category first, falling back to recent posts); displayed as a responsive card grid below each post on the public frontend
+- **Social sharing** — X (Twitter), LinkedIn, and copy-link buttons on every post detail page; copy feedback ("✓") shown for 2 seconds after clicking
+- **Custom code injection** — new `header_scripts` and `footer_scripts` settings; admin Settings panel → 💻 Custom Code Injection section with monospace textareas; scripts are injected into `<head>` / `<body>` of the public frontend once on load (idempotent, no duplicate injection); useful for analytics pixels, chat widgets, custom fonts, JSON-LD, etc.
+- **robots.txt management** — new `robots_txt` setting with default `User-agent: * / Allow: /`; admin Settings panel → 🤖 robots.txt section with live editable textarea; served at `/robots.txt` by the Express backend with 1h cache header
+- **Backend** — `GET /api/posts/:slug/related` route added; `/robots.txt` route added to `seo.js`; `header_scripts`, `footer_scripts`, `robots_txt` keys seeded in `defaultSettings`
+
 ### Phase 9 — Newsletter Subscribers + Content Backup/Export ✅
 - **Newsletter subscriber system** — `subscribers` + `newsletter_campaigns` SQLite tables; public `POST /api/newsletter/subscribe` (with re-subscribe support); public `GET /api/newsletter/unsubscribe?token=` (branded HTML page); admin CRUD: list/filter/status-toggle/delete subscribers; `POST /api/newsletter/send` sends HTML email to all active subscribers using nodemailer (unsubscribe link auto-appended); campaign history stored and viewable; `NewsletterView` admin panel with compose modal + campaigns tab + CSV export
 - **Newsletter frontend widget** — `NewsletterForm.vue` component shown in `SiteFooter.vue` when `newsletter_enabled = 1`; Settings → Newsletter section: enable/disable toggle + intro text customisation + link to subscriber management
@@ -286,8 +294,14 @@ Font: **Poppins** via Google Fonts
 |--------|------|------|-------------|
 | GET | `/api/activity` | ✓ | Recent activity (last 20; `?limit=N`) |
 
+### Related Posts
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/posts/:slug/related` | — | Up to 3 related posts (same category, then recent) |
+
 ### SEO (public)
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/sitemap.xml` | XML sitemap of all published pages + posts |
 | GET | `/feed.xml` | RSS 2.0 feed of latest 20 posts |
+| GET | `/robots.txt` | Robots exclusion file (managed via Settings) |
