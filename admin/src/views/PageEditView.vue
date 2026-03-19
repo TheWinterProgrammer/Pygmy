@@ -1,9 +1,17 @@
 <template>
   <div>
+    <RevisionsModal
+      v-if="showRevisions"
+      entity-type="page"
+      :entity-id="route.params.id"
+      @close="showRevisions = false"
+      @restore="applyRevision"
+    />
     <div class="page-header">
       <h1>{{ isNew ? 'New Page' : 'Edit Page' }}</h1>
       <div class="header-actions">
         <RouterLink to="/pages" class="btn btn-ghost">← Back</RouterLink>
+        <button v-if="!isNew" class="btn btn-ghost" @click="showRevisions = true">🕓 History</button>
       </div>
     </div>
 
@@ -91,6 +99,7 @@ import { useRoute, useRouter } from 'vue-router'
 import api from '../api.js'
 import { useToastStore } from '../stores/toast.js'
 import RichEditor from '../components/RichEditor.vue'
+import RevisionsModal from '../components/RevisionsModal.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -98,6 +107,7 @@ const toast = useToastStore()
 
 const isNew = computed(() => route.params.id === undefined)
 const saving = ref(false)
+const showRevisions = ref(false)
 const slugManual = ref(false)
 
 const form = ref({
@@ -158,6 +168,11 @@ async function save(statusOverride) {
 }
 
 const saveScheduled = () => save('scheduled')
+
+function applyRevision(snapshot) {
+  Object.assign(form.value, snapshot)
+  toast.success('Revision restored — review and save to apply')
+}
 </script>
 
 <style scoped>

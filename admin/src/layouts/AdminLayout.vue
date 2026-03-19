@@ -53,6 +53,7 @@ const navItems = [
   { to: '/analytics',  icon: '📈', label: 'Analytics' },
   { to: '/redirects',  icon: '🔀', label: 'Redirects' },
   { to: '/newsletter', icon: '📨', label: 'Newsletter' },
+  { to: '/tags',       icon: '🏷️',  label: 'Tags' },
   { to: '/backup',     icon: '🗄️',  label: 'Backup' },
   { to: '/settings',   icon: '⚙️',  label: 'Settings' },
 ]

@@ -101,6 +101,11 @@ frontend/           ← public website (port 5174)
 - Dynamic CMS page renderer
 - Loading skeletons + 404 states
 
+### Phase 11 — Content Revisions + Tag Manager ✅
+- **Content revision history** — every `PUT` to a page or post auto-saves a snapshot into the new `revisions` table (up to 20 revisions per entity, oldest pruned automatically); new `RevisionsModal.vue` component lets editors browse the full history, preview pre-save field values, and **restore** any revision back into the editor form for review before re-saving; 🕓 History button added to `PostEditView` and `PageEditView` headers (hidden for new content)
+- **Tag Manager** — new `GET /api/tags` endpoint aggregates all unique tags from posts and products with per-entity counts; `PUT /api/tags/rename` renames a tag across every post + product that uses it in one shot; `DELETE /api/tags` removes a tag from all content; admin `TagsView.vue` shows a sortable table of every tag (with posts/products badge counts), inline rename with Enter/Escape keyboard support, and a confirm-before-delete modal; 🏷️ Tags sidebar entry added between Backup and Settings
+- **Backend** — `revisions` SQLite table + index added in `db.js`; `routes/revisions.js` (GET list, GET single snapshot, DELETE single, DELETE all for entity); `routes/tags.js` (GET aggregate, PUT rename, DELETE remove); both routes mounted at `/api/revisions` and `/api/tags` in `index.js`; `saveRevision()` helper called on every page + post PUT
+
 ### Phase 10 — Reading Time, Related Posts, Social Share, Custom Code Injection, robots.txt ✅
 - **Reading time estimate** — computed from post word count (÷ 200 wpm) and displayed alongside the date in the post header (e.g. "5 min read")
 - **Related posts** — new `GET /api/posts/:slug/related` endpoint returns up to 3 related posts (same category first, falling back to recent posts); displayed as a responsive card grid below each post on the public frontend
@@ -298,6 +303,21 @@ Font: **Poppins** via Google Fonts
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/api/posts/:slug/related` | — | Up to 3 related posts (same category, then recent) |
+
+### Content Revisions
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/revisions?entity_type=&entity_id=` | ✓ | List revisions for a page or post (no snapshot body) |
+| GET | `/api/revisions/:id` | ✓ | Fetch full revision with snapshot JSON |
+| DELETE | `/api/revisions/:id` | ✓ | Delete a single revision |
+| DELETE | `/api/revisions?entity_type=&entity_id=` | ✓ | Purge all revisions for an entity |
+
+### Tag Manager
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/tags` | ✓ | All unique tags with post_count, product_count, total |
+| PUT | `/api/tags/rename` | ✓ | Rename tag across all content `{from, to}` |
+| DELETE | `/api/tags` | ✓ | Remove tag from all content `{tag}` |
 
 ### SEO (public)
 | Method | Path | Description |

@@ -5,10 +5,18 @@
       @select="url => { form.cover_image = url }"
       @close="showPicker = false"
     />
+    <RevisionsModal
+      v-if="showRevisions"
+      entity-type="post"
+      :entity-id="route.params.id"
+      @close="showRevisions = false"
+      @restore="applyRevision"
+    />
     <div class="page-header">
       <h1>{{ isNew ? 'New Post' : 'Edit Post' }}</h1>
       <div class="header-actions">
         <RouterLink to="/posts" class="btn btn-ghost">← Back</RouterLink>
+        <button v-if="!isNew" class="btn btn-ghost" @click="showRevisions = true">🕓 History</button>
         <button class="btn btn-ghost" @click="saveDraft" :disabled="saving">Save Draft</button>
         <button
           v-if="form.status === 'scheduled'"
@@ -127,6 +135,7 @@ import api from '../api.js'
 import { useToastStore } from '../stores/toast.js'
 import RichEditor from '../components/RichEditor.vue'
 import MediaPickerModal from '../components/MediaPickerModal.vue'
+import RevisionsModal from '../components/RevisionsModal.vue'
 
 const route  = useRoute()
 const router = useRouter()
@@ -135,6 +144,7 @@ const toast  = useToastStore()
 const isNew = computed(() => route.params.id === undefined)
 const saving = ref(false)
 const showPicker = ref(false)
+const showRevisions = ref(false)
 const slugManual = ref(false)
 const categories = ref([])
 const newCatName = ref('')
@@ -213,6 +223,12 @@ async function savePost(status, keepPublishedAt = false) {
 const saveDraft     = () => savePost('draft')
 const publish       = () => savePost('published')
 const saveScheduled = () => savePost('scheduled')
+
+function applyRevision(snapshot) {
+  Object.assign(form.value, snapshot)
+  tagsInput.value = Array.isArray(snapshot.tags) ? snapshot.tags.join(', ') : ''
+  toast.success('Revision restored — review and save to apply')
+}
 </script>
 
 <style scoped>

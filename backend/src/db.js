@@ -186,6 +186,19 @@ db.exec(`
     sent_to     INTEGER NOT NULL DEFAULT 0,
     sent_at     TEXT    NOT NULL DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS revisions (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    entity_type  TEXT    NOT NULL,
+    entity_id    INTEGER NOT NULL,
+    entity_title TEXT    NOT NULL DEFAULT '',
+    snapshot     TEXT    NOT NULL,
+    user_id      INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    user_name    TEXT,
+    created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_revisions_entity ON revisions(entity_type, entity_id, created_at DESC);
 `)
 
 // ─── Migrations (safe ALTER TABLE if column not already present) ──────────────

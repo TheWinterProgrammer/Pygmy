@@ -3,6 +3,7 @@ import { Router } from 'express'
 import db from '../db.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { logActivity } from './activity.js'
+import { saveRevision } from './revisions.js'
 
 const router = Router()
 
@@ -92,6 +93,8 @@ router.put('/:id', authMiddleware, (req, res) => {
   )
 
   const updated = db.prepare('SELECT * FROM pages WHERE id = ?').get(page.id)
+  // Save a revision snapshot of the pre-update state
+  saveRevision('page', page.id, page.title, page, req.user?.id, req.user?.name)
   logActivity(req.user?.id, req.user?.name, 'updated page', 'page', updated.id, updated.title)
   res.json(updated)
 })

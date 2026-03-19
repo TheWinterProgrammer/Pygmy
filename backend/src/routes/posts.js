@@ -3,6 +3,7 @@ import { Router } from 'express'
 import db from '../db.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { logActivity } from './activity.js'
+import { saveRevision } from './revisions.js'
 
 const router = Router()
 
@@ -199,6 +200,8 @@ router.put('/:id', authMiddleware, (req, res) => {
   )
 
   const updated = parsePost(db.prepare('SELECT * FROM posts WHERE id = ?').get(post.id))
+  // Save a revision snapshot of the pre-update state
+  saveRevision('post', post.id, post.title, parsePost(post), req.user?.id, req.user?.name)
   logActivity(req.user?.id, req.user?.name, 'updated post', 'post', updated.id, updated.title)
   res.json(updated)
 })

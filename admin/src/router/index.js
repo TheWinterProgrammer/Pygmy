@@ -33,6 +33,7 @@ const routes = [
       { path: 'redirects',    name: 'Redirects',   component: () => import('../views/RedirectsView.vue') },
       { path: 'newsletter',   name: 'Newsletter',  component: () => import('../views/NewsletterView.vue') },
       { path: 'backup',       name: 'Backup',      component: () => import('../views/BackupView.vue') },
+      { path: 'tags',         name: 'Tags',        component: () => import('../views/TagsView.vue') },
       { path: 'settings',     name: 'Settings',    component: () => import('../views/SettingsView.vue') },
     ]
   },

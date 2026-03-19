@@ -23,6 +23,8 @@ import activityRoutes from './routes/activity.js'
 import redirectsRoutes from './routes/redirects.js'
 import newsletterRoutes from './routes/newsletter.js'
 import backupRoutes from './routes/backup.js'
+import revisionsRoutes from './routes/revisions.js'
+import tagsRoutes from './routes/tags.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -93,6 +95,8 @@ app.use('/api/activity', activityRoutes)
 app.use('/api/redirects', redirectsRoutes)
 app.use('/api/newsletter', newsletterRoutes)
 app.use('/api/backup', backupRoutes)
+app.use('/api/revisions', revisionsRoutes)
+app.use('/api/tags', tagsRoutes)
 
 // ─── SEO (public) ─────────────────────────────────────────────────────────────
 app.use('/', seoRoutes)
