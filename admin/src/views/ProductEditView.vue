@@ -145,6 +145,39 @@
           </div>
           <img v-if="form.cover_image" :src="form.cover_image" class="cover-preview" alt="cover" />
         </div>
+
+        <!-- Inventory / Stock -->
+        <div class="glass section">
+          <h3 style="margin-bottom:1rem">📦 Inventory</h3>
+          <label class="checkbox-row" style="margin-bottom:.875rem;">
+            <input type="checkbox" v-model="form.track_stock" />
+            <span>Track stock quantity</span>
+          </label>
+          <template v-if="form.track_stock">
+            <div class="form-group">
+              <label>Stock Quantity</label>
+              <input v-model.number="form.stock_quantity" class="input" type="number" min="0" step="1" placeholder="0" />
+              <small style="color:var(--text-muted);font-size:.75rem;" v-if="form.stock_quantity <= form.low_stock_threshold && form.stock_quantity > 0">
+                ⚠️ Low stock warning will show to admins.
+              </small>
+              <small style="color:var(--accent);font-size:.75rem;" v-if="form.stock_quantity <= 0">
+                ✕ Out of stock
+              </small>
+            </div>
+            <div class="form-group">
+              <label>Low Stock Threshold</label>
+              <input v-model.number="form.low_stock_threshold" class="input" type="number" min="1" step="1" placeholder="5" />
+              <small style="color:var(--text-muted);font-size:.75rem;">Alert when stock falls to or below this number.</small>
+            </div>
+            <label class="checkbox-row">
+              <input type="checkbox" v-model="form.allow_backorder" />
+              <span>Allow orders when out of stock (backorders)</span>
+            </label>
+          </template>
+          <p v-else class="text-muted" style="font-size:.85rem;margin:.5rem 0 0;">
+            Stock tracking is off. Product always shows as available.
+          </p>
+        </div>
       </div>
     </div>
   </div>
@@ -185,7 +218,9 @@ const form = ref({
   cover_image: '', gallery: [],
   category_id: null, tags: [], status: 'draft',
   featured: false, meta_title: '', meta_desc: '',
-  publish_at: ''
+  publish_at: '',
+  track_stock: false, stock_quantity: 0,
+  allow_backorder: false, low_stock_threshold: 5,
 })
 
 onMounted(async () => {
@@ -212,6 +247,10 @@ onMounted(async () => {
         meta_title: product.meta_title || '',
         meta_desc: product.meta_desc || '',
         publish_at: product.publish_at ? product.publish_at.slice(0, 16) : '',
+        track_stock: Boolean(product.track_stock),
+        stock_quantity: product.stock_quantity ?? 0,
+        allow_backorder: Boolean(product.allow_backorder),
+        low_stock_threshold: product.low_stock_threshold ?? 5,
       }
       tagsInput.value = (product.tags || []).join(', ')
     } catch {
@@ -274,6 +313,10 @@ async function save(status) {
       tags: tagsInput.value.split(',').map(t => t.trim()).filter(Boolean),
       price: form.value.price || null,
       sale_price: form.value.sale_price || null,
+      track_stock: form.value.track_stock,
+      stock_quantity: parseInt(form.value.stock_quantity) || 0,
+      allow_backorder: form.value.allow_backorder,
+      low_stock_threshold: parseInt(form.value.low_stock_threshold) || 5,
     }
     if (isNew.value) {
       const { data } = await api.post('/products', payload)

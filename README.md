@@ -114,6 +114,12 @@ frontend/           ← public website (port 5174)
 - Dynamic CMS page renderer
 - Loading skeletons + 404 states
 
+### Phase 18 — E-Commerce Settings + Orders CSV Export + Inventory API ✅
+- **E-Commerce settings section in admin Settings** — new 🛒 E-Commerce section with: currency code + symbol (used across checkout, order confirmation, admin panels), checkout intro text (displayed at top of `/checkout`), thank-you message (shown on order confirmation page), order confirmation email subject (`#{order_number}` placeholder), order status update email subject, and toggle checkboxes for "email admin on new order" and "email customer on status change"; all settings persisted via existing `PUT /api/settings` batch endpoint
+- **Orders CSV export** — `GET /api/orders/export/csv` endpoint (admin, JWT-authenticated); supports `?status=`, `?from=` and `?to=` date filters; generates a properly escaped CSV with columns: order_number, status, customer_name, customer_email, customer_phone, shipping_address, subtotal, discount_amount, coupon_code, total, notes, created_at; admin Orders panel header gets an ⬇️ Export CSV button (respects current status filter, blob-downloads via fetch with auth header)
+- **Inventory API** — `GET /api/products/inventory` endpoint (admin); returns `{ items, outOfStock, lowStock, healthy }` arrays for all products with `track_stock = 1`; items sorted by stock ascending; outOfStock = stock ≤ 0 + backorders disallowed; lowStock = stock within threshold; useful for integrations, webhooks, external inventory tooling
+- **Backup enhancements** — `orders` and `coupons` tables now included in the full JSON backup export; stats endpoint now returns `orders` and `coupons` counts; BackupView labels updated to display all content types including events, orders, and coupons
+
 ### Phase 17 — Shopping Cart + Orders (E-commerce Checkout) ✅
 - **Cart store** — Pinia store (`stores/cart.js`) with full localStorage persistence; `addItem`, `removeItem`, `updateQuantity`, `clear`; reactive `count` + `subtotal` computed; `isOpen` drawer state
 - **CartDrawer** — slide-in drawer with glass morphism styling; per-item quantity stepper; remove button; subtotal + Checkout CTA; animated backdrop + panel transitions; empty state with shop link
@@ -468,10 +474,16 @@ Font: **Poppins** via Google Fonts
 | POST | `/api/orders` | — | Place order (checkout, validates prices server-side) |
 | GET  | `/api/orders` | ✓ | List orders (`?status=`, `?q=`, `?limit=`, `?offset=`) |
 | GET  | `/api/orders/stats/summary` | ✓ | Revenue + status counts |
+| GET  | `/api/orders/export/csv` | ✓ | CSV export (`?status=`, `?from=`, `?to=` filters) |
 | GET  | `/api/orders/:id` | ✓ | Single order detail (admin) |
 | GET  | `/api/orders/confirm/:orderNumber` | — | Public order confirmation (limited fields) |
 | PUT  | `/api/orders/:id` | ✓ | Update status / notes |
 | DELETE | `/api/orders/:id` | ✓ | Delete order |
+
+### Inventory
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/products/inventory` | ✓ | Stock report: `{ items, outOfStock, lowStock, healthy }` for all tracked products |
 
 ### SEO (public)
 | Method | Path | Description |

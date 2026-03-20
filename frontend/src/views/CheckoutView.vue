@@ -51,11 +51,30 @@
                 placeholder="Special instructions, delivery notes…"></textarea>
             </div>
 
+            <!-- Coupon code -->
+            <h3 class="form-section-title" style="margin-top:1.5rem;">🎟️ Coupon Code</h3>
+            <div class="coupon-row">
+              <input class="input coupon-input" type="text" v-model="couponInput"
+                placeholder="Enter coupon code"
+                :disabled="!!appliedCoupon"
+                @keydown.enter.prevent="applyCoupon"
+                style="text-transform:uppercase;" />
+              <button type="button" class="btn btn-ghost" :disabled="applyingCoupon || !!appliedCoupon" @click="applyCoupon">
+                {{ applyingCoupon ? '…' : (appliedCoupon ? '✓ Applied' : 'Apply') }}
+              </button>
+              <button v-if="appliedCoupon" type="button" class="btn btn-ghost btn-sm" @click="removeCoupon" title="Remove coupon">✕</button>
+            </div>
+            <div class="coupon-success" v-if="appliedCoupon">
+              🎉 Coupon <strong>{{ appliedCoupon.code }}</strong> applied —
+              {{ appliedCoupon.type === 'percentage' ? `${appliedCoupon.value}% off` : `€${Number(appliedCoupon.discount).toFixed(2)} off` }}
+            </div>
+            <div class="coupon-error" v-if="couponError">{{ couponError }}</div>
+
             <div class="field-error global-error" v-if="submitError">{{ submitError }}</div>
 
             <button type="submit" class="btn btn-primary btn-lg submit-btn" :disabled="placing">
               <span v-if="placing">Placing order…</span>
-              <span v-else>Place Order · {{ fmt(cart.subtotal) }}</span>
+              <span v-else>Place Order · {{ fmt(orderTotal) }}</span>
             </button>
           </form>
         </div>
@@ -82,6 +101,10 @@
               <span class="text-muted">Subtotal</span>
               <span>{{ fmt(cart.subtotal) }}</span>
             </div>
+            <div class="summary-row discount-row" v-if="appliedCoupon">
+              <span class="text-muted">🎟️ {{ appliedCoupon.code }}</span>
+              <span style="color:hsl(140,60%,60%);">−{{ fmt(appliedCoupon.discount) }}</span>
+            </div>
             <div class="summary-row">
               <span class="text-muted">Shipping</span>
               <span class="text-muted">Calculated on confirmation</span>
@@ -89,7 +112,7 @@
             <div class="summary-divider"></div>
             <div class="summary-row summary-total">
               <span>Total</span>
-              <strong style="color:var(--accent);">{{ fmt(cart.subtotal) }}</strong>
+              <strong style="color:var(--accent);">{{ fmt(orderTotal) }}</strong>
             </div>
           </div>
         </div>
@@ -99,7 +122,7 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCartStore } from '../stores/cart.js'
 import { useSiteStore } from '../stores/site.js'
@@ -112,6 +135,42 @@ const router = useRouter()
 const submitted = ref(false)
 const placing   = ref(false)
 const submitError = ref('')
+
+// Coupon state
+const couponInput    = ref('')
+const applyingCoupon = ref(false)
+const couponError    = ref('')
+const appliedCoupon  = ref(null) // { code, type, value, discount }
+
+const orderTotal = computed(() =>
+  Math.max(0, cart.subtotal - (appliedCoupon.value?.discount || 0))
+)
+
+async function applyCoupon() {
+  couponError.value = ''
+  const code = couponInput.value.trim()
+  if (!code) return
+
+  applyingCoupon.value = true
+  try {
+    const { data } = await api.post('/coupons/validate', {
+      code,
+      subtotal: cart.subtotal,
+    })
+    appliedCoupon.value = data
+  } catch (err) {
+    couponError.value = err.response?.data?.error || 'Invalid coupon code.'
+    appliedCoupon.value = null
+  } finally {
+    applyingCoupon.value = false
+  }
+}
+
+function removeCoupon() {
+  appliedCoupon.value = null
+  couponInput.value = ''
+  couponError.value = ''
+}
 
 const form = reactive({
   customer_name:    '',
@@ -134,7 +193,13 @@ function validate() {
 }
 
 function fmt(v) {
-  return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(v || 0)
+  const sym = site.settings?.shop_currency_symbol || '€'
+  const currency = site.settings?.shop_currency || 'EUR'
+  try {
+    return new Intl.NumberFormat('de-DE', { style: 'currency', currency }).format(v || 0)
+  } catch {
+    return `${sym}${Number(v || 0).toFixed(2)}`
+  }
 }
 
 async function placeOrder() {
@@ -151,7 +216,8 @@ async function placeOrder() {
       notes:            form.notes.trim(),
       items: cart.items.map(i => ({ product_id: i.product_id, quantity: i.quantity })),
       subtotal: cart.subtotal,
-      total:    cart.subtotal,
+      total:    orderTotal.value,
+      coupon_code: appliedCoupon.value?.code || '',
     }
 
     const { data } = await api.post('/orders', payload)
@@ -227,6 +293,25 @@ async function placeOrder() {
   margin-bottom: 1rem;
 }
 .submit-btn { width: 100%; margin-top: .5rem; font-size: 1rem; }
+
+/* Coupon */
+.coupon-row { display: flex; gap: .5rem; align-items: center; margin-bottom: .5rem; }
+.coupon-input { flex: 1; text-transform: uppercase; letter-spacing: .06em; }
+.coupon-success {
+  font-size: .85rem;
+  color: hsl(140,60%,60%);
+  background: hsl(140,60%,8%);
+  border: 1px solid hsl(140,60%,18%);
+  border-radius: .5rem;
+  padding: .45rem .75rem;
+  margin-bottom: .75rem;
+}
+.coupon-error {
+  font-size: .82rem;
+  color: var(--accent);
+  margin-bottom: .75rem;
+}
+.discount-row span:last-child { font-weight: 600; }
 
 /* Summary */
 .summary-card {

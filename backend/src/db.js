@@ -311,9 +311,48 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_orders_email  ON orders(customer_email);
+
+  -- ── Coupons ──────────────────────────────────────────────────────────────────
+  CREATE TABLE IF NOT EXISTS coupons (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    code             TEXT    UNIQUE NOT NULL COLLATE NOCASE,
+    type             TEXT    NOT NULL DEFAULT 'percentage',  -- 'percentage' | 'fixed'
+    value            REAL    NOT NULL DEFAULT 0,
+    min_order_amount REAL    NOT NULL DEFAULT 0,
+    max_uses         INTEGER NOT NULL DEFAULT 0,  -- 0 = unlimited
+    used_count       INTEGER NOT NULL DEFAULT 0,
+    expires_at       TEXT,
+    active           INTEGER NOT NULL DEFAULT 1,
+    created_at       TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
 `)
 
 // ─── Migrations (safe ALTER TABLE if column not already present) ─────────────
+
+// Stock management columns on products
+const existingProductColsEarly = db.pragma('table_info(products)').map(c => c.name)
+if (!existingProductColsEarly.includes('track_stock')) {
+  db.exec(`ALTER TABLE products ADD COLUMN track_stock INTEGER NOT NULL DEFAULT 0`)
+}
+if (!existingProductColsEarly.includes('stock_quantity')) {
+  db.exec(`ALTER TABLE products ADD COLUMN stock_quantity INTEGER NOT NULL DEFAULT 0`)
+}
+if (!existingProductColsEarly.includes('allow_backorder')) {
+  db.exec(`ALTER TABLE products ADD COLUMN allow_backorder INTEGER NOT NULL DEFAULT 0`)
+}
+if (!existingProductColsEarly.includes('low_stock_threshold')) {
+  db.exec(`ALTER TABLE products ADD COLUMN low_stock_threshold INTEGER NOT NULL DEFAULT 5`)
+}
+
+// Coupon + discount columns on orders
+const existingOrderCols = db.pragma('table_info(orders)').map(c => c.name)
+if (!existingOrderCols.includes('coupon_code')) {
+  db.exec(`ALTER TABLE orders ADD COLUMN coupon_code TEXT NOT NULL DEFAULT ''`)
+}
+if (!existingOrderCols.includes('discount_amount')) {
+  db.exec(`ALTER TABLE orders ADD COLUMN discount_amount REAL NOT NULL DEFAULT 0`)
+}
+
 const existingPageCols = db.pragma('table_info(pages)').map(c => c.name)
 if (!existingPageCols.includes('publish_at')) {
   db.exec(`ALTER TABLE pages ADD COLUMN publish_at TEXT`)
@@ -380,6 +419,9 @@ const defaultSettings = {
   shop_checkout_intro: 'Complete your order below.',
   shop_thankyou_message: 'Thank you for your order! We\'ll be in touch shortly.',
   notify_new_order: '1',
+  notify_order_status: '1',
+  order_confirmation_subject: 'Your order has been received — #{order_number}',
+  order_status_subject: 'Order #{order_number} status update',
 }
 
 const insertSetting = db.prepare(`

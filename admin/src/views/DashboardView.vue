@@ -139,6 +139,35 @@
           </div>
         </div>
       </div>
+      <div class="stat-card glass">
+        <div class="stat-icon">🎟️</div>
+        <div class="stat-body">
+          <div class="stat-num">{{ stats.coupons?.active ?? 0 }}</div>
+          <div class="stat-label">
+            Active Coupons
+            <RouterLink to="/coupons" class="stat-link">→ Coupons</RouterLink>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inventory alerts -->
+    <div v-if="(stats.inventory?.out_of_stock ?? 0) > 0 || (stats.inventory?.low_stock?.length ?? 0) > 0"
+         class="glass section inventory-alert">
+      <h2 style="margin-bottom:.875rem;">⚠️ Inventory Alerts</h2>
+      <div class="inv-alert-row" v-if="(stats.inventory?.out_of_stock ?? 0) > 0">
+        <span class="inv-badge inv-badge-red">✕ Out of Stock</span>
+        <span>{{ stats.inventory.out_of_stock }} published product{{ stats.inventory.out_of_stock !== 1 ? 's' : '' }} out of stock</span>
+        <RouterLink to="/products" class="btn btn-ghost btn-sm">Manage</RouterLink>
+      </div>
+      <template v-if="stats.inventory?.low_stock?.length">
+        <div class="inv-alert-row inv-low" v-for="p in stats.inventory.low_stock" :key="p.id">
+          <span class="inv-badge inv-badge-yellow">⚠️ Low</span>
+          <span>{{ p.name }}</span>
+          <span class="text-muted" style="font-size:.82rem;">{{ p.stock_quantity }} left (threshold: {{ p.low_stock_threshold }})</span>
+          <RouterLink :to="`/products/${p.id}`" class="btn btn-ghost btn-sm">Edit</RouterLink>
+        </div>
+      </template>
     </div>
 
     <div class="section glass" v-if="stats?.recentPosts?.length">
@@ -189,6 +218,7 @@
       <RouterLink to="/webhooks" class="btn btn-ghost">🔗 Webhooks</RouterLink>
       <RouterLink to="/backup" class="btn btn-ghost">🗄️ Backup</RouterLink>
       <RouterLink to="/orders" class="btn btn-ghost">📦 Orders</RouterLink>
+      <RouterLink to="/coupons" class="btn btn-ghost">🎟️ Coupons</RouterLink>
     </div>
   </div>
 </template>
@@ -265,4 +295,24 @@ function timeAgo(iso) {
 .activity-time  { margin-left: auto; color: var(--text-muted); white-space: nowrap; }
 
 .quick-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+
+/* Inventory alerts */
+.inventory-alert { margin-bottom: 1.5rem; }
+.inv-alert-row {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: .5rem 0;
+  border-bottom: 1px solid rgba(255,255,255,.05);
+  font-size: .88rem;
+  flex-wrap: wrap;
+}
+.inv-alert-row:last-child { border-bottom: none; }
+.inv-badge {
+  display: inline-flex; align-items: center;
+  padding: .2em .6em; border-radius: 999px;
+  font-size: .75rem; font-weight: 600; white-space: nowrap;
+}
+.inv-badge-red { background: hsl(355,70%,18%); color: hsl(355,70%,65%); }
+.inv-badge-yellow { background: hsl(45,90%,15%); color: hsl(45,90%,65%); }
 </style>

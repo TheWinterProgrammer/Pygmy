@@ -80,15 +80,30 @@
             >#{{ tag }}</RouterLink>
           </div>
 
+          <!-- Stock status badge -->
+          <div v-if="product.track_stock" class="stock-status">
+            <span v-if="product.in_stock && product.low_stock" class="stock-badge stock-low">
+              ⚠️ Low stock — {{ product.stock_quantity }} left
+            </span>
+            <span v-else-if="product.in_stock" class="stock-badge stock-ok">
+              ✓ In Stock
+            </span>
+            <span v-else class="stock-badge stock-out">
+              ✕ Out of Stock
+            </span>
+          </div>
+
           <!-- Add to Cart -->
           <div class="atc-row" v-if="product.price !== null">
-            <div class="qty-selector">
+            <div class="qty-selector" v-if="product.in_stock || !product.track_stock">
               <button @click="qty = Math.max(1, qty - 1)">−</button>
-              <input type="number" v-model.number="qty" min="1" max="99" />
-              <button @click="qty = Math.min(99, qty + 1)">+</button>
+              <input type="number" v-model.number="qty" min="1" :max="product.track_stock && !product.allow_backorder ? product.stock_quantity : 99" />
+              <button @click="qty = Math.min(product.track_stock && !product.allow_backorder ? product.stock_quantity : 99, qty + 1)">+</button>
             </div>
-            <button class="btn btn-primary btn-lg atc-btn" @click="addToCart">
-              <span v-if="addedFlash">✓ Added!</span>
+            <button class="btn btn-primary btn-lg atc-btn" @click="addToCart"
+              :disabled="product.track_stock && !product.in_stock">
+              <span v-if="product.track_stock && !product.in_stock">Out of Stock</span>
+              <span v-else-if="addedFlash">✓ Added!</span>
               <span v-else>🛒 Add to Cart</span>
             </button>
           </div>
@@ -285,6 +300,18 @@ function fmt(n) {
 
 .sku { font-size: 0.82rem; color: var(--text-muted); }
 .sku-label { font-weight: 600; }
+
+/* Stock status */
+.stock-status { margin: .5rem 0 .75rem; }
+.stock-badge {
+  display: inline-flex; align-items: center;
+  padding: .3em .75em; border-radius: 999px;
+  font-size: .8rem; font-weight: 600;
+}
+.stock-ok  { background: hsl(140,60%,10%); color: hsl(140,60%,60%); border: 1px solid hsl(140,60%,18%); }
+.stock-low { background: hsl(45,90%,10%); color: hsl(45,90%,65%); border: 1px solid hsl(45,90%,20%); }
+.stock-out { background: hsl(355,70%,12%); color: hsl(355,70%,65%); border: 1px solid hsl(355,70%,22%); }
+.atc-btn:disabled { opacity: .5; cursor: not-allowed; }
 
 .tags-row { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .pill {

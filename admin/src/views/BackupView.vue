@@ -186,6 +186,9 @@ const labels = {
   media: 'Media files',
   subscribers: 'Subscribers',
   redirects: 'Redirects',
+  events: 'Events',
+  orders: 'Orders',
+  coupons: 'Coupons',
 }
 
 const csvTypes = [

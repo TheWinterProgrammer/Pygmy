@@ -48,6 +48,8 @@ router.get('/export', authMiddleware, (req, res) => {
       custom_forms: db.prepare('SELECT * FROM custom_forms').all(),
       webhooks:     db.prepare('SELECT id, name, url, events, active, created_at FROM webhooks').all(),
       events:       db.prepare('SELECT * FROM events').all(),
+      coupons:      db.prepare('SELECT * FROM coupons').all(),
+      orders:       db.prepare('SELECT * FROM orders').all(),
     }
   }
 
@@ -125,6 +127,8 @@ router.get('/stats', authMiddleware, (req, res) => {
     subscribers: db.prepare('SELECT COUNT(*) as n FROM subscribers').get().n,
     redirects:   db.prepare('SELECT COUNT(*) as n FROM redirects').get().n,
     events:      db.prepare('SELECT COUNT(*) as n FROM events').get().n,
+    orders:      db.prepare('SELECT COUNT(*) as n FROM orders').get().n,
+    coupons:     db.prepare('SELECT COUNT(*) as n FROM coupons').get().n,
   })
 })
 

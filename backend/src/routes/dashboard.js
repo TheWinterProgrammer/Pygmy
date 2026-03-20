@@ -64,6 +64,25 @@ router.get('/stats', authMiddleware, (req, res) => {
   const pendingOrders = db.prepare("SELECT COUNT(*) as count FROM orders WHERE status = 'pending'").get().count
   const orderRevenue  = db.prepare("SELECT COALESCE(SUM(total),0) as r FROM orders WHERE status IN ('completed','processing','shipped')").get().r
 
+  // Coupons
+  const totalCoupons  = db.prepare('SELECT COUNT(*) as count FROM coupons').get().count
+  const activeCoupons = db.prepare('SELECT COUNT(*) as count FROM coupons WHERE active = 1').get().count
+
+  // Low stock products (track_stock=1 AND stock_quantity <= low_stock_threshold AND stock_quantity > 0)
+  const lowStockProducts = db.prepare(`
+    SELECT id, name, slug, stock_quantity, low_stock_threshold
+    FROM products
+    WHERE track_stock = 1 AND stock_quantity <= low_stock_threshold AND stock_quantity > 0 AND status = 'published'
+    ORDER BY stock_quantity ASC
+    LIMIT 5
+  `).all()
+
+  // Out-of-stock products (track_stock=1 AND stock_quantity = 0 AND allow_backorder = 0)
+  const outOfStockCount = db.prepare(`
+    SELECT COUNT(*) as count FROM products
+    WHERE track_stock = 1 AND stock_quantity <= 0 AND allow_backorder = 0 AND status = 'published'
+  `).get().count
+
   // Recent activity
   const recentActivity = db.prepare(`
     SELECT * FROM activity_log ORDER BY created_at DESC LIMIT 10
@@ -86,6 +105,8 @@ router.get('/stats', authMiddleware, (req, res) => {
     events: { total: totalEvents, published: publishedEvents, upcoming: upcomingEvents },
     media_folders: { total: totalFolders },
     orders: { total: totalOrders, pending: pendingOrders, revenue: orderRevenue },
+    coupons: { total: totalCoupons, active: activeCoupons },
+    inventory: { low_stock: lowStockProducts, out_of_stock: outOfStockCount },
     recentPosts,
     recentActivity
   })

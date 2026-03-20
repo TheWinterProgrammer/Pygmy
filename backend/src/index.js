@@ -34,6 +34,7 @@ import mediaFoldersRoutes from './routes/media_folders.js'
 import apiKeysRoutes from './routes/api_keys.js'
 import locksRoutes from './routes/locks.js'
 import ordersRoutes from './routes/orders.js'
+import couponsRoutes from './routes/coupons.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -166,6 +167,7 @@ app.use('/api/media-folders', mediaFoldersRoutes)
 app.use('/api/api-keys', apiKeysRoutes)
 app.use('/api/locks', locksRoutes)
 app.use('/api/orders', orderLimiter, ordersRoutes)
+app.use('/api/coupons', couponsRoutes)
 
 // ─── SEO (public) ─────────────────────────────────────────────────────────────
 app.use('/', seoRoutes)

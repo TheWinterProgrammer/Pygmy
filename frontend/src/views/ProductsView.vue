@@ -41,6 +41,7 @@
           <img :src="p.cover_image" :alt="p.name" loading="lazy" />
           <div class="sale-badge" v-if="p.sale_price">Sale</div>
           <div class="featured-badge" v-if="p.featured">★ Featured</div>
+          <div class="oos-badge" v-if="p.track_stock && !p.in_stock">Out of Stock</div>
         </div>
         <div class="card-img card-img-placeholder" v-else>🛍️</div>
 
@@ -67,7 +68,7 @@
             </div>
             <!-- Quick Add to Cart -->
             <button
-              v-if="p.price !== null"
+              v-if="p.price !== null && (p.in_stock || !p.track_stock)"
               class="quick-atc"
               @click.prevent="quickAdd(p)"
               :class="{ added: addedIds.has(p.id) }"
@@ -277,6 +278,7 @@ function fmt(n) {
 }
 .sale-badge { left: 0.6rem; background: var(--accent); color: #fff; }
 .featured-badge { right: 0.6rem; background: gold; color: #000; }
+.oos-badge { left: 0; right: 0; bottom: 0; top: auto; border-radius: 0; background: rgba(0,0,0,.75); color: rgba(255,255,255,.8); font-size: .75rem; text-align: center; }
 
 .card-body { padding: 1rem 1.25rem 1.25rem; flex: 1; display: flex; flex-direction: column; gap: 0.4rem; }
 .card-meta { display: flex; gap: 0.5rem; align-items: center; }

@@ -43,6 +43,12 @@ function parseProduct(row) {
     tags: (() => { try { return JSON.parse(row.tags || '[]') } catch { return [] } })(),
     gallery: (() => { try { return JSON.parse(row.gallery || '[]') } catch { return [] } })(),
     featured: Boolean(row.featured),
+    track_stock: Boolean(row.track_stock),
+    allow_backorder: Boolean(row.allow_backorder),
+    stock_quantity: row.stock_quantity ?? 0,
+    low_stock_threshold: row.low_stock_threshold ?? 5,
+    in_stock: !row.track_stock || row.stock_quantity > 0 || Boolean(row.allow_backorder),
+    low_stock: Boolean(row.track_stock) && (row.stock_quantity ?? 0) <= (row.low_stock_threshold ?? 5) && (row.stock_quantity ?? 0) > 0,
   }
 }
 
@@ -185,7 +191,9 @@ router.post('/', authMiddleware, (req, res) => {
     cover_image = null, gallery = [],
     category_id = null, tags = [], status = 'draft',
     featured = false, meta_title = null, meta_desc = null,
-    publish_at = null
+    publish_at = null,
+    track_stock = false, stock_quantity = 0,
+    allow_backorder = false, low_stock_threshold = 5,
   } = req.body
 
   if (!name?.trim()) return res.status(400).json({ error: 'name required' })
@@ -203,14 +211,19 @@ router.post('/', authMiddleware, (req, res) => {
   const info = db.prepare(`
     INSERT INTO products
       (name, slug, excerpt, description, price, sale_price, sku, cover_image, gallery,
-       category_id, tags, status, featured, meta_title, meta_desc, publish_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+       category_id, tags, status, featured, meta_title, meta_desc, publish_at,
+       track_stock, stock_quantity, allow_backorder, low_stock_threshold)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `).run(
     name.trim(), slug, excerpt, description,
     price, sale_price, sku, cover_image,
     JSON.stringify(gallery), category_id,
     JSON.stringify(tags), finalStatus,
-    featured ? 1 : 0, meta_title, meta_desc, finalPublishAt
+    featured ? 1 : 0, meta_title, meta_desc, finalPublishAt,
+    track_stock ? 1 : 0,
+    parseInt(stock_quantity) || 0,
+    allow_backorder ? 1 : 0,
+    parseInt(low_stock_threshold) || 5,
   )
 
   const product = db.prepare('SELECT * FROM products WHERE id = ?').get(info.lastInsertRowid)
@@ -228,7 +241,8 @@ router.put('/:id', authMiddleware, (req, res) => {
     price, sale_price, sku,
     cover_image, gallery,
     category_id, tags, status, featured,
-    meta_title, meta_desc, publish_at
+    meta_title, meta_desc, publish_at,
+    track_stock, stock_quantity, allow_backorder, low_stock_threshold,
   } = req.body
 
   // only regenerate slug if name changed and no slug conflict
@@ -251,6 +265,7 @@ router.put('/:id', authMiddleware, (req, res) => {
       cover_image = ?, gallery = ?, category_id = ?,
       tags = ?, status = ?, featured = ?,
       meta_title = ?, meta_desc = ?, publish_at = ?,
+      track_stock = ?, stock_quantity = ?, allow_backorder = ?, low_stock_threshold = ?,
       updated_at = datetime('now')
     WHERE id = ?
   `).run(
@@ -270,6 +285,10 @@ router.put('/:id', authMiddleware, (req, res) => {
     meta_title !== undefined ? meta_title : existing.meta_title,
     meta_desc !== undefined ? meta_desc : existing.meta_desc,
     newPublishAt,
+    track_stock !== undefined ? (track_stock ? 1 : 0) : existing.track_stock,
+    stock_quantity !== undefined ? (parseInt(stock_quantity) || 0) : existing.stock_quantity,
+    allow_backorder !== undefined ? (allow_backorder ? 1 : 0) : existing.allow_backorder,
+    low_stock_threshold !== undefined ? (parseInt(low_stock_threshold) || 5) : existing.low_stock_threshold,
     existing.id
   )
 
@@ -285,6 +304,23 @@ router.delete('/:id', authMiddleware, (req, res) => {
   db.prepare('DELETE FROM products WHERE id = ?').run(req.params.id)
   logActivity(req.user?.id, req.user?.name, 'deleted product', 'product', product.id, product.name)
   res.json({ success: true })
+})
+
+// GET /api/products/inventory — low-stock + out-of-stock report
+router.get('/inventory', authMiddleware, (req, res) => {
+  const rows = db.prepare(`
+    SELECT id, name, slug, sku, price, sale_price, stock_quantity,
+           low_stock_threshold, allow_backorder, status
+    FROM products
+    WHERE track_stock = 1
+    ORDER BY stock_quantity ASC
+  `).all()
+
+  const outOfStock = rows.filter(p => p.stock_quantity <= 0 && !p.allow_backorder)
+  const lowStock   = rows.filter(p => p.stock_quantity > 0 && p.stock_quantity <= p.low_stock_threshold)
+  const healthy    = rows.filter(p => p.stock_quantity > p.low_stock_threshold)
+
+  res.json({ items: rows, outOfStock, lowStock, healthy })
 })
 
 // POST /api/products/bulk — bulk action on multiple products

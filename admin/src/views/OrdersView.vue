@@ -3,9 +3,12 @@
     <div class="page-header">
       <h1>📦 Orders</h1>
       <div class="header-actions">
-        <span class="text-muted" v-if="stats">
+        <span class="text-muted" v-if="stats" style="margin-right:.75rem;">
           {{ stats.total }} orders · Revenue {{ fmtCurrency(stats.revenue) }}
         </span>
+        <button class="btn btn-ghost" @click="exportCsv" title="Export orders as CSV">
+          ⬇️ Export CSV
+        </button>
       </div>
     </div>
 
@@ -117,6 +120,15 @@
                 </tr>
               </tbody>
             </table>
+            <div class="order-subtotal-row" style="display:flex;justify-content:space-between;font-size:.88rem;padding:.3rem 0;color:var(--text-muted);">
+              <span>Subtotal</span>
+              <span>{{ fmtCurrency(selected.subtotal) }}</span>
+            </div>
+            <div v-if="selected.coupon_code" class="order-subtotal-row"
+                 style="display:flex;justify-content:space-between;font-size:.88rem;padding:.3rem 0;color:hsl(140,60%,60%);">
+              <span>🎟️ Coupon ({{ selected.coupon_code }})</span>
+              <span>−{{ fmtCurrency(selected.discount_amount) }}</span>
+            </div>
             <div class="order-total-row">
               <span>Total</span>
               <strong style="color:var(--accent);">{{ fmtCurrency(selected.total) }}</strong>
@@ -309,6 +321,23 @@ async function doDelete() {
   } finally {
     deleting.value = false
   }
+}
+
+function exportCsv() {
+  const params = new URLSearchParams()
+  if (filterStatus.value) params.set('status', filterStatus.value)
+  const token = auth.token
+  const url = `/api/orders/export/csv?${params}`
+  // Use fetch to inject auth header, then blob-download
+  fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+    .then(r => r.blob())
+    .then(blob => {
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = `orders-${new Date().toISOString().slice(0,10)}.csv`
+      a.click()
+      URL.revokeObjectURL(a.href)
+    })
 }
 
 onMounted(() => {

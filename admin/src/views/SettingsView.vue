@@ -196,6 +196,52 @@
         </div>
       </div>
 
+      <!-- E-Commerce -->
+      <div class="glass section">
+        <h2 style="margin-bottom:1.25rem;">🛒 E-Commerce</h2>
+        <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.25rem;">
+          Configure your shop currency, checkout experience, and order notification preferences.
+        </p>
+        <div class="form-group">
+          <label>Currency Code <small style="color:var(--text-muted)">(e.g. EUR, USD, GBP)</small></label>
+          <input v-model="form.shop_currency" class="input" placeholder="EUR" style="max-width:120px;" />
+        </div>
+        <div class="form-group">
+          <label>Currency Symbol <small style="color:var(--text-muted)">(e.g. €, $, £)</small></label>
+          <input v-model="form.shop_currency_symbol" class="input" placeholder="€" style="max-width:80px;" />
+        </div>
+        <div class="form-group">
+          <label>Checkout Intro Text</label>
+          <textarea v-model="form.shop_checkout_intro" class="input textarea" rows="2"
+            placeholder="Complete your order below." />
+        </div>
+        <div class="form-group">
+          <label>Thank-You Message <small style="color:var(--text-muted)">(shown on order confirmation)</small></label>
+          <textarea v-model="form.shop_thankyou_message" class="input textarea" rows="2"
+            placeholder="Thank you for your order! We'll be in touch shortly." />
+        </div>
+        <div class="form-group">
+          <label>Order Confirmation Email Subject <small style="color:var(--text-muted)">(use <code style="background:rgba(255,255,255,0.08);padding:0.1em 0.3em;border-radius:3px">#{order_number}</code>)</small></label>
+          <input v-model="form.order_confirmation_subject" class="input"
+            placeholder="Your order has been received — #{order_number}" />
+        </div>
+        <div class="form-group">
+          <label>Order Status Update Email Subject <small style="color:var(--text-muted)">(use <code style="background:rgba(255,255,255,0.08);padding:0.1em 0.3em;border-radius:3px">#{order_number}</code>)</small></label>
+          <input v-model="form.order_status_subject" class="input"
+            placeholder="Order #{order_number} status update" />
+        </div>
+        <div class="notify-toggles" style="margin-top:0.5rem;">
+          <label class="toggle-label">
+            <input type="checkbox" v-model="notifyNewOrder" />
+            <span>Email admin on new order</span>
+          </label>
+          <label class="toggle-label">
+            <input type="checkbox" v-model="notifyOrderStatus" />
+            <span>Email customer on status change</span>
+          </label>
+        </div>
+      </div>
+
       <!-- Maintenance Mode -->
       <div class="glass section">
         <h2 style="margin-bottom:1.25rem;">🚧 Maintenance Mode</h2>
@@ -372,6 +418,15 @@ const form = ref({
   footer_scripts: '',
   // robots.txt
   robots_txt: 'User-agent: *\nAllow: /',
+  // e-commerce
+  shop_currency: 'EUR',
+  shop_currency_symbol: '€',
+  shop_checkout_intro: '',
+  shop_thankyou_message: '',
+  order_confirmation_subject: '',
+  order_status_subject: '',
+  notify_new_order: '1',
+  notify_order_status: '1',
 })
 
 // Checkbox helpers (settings stored as '1'/'0')
@@ -390,6 +445,14 @@ const newsletterEnabled = computed({
 const maintenanceMode = computed({
   get: () => form.value.maintenance_mode === '1',
   set: v => { form.value.maintenance_mode = v ? '1' : '0' }
+})
+const notifyNewOrder = computed({
+  get: () => form.value.notify_new_order === '1',
+  set: v => { form.value.notify_new_order = v ? '1' : '0' }
+})
+const notifyOrderStatus = computed({
+  get: () => form.value.notify_order_status === '1',
+  set: v => { form.value.notify_order_status = v ? '1' : '0' }
 })
 
 // ─── 2FA state ────────────────────────────────────────────────────────────────
