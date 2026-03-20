@@ -269,6 +269,29 @@ db.exec(`
     parent_id  INTEGER REFERENCES media_folders(id) ON DELETE SET NULL,
     created_at TEXT    NOT NULL DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS api_keys (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name            TEXT    NOT NULL,
+    key_hash        TEXT    UNIQUE NOT NULL,
+    key_prefix      TEXT    NOT NULL,
+    scopes          TEXT    NOT NULL DEFAULT '["read"]',
+    created_by      INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_by_name TEXT,
+    last_used_at    TEXT,
+    active          INTEGER NOT NULL DEFAULT 1,
+    created_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS content_locks (
+    entity_type  TEXT    NOT NULL,
+    entity_id    INTEGER NOT NULL,
+    user_id      INTEGER NOT NULL,
+    user_name    TEXT    NOT NULL,
+    locked_at    TEXT    NOT NULL DEFAULT (datetime('now')),
+    expires_at   TEXT    NOT NULL,
+    PRIMARY KEY(entity_type, entity_id)
+  );
 `)
 
 // ─── Migrations (safe ALTER TABLE if column not already present) ─────────────

@@ -12,6 +12,7 @@
       @close="showRevisions = false"
       @restore="applyRevision"
     />
+    <LockBanner v-if="!isNew" :conflict="lock.conflict.value" />
     <div class="page-header">
       <h1>{{ isNew ? 'New Post' : 'Edit Post' }}</h1>
       <div class="header-actions">
@@ -152,12 +153,15 @@ import RichEditor from '../components/RichEditor.vue'
 import MediaPickerModal from '../components/MediaPickerModal.vue'
 import RevisionsModal from '../components/RevisionsModal.vue'
 import SeoAnalyzer from '../components/SeoAnalyzer.vue'
+import LockBanner from '../components/LockBanner.vue'
+import { useContentLock } from '../composables/useContentLock.js'
 
 const route  = useRoute()
 const router = useRouter()
 const toast  = useToastStore()
 
 const isNew = computed(() => route.params.id === undefined)
+const lock  = useContentLock('post', computed(() => isNew.value ? null : route.params.id))
 const saving = ref(false)
 const showPicker = ref(false)
 const showRevisions = ref(false)

@@ -7,6 +7,7 @@
       @close="showPicker = false"
     />
 
+    <LockBanner v-if="!isNew" :conflict="lock.conflict.value" />
     <div class="page-header">
       <h1>{{ isNew ? 'New Product' : 'Edit Product' }}</h1>
       <div class="header-actions">
@@ -156,12 +157,15 @@ import api from '../api.js'
 import { useToastStore } from '../stores/toast.js'
 import RichEditor from '../components/RichEditor.vue'
 import MediaPickerModal from '../components/MediaPickerModal.vue'
+import LockBanner from '../components/LockBanner.vue'
+import { useContentLock } from '../composables/useContentLock.js'
 
 const route  = useRoute()
 const router = useRouter()
 const toast  = useToastStore()
 
 const isNew    = computed(() => !route.params.id)
+const lock     = useContentLock('product', computed(() => isNew.value ? null : route.params.id))
 const saving   = ref(false)
 const showPicker  = ref(false)
 

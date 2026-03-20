@@ -4,6 +4,7 @@ import express from 'express'
 import cors from 'cors'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { rateLimit } from 'express-rate-limit'
 
 import authRoutes from './routes/auth.js'
 import pagesRoutes from './routes/pages.js'
@@ -30,6 +31,8 @@ import webhooksRoutes from './routes/webhooks.js'
 import notificationsRoutes from './routes/notifications.js'
 import eventsRoutes from './routes/events.js'
 import mediaFoldersRoutes from './routes/media_folders.js'
+import apiKeysRoutes from './routes/api_keys.js'
+import locksRoutes from './routes/locks.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -51,6 +54,50 @@ app.use(express.urlencoded({ extended: true }))
 
 // ─── Static files ─────────────────────────────────────────────────────────────
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')))
+
+// ─── Rate limiters (public-facing endpoints only) ─────────────────────────────
+const jsonError = (msg) => ({ message: msg, error: 'rate_limit_exceeded' })
+
+// Contact form: 5 submissions per hour per IP
+const contactLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, max: 5, standardHeaders: true, legacyHeaders: false,
+  message: jsonError('Too many contact submissions. Please wait before trying again.'),
+  skip: (req) => !!req.headers.authorization, // allow admins through
+})
+
+// Newsletter subscribe: 3 per hour per IP
+const subscribeLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, max: 3, standardHeaders: true, legacyHeaders: false,
+  message: jsonError('Too many subscribe attempts. Please wait.'),
+  skip: (req) => !!req.headers.authorization,
+})
+
+// Comments: 10 per hour per IP
+const commentLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false,
+  message: jsonError('Too many comment submissions. Please wait.'),
+  skip: (req) => !!req.headers.authorization,
+})
+
+// Search: 60 per minute per IP (generous, it's GETs)
+const searchLimiter = rateLimit({
+  windowMs: 60 * 1000, max: 60, standardHeaders: true, legacyHeaders: false,
+  message: jsonError('Search rate limit exceeded. Slow down.'),
+  skip: (req) => !!req.headers.authorization,
+})
+
+// Form submissions: 5 per hour per IP
+const formSubmitLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, max: 5, standardHeaders: true, legacyHeaders: false,
+  message: jsonError('Too many form submissions. Please wait.'),
+  skip: (req) => !!req.headers.authorization,
+})
+
+// Auth (login): 20 per 15 minutes per IP — brute force protection
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, max: 20, standardHeaders: true, legacyHeaders: false,
+  message: jsonError('Too many login attempts. Please try again later.'),
+})
 
 // ─── Maintenance mode middleware ───────────────────────────────────────────────
 // Auth endpoints are always allowed (so admin can still log in and toggle it off).
@@ -83,30 +130,33 @@ app.use((req, res, next) => {
 })
 
 // ─── API Routes ───────────────────────────────────────────────────────────────
-app.use('/api/auth', authRoutes)
+app.use('/api/auth', authLimiter, authRoutes)
 app.use('/api/pages', pagesRoutes)
 app.use('/api/posts', postsRoutes)
 app.use('/api/media', mediaRoutes)
 app.use('/api/navigation', navigationRoutes)
 app.use('/api/settings', settingsRoutes)
 app.use('/api/dashboard', dashboardRoutes)
-app.use('/api/comments', commentsRoutes)
-app.use('/api/search', searchRoutes)
+app.use('/api/comments', commentLimiter, commentsRoutes)
+app.use('/api/search', searchLimiter, searchRoutes)
 app.use('/api/products', productsRoutes)
 app.use('/api/users', usersRoutes)
-app.use('/api/contact', contactRoutes)
+app.use('/api/contact', contactLimiter, contactRoutes)
 app.use('/api/analytics', analyticsRoutes)
 app.use('/api/activity', activityRoutes)
 app.use('/api/redirects', redirectsRoutes)
+app.use('/api/newsletter/subscribe', subscribeLimiter)
 app.use('/api/newsletter', newsletterRoutes)
 app.use('/api/backup', backupRoutes)
 app.use('/api/revisions', revisionsRoutes)
 app.use('/api/tags', tagsRoutes)
-app.use('/api/forms', formsRoutes)
+app.use('/api/forms', formSubmitLimiter, formsRoutes)
 app.use('/api/webhooks', webhooksRoutes)
 app.use('/api/notifications', notificationsRoutes)
 app.use('/api/events', eventsRoutes)
 app.use('/api/media-folders', mediaFoldersRoutes)
+app.use('/api/api-keys', apiKeysRoutes)
+app.use('/api/locks', locksRoutes)
 
 // ─── SEO (public) ─────────────────────────────────────────────────────────────
 app.use('/', seoRoutes)

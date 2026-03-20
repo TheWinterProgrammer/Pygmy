@@ -48,6 +48,8 @@ backend/
       dashboard.js  ← GET /api/dashboard/stats
       analytics.js  ← POST /api/analytics/view, GET summary/daily/top
       webhooks.js   ← CRUD /api/webhooks + test delivery + fireWebhooks() helper
+      api_keys.js   ← CRUD /api/api-keys + rotate; SHA-256 hashed storage
+      locks.js      ← content locking GET/POST/DELETE /api/locks
 
 admin/              ← wp-admin equivalent (port 5173)
   views/
@@ -67,6 +69,7 @@ admin/              ← wp-admin equivalent (port 5173)
     FormEditView.vue    ← field builder (10 field types, reorder, options)
     FormSubmissionsView.vue ← submissions inbox with CSV export
     WebhooksView.vue    ← webhook manager (CRUD, test delivery, event selection)
+    ApiKeysView.vue     ← API key manager (create/revoke/rotate, one-time reveal)
     EventsView.vue      ← events list (filter by status/upcoming/past)
     EventEditView.vue   ← event editor (TipTap, media picker, dates, location, SEO)
     SettingsView.vue
@@ -110,6 +113,11 @@ frontend/           ← public website (port 5174)
 - Post detail with cover image, tags, SEO meta + OG tags
 - Dynamic CMS page renderer
 - Loading skeletons + 404 states
+
+### Phase 16 — Rate Limiting + API Keys + Content Locking ✅
+- **Rate Limiting** — `express-rate-limit` added as a dependency; six purpose-built limiters applied to all public-facing mutation endpoints: auth/login (20/15 min, brute-force protection), contact form (5/hour), newsletter subscribe (3/hour), comments (10/hour), search (60/min), custom form submissions (5/hour); all limiters emit `RateLimit-*` standard headers (RFC 6585) and return structured JSON `{ error, message }` on 429; admin/API-key traffic bypasses public limits via `Authorization` header skip predicate
+- **API Keys** — `api_keys` SQLite table (id, name, key_hash SHA-256, key_prefix for display, scopes JSON, created_by, last_used_at, active, created_at); full REST API at `GET/POST/PUT/DELETE /api/api-keys` + `POST /api/api-keys/:id/rotate`; two scopes: `read` (GET-only) and `write` (all methods); auth middleware updated to accept `X-Api-Key` header as an alternative to JWT Bearer — looks up + verifies hash, updates `last_used_at`, enforces scope per HTTP method; raw key shown **once** at creation (like GitHub PATs) — stored only as SHA-256 hash; key rotation generates a new raw key and invalidates the old one in one step; admin `ApiKeysView.vue` — table with prefix, scopes, last-used, active status pill; create modal with name + scope checkboxes; one-time reveal modal with click-to-copy; revoke toggle; rotate confirm modal; delete confirm; 🔑 API Keys sidebar entry; usage docs section (header syntax, scope definitions, rate limit note, security note)
+- **Content Locking** — `content_locks` SQLite table (entity_type + entity_id composite PK, user_id, user_name, locked_at, expires_at); `GET/POST/DELETE /api/locks` REST API: `POST` acquires or refreshes a lock (5-minute TTL), returns `{ ok, conflict }` — if another user holds it, conflict includes their name + timestamp; `GET /:type/:id` checks current lock status; `DELETE /:type/:id` releases a lock (owner or admin only); stale locks are purged lazily on every request; `useContentLock.js` Vue composable — acquires lock on mount, refreshes every 4 minutes, releases on unmount (route-leave); `LockBanner.vue` component — amber glass banner showing "🔒 UserName is currently editing this content · since HH:MM"; banner wired into `PostEditView`, `PageEditView`, and `ProductEditView` for all existing-record edits
 
 ### Phase 15 — Events Calendar + Media Folders ✅
 - **Events system** — full event content type: `events` SQLite table with title, slug, excerpt, TipTap description, cover image, start/end date, all-day toggle, location, venue, ticket URL, tags, status (draft/published), featured flag, SEO meta; `GET/POST/PUT/DELETE /api/events`; public `GET /api/events/upcoming` convenience endpoint; events integrated into sitemap.xml, search API, backup export/import, dashboard stats, webhook event types (`event.created/updated/published/deleted`), activity log, and analytics page-view tracking
@@ -422,6 +430,23 @@ Font: **Poppins** via Google Fonts
 | PUT | `/api/media-folders/:id` | ✓ | Rename folder `{name}` |
 | DELETE | `/api/media-folders/:id` | ✓ | Delete folder (media moved to root) |
 | POST | `/api/media-folders/move-media` | ✓ | Move items `{media_ids[], folder_id}` |
+
+### API Keys (admin only)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/api-keys` | admin | List all API keys (no raw key in response) |
+| POST | `/api/api-keys` | admin | Create key `{name, scopes[]}` → returns raw key once |
+| PUT | `/api/api-keys/:id` | admin | Update name/scopes/active |
+| POST | `/api/api-keys/:id/rotate` | admin | Generate new raw key, invalidate old |
+| DELETE | `/api/api-keys/:id` | admin | Delete key permanently |
+
+### Content Locks
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/locks` | ✓ | List all active locks |
+| GET | `/api/locks/:type/:id` | ✓ | Check if entity is locked by someone else |
+| POST | `/api/locks` | ✓ | Acquire/refresh lock `{entity_type, entity_id}` |
+| DELETE | `/api/locks/:type/:id` | ✓ | Release a lock |
 
 ### SEO (public)
 | Method | Path | Description |
