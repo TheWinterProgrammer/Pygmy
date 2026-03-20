@@ -114,6 +114,20 @@ frontend/           ← public website (port 5174)
 - Dynamic CMS page renderer
 - Loading skeletons + 404 states
 
+### Phase 17 — Shopping Cart + Orders (E-commerce Checkout) ✅
+- **Cart store** — Pinia store (`stores/cart.js`) with full localStorage persistence; `addItem`, `removeItem`, `updateQuantity`, `clear`; reactive `count` + `subtotal` computed; `isOpen` drawer state
+- **CartDrawer** — slide-in drawer with glass morphism styling; per-item quantity stepper; remove button; subtotal + Checkout CTA; animated backdrop + panel transitions; empty state with shop link
+- **Cart icon in SiteNav** — 🛒 button with live badge showing item count; opens/closes CartDrawer
+- **Add to Cart on ProductView** — quantity selector (−/+, number input) + "Add to Cart" button; opens drawer on add; 2-second "✓ Added!" flash feedback
+- **Quick-Add on ProductsView** — 🛒 button on every product card; green flash on add; does not navigate away
+- **CheckoutView** (`/checkout`) — two-column layout (form + sticky order summary); customer name + email (validated) + phone + shipping address + notes; order summary panel with item thumbnails, qty, line totals, subtotal; calls `POST /api/orders` with server-side price validation; redirects to confirmation on success
+- **OrderConfirmView** (`/order/:orderNumber`) — glassmorphism thank-you card; shows order number, items list, total, customizable thank-you message from CMS Settings; continue shopping CTA
+- **Backend orders API** — `orders` SQLite table; `POST /api/orders` validates every item price against DB (fraud guard), generates `ORD-YYMMDD-XXXX` order number; `GET /api/orders` (admin, filterable by status/search); `GET /api/orders/:id` (admin); `GET /api/orders/confirm/:orderNumber` (public, limited fields); `PUT /api/orders/:id` (status + notes); `DELETE /api/orders/:id`; `GET /api/orders/stats/summary` (totals + revenue); rate-limited at 10 checkout attempts/hour
+- **Admin Orders panel** — stats strip (total/pending/processing/completed); searchable + status-filtered table; click-row order detail modal (customer info grid, items table with thumbnails, status update dropdown, notes textarea, delete confirm); revenue display
+- **Dashboard integration** — Orders stat card (highlights red when pending orders exist); Orders quick-action button; `orders.total/pending/revenue` in `/api/dashboard/stats`
+- **Webhooks** — `order.created` and `order.status_changed` events registered
+- **E-commerce settings** — `shop_currency`, `shop_currency_symbol`, `shop_checkout_intro`, `shop_thankyou_message`, `notify_new_order` seeded in default settings
+
 ### Phase 16 — Rate Limiting + API Keys + Content Locking ✅
 - **Rate Limiting** — `express-rate-limit` added as a dependency; six purpose-built limiters applied to all public-facing mutation endpoints: auth/login (20/15 min, brute-force protection), contact form (5/hour), newsletter subscribe (3/hour), comments (10/hour), search (60/min), custom form submissions (5/hour); all limiters emit `RateLimit-*` standard headers (RFC 6585) and return structured JSON `{ error, message }` on 429; admin/API-key traffic bypasses public limits via `Authorization` header skip predicate
 - **API Keys** — `api_keys` SQLite table (id, name, key_hash SHA-256, key_prefix for display, scopes JSON, created_by, last_used_at, active, created_at); full REST API at `GET/POST/PUT/DELETE /api/api-keys` + `POST /api/api-keys/:id/rotate`; two scopes: `read` (GET-only) and `write` (all methods); auth middleware updated to accept `X-Api-Key` header as an alternative to JWT Bearer — looks up + verifies hash, updates `last_used_at`, enforces scope per HTTP method; raw key shown **once** at creation (like GitHub PATs) — stored only as SHA-256 hash; key rotation generates a new raw key and invalidates the old one in one step; admin `ApiKeysView.vue` — table with prefix, scopes, last-used, active status pill; create modal with name + scope checkboxes; one-time reveal modal with click-to-copy; revoke toggle; rotate confirm modal; delete confirm; 🔑 API Keys sidebar entry; usage docs section (header syntax, scope definitions, rate limit note, security note)
@@ -447,6 +461,17 @@ Font: **Poppins** via Google Fonts
 | GET | `/api/locks/:type/:id` | ✓ | Check if entity is locked by someone else |
 | POST | `/api/locks` | ✓ | Acquire/refresh lock `{entity_type, entity_id}` |
 | DELETE | `/api/locks/:type/:id` | ✓ | Release a lock |
+
+### Orders
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/api/orders` | — | Place order (checkout, validates prices server-side) |
+| GET  | `/api/orders` | ✓ | List orders (`?status=`, `?q=`, `?limit=`, `?offset=`) |
+| GET  | `/api/orders/stats/summary` | ✓ | Revenue + status counts |
+| GET  | `/api/orders/:id` | ✓ | Single order detail (admin) |
+| GET  | `/api/orders/confirm/:orderNumber` | — | Public order confirmation (limited fields) |
+| PUT  | `/api/orders/:id` | ✓ | Update status / notes |
+| DELETE | `/api/orders/:id` | ✓ | Delete order |
 
 ### SEO (public)
 | Method | Path | Description |
