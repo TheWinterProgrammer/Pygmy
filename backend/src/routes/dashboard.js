@@ -51,6 +51,14 @@ router.get('/stats', authMiddleware, (req, res) => {
   const totalWebhooks = db.prepare('SELECT COUNT(*) as count FROM webhooks').get().count
   const activeWebhooks = db.prepare('SELECT COUNT(*) as count FROM webhooks WHERE active = 1').get().count
 
+  // Events
+  const totalEvents = db.prepare('SELECT COUNT(*) as count FROM events').get().count
+  const publishedEvents = db.prepare("SELECT COUNT(*) as count FROM events WHERE status='published'").get().count
+  const upcomingEvents = db.prepare(`SELECT COUNT(*) as count FROM events WHERE status='published' AND start_date >= datetime('now')`).get().count
+
+  // Media folders
+  const totalFolders = db.prepare('SELECT COUNT(*) as count FROM media_folders').get().count
+
   // Recent activity
   const recentActivity = db.prepare(`
     SELECT * FROM activity_log ORDER BY created_at DESC LIMIT 10
@@ -70,6 +78,8 @@ router.get('/stats', authMiddleware, (req, res) => {
     newsletter: { total: totalSubscribers, active: activeSubscribers },
     forms: { total: totalForms, active: activeForms, unread: unreadFormSubs },
     webhooks: { total: totalWebhooks, active: activeWebhooks },
+    events: { total: totalEvents, published: publishedEvents, upcoming: upcomingEvents },
+    media_folders: { total: totalFolders },
     recentPosts,
     recentActivity
   })

@@ -67,6 +67,8 @@ admin/              ← wp-admin equivalent (port 5173)
     FormEditView.vue    ← field builder (10 field types, reorder, options)
     FormSubmissionsView.vue ← submissions inbox with CSV export
     WebhooksView.vue    ← webhook manager (CRUD, test delivery, event selection)
+    EventsView.vue      ← events list (filter by status/upcoming/past)
+    EventEditView.vue   ← event editor (TipTap, media picker, dates, location, SEO)
     SettingsView.vue
 
 frontend/           ← public website (port 5174)
@@ -80,7 +82,9 @@ frontend/           ← public website (port 5174)
     PageView.vue    ← dynamic CMS pages
     ProductsView.vue ← /shop listing with filters + pagination
     ProductView.vue  ← /shop/:slug detail with gallery + pricing
-    SearchView.vue  ← full-text search (posts + pages + products)
+    SearchView.vue  ← full-text search (posts + pages + products + events)
+    EventsView.vue  ← /events listing with Upcoming/Past/All tabs
+    EventView.vue   ← /events/:slug detail with date, location, ticket, SEO
 ```
 
 ## Features
@@ -106,6 +110,13 @@ frontend/           ← public website (port 5174)
 - Post detail with cover image, tags, SEO meta + OG tags
 - Dynamic CMS page renderer
 - Loading skeletons + 404 states
+
+### Phase 15 — Events Calendar + Media Folders ✅
+- **Events system** — full event content type: `events` SQLite table with title, slug, excerpt, TipTap description, cover image, start/end date, all-day toggle, location, venue, ticket URL, tags, status (draft/published), featured flag, SEO meta; `GET/POST/PUT/DELETE /api/events`; public `GET /api/events/upcoming` convenience endpoint; events integrated into sitemap.xml, search API, backup export/import, dashboard stats, webhook event types (`event.created/updated/published/deleted`), activity log, and analytics page-view tracking
+- **Admin Events panel** — `EventsView` with filterable table (search, status, upcoming/past time filter), status toggle, delete confirm modal; `EventEditView` two-column editor (TipTap description, cover image via MediaPickerModal, start/end datetime pickers, all-day toggle, location/venue/ticket URL, tag pills, featured checkbox, SEO fields); 📆 Events entry in admin sidebar; Events stat card + "New Event" quick-action button in Dashboard
+- **Public Events frontend** — `/events` listing page with Upcoming/Past/All tab filter, card grid with floating date badge (month/day), location, tags, and pagination; `/events/:slug` detail page with cover hero, date/time/location/ticket info cards, full TipTap rendered content, tags, social share buttons (X, LinkedIn, copy-link), SEO meta + OG tags via `useHead()`; Upcoming Events widget on homepage homepage (up to 3 events as a compact card row with date badge); Events included in `/search` results with 📆 label and start date/location; Events listed in sitemap
+- **Media Folders** — new `media_folders` SQLite table (id, name, slug, parent_id, created_at); `folder_id` migration column added to `media` table; REST API at `GET/POST/PUT/DELETE /api/media-folders` + `POST /api/media-folders/move-media` (batch move items); `GET /api/media` supports `?folder_id=` filter for scoped queries; upload accepts `folder_id` in form data; `MediaView` admin panel redesigned with a collapsible **folder sidebar** (All Media + named folders with item counts, + button to create, right-click context menu to rename/delete), media items filtered by active folder, drag-and-drop move via detail panel folder selector; folders stat in dashboard
+- **`@vueuse/head` bootstrap fix** — `createHead()` now properly installed in `frontend/src/main.js` so all `useHead()` composable calls (ProductView, EventView, EventsView) correctly update `<head>` meta tags; EventsView + EventView migrated from invalid template `<useHead>` component syntax to the composable API
 
 ### Phase 14 — Two-Factor Authentication + Notification Center + Bulk Operations ✅
 - **Two-Factor Authentication (TOTP)** — `speakeasy` + `qrcode` libraries added; `totp_secret` + `totp_enabled` columns on `users` table; full API: `GET /api/auth/2fa/setup` generates a secret + QR code data URL, `POST /api/auth/2fa/enable` verifies the OTP and activates 2FA, `POST /api/auth/2fa/disable` deactivates (accepts current OTP or account password); login flow updated: if `totp_enabled` the backend returns HTTP 206 `{ requires_2fa: true }` after correct credentials; LoginView presents a second step with a large OTP input field and a back button; `SettingsView` → 🔑 Two-Factor Authentication section with QR code display + verification field + activate/disable flow; auth store `login()` accepts optional `otp` param
@@ -391,6 +402,26 @@ Font: **Poppins** via Google Fonts
 | POST | `/api/posts/bulk` | ✓ | `{ids[], action: publish\|unpublish\|delete}` |
 | POST | `/api/pages/bulk` | ✓ | `{ids[], action: publish\|unpublish\|delete}` |
 | POST | `/api/products/bulk` | ✓ | `{ids[], action: publish\|unpublish\|delete}` |
+
+### Events
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/events` | — | Published events (`?upcoming=1`, `?past=1`, `?tag=`, `?limit=`, `?offset=`) |
+| GET | `/api/events?all=1` | ✓ | All events (admin) |
+| GET | `/api/events/upcoming` | — | Up to N upcoming events (`?limit=3`) |
+| GET | `/api/events/:slug` | — | Single event by slug |
+| POST | `/api/events` | ✓ | Create event |
+| PUT | `/api/events/:id` | ✓ | Update event |
+| DELETE | `/api/events/:id` | ✓ | Delete event |
+
+### Media Folders
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/media-folders` | ✓ | List all folders with `media_count` |
+| POST | `/api/media-folders` | ✓ | Create folder `{name, parent_id?}` |
+| PUT | `/api/media-folders/:id` | ✓ | Rename folder `{name}` |
+| DELETE | `/api/media-folders/:id` | ✓ | Delete folder (media moved to root) |
+| POST | `/api/media-folders/move-media` | ✓ | Move items `{media_ids[], folder_id}` |
 
 ### SEO (public)
 | Method | Path | Description |

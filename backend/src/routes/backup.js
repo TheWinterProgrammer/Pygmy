@@ -47,6 +47,7 @@ router.get('/export', authMiddleware, (req, res) => {
       redirects:   db.prepare('SELECT * FROM redirects').all(),
       custom_forms: db.prepare('SELECT * FROM custom_forms').all(),
       webhooks:     db.prepare('SELECT id, name, url, events, active, created_at FROM webhooks').all(),
+      events:       db.prepare('SELECT * FROM events').all(),
     }
   }
 
@@ -123,6 +124,7 @@ router.get('/stats', authMiddleware, (req, res) => {
     media:       db.prepare('SELECT COUNT(*) as n FROM media').get().n,
     subscribers: db.prepare('SELECT COUNT(*) as n FROM subscribers').get().n,
     redirects:   db.prepare('SELECT COUNT(*) as n FROM redirects').get().n,
+    events:      db.prepare('SELECT COUNT(*) as n FROM events').get().n,
   })
 })
 
@@ -291,6 +293,33 @@ router.post('/import', authMiddleware, (req, res) => {
         } catch (e) { report.errors.push(`subscriber "${s.email}": ${e.message}`) }
       }
       report.imported.subscribers = n
+    }
+
+    // ── Events ────────────────────────────────────────────────────────────────
+    if (Array.isArray(data.events)) {
+      if (mode === 'replace') db.prepare('DELETE FROM events').run()
+      let n = 0
+      for (const e of data.events) {
+        try {
+          db.prepare(`
+            INSERT OR REPLACE INTO events
+              (id, title, slug, excerpt, description, cover_image, start_date, end_date,
+               all_day, location, venue, ticket_url, tags, status, featured,
+               meta_title, meta_desc, created_at, updated_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+          `).run(
+            e.id, e.title, e.slug, e.excerpt || '', e.description || '',
+            e.cover_image || null, e.start_date, e.end_date || null,
+            e.all_day ? 1 : 0, e.location || '', e.venue || '', e.ticket_url || '',
+            e.tags || '[]', e.status || 'draft', e.featured ? 1 : 0,
+            e.meta_title || null, e.meta_desc || null,
+            e.created_at || new Date().toISOString(),
+            e.updated_at || new Date().toISOString()
+          )
+          n++
+        } catch (err) { report.errors.push(`event "${e.slug}": ${err.message}`) }
+      }
+      report.imported.events = n
     }
 
     // ── Redirects ─────────────────────────────────────────────────────────────

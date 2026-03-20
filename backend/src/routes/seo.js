@@ -27,6 +27,7 @@ router.get('/sitemap.xml', (req, res) => {
   const pages = db.prepare("SELECT slug, updated_at FROM pages WHERE status = 'published' ORDER BY sort_order ASC").all()
   const posts = db.prepare("SELECT slug, published_at, updated_at FROM posts WHERE status = 'published' ORDER BY published_at DESC").all()
   const products = db.prepare("SELECT slug, updated_at FROM products WHERE status = 'published' ORDER BY created_at DESC").all()
+  const events = db.prepare("SELECT slug, start_date, updated_at FROM events WHERE status = 'published' ORDER BY start_date ASC").all()
 
   const urls = []
 
@@ -88,6 +89,28 @@ router.get('/sitemap.xml', (req, res) => {
     urls.push(`
   <url>
     <loc>${escapeXml(siteUrl)}/shop/${escapeXml(product.slug)}</loc>
+    ${lastmod ? `<lastmod>${lastmod}</lastmod>` : ''}
+    <changefreq>weekly</changefreq>
+    <priority>0.65</priority>
+  </url>`)
+  }
+
+  // Events listing
+  if (events.length > 0) {
+    urls.push(`
+  <url>
+    <loc>${escapeXml(siteUrl)}/events</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>`)
+  }
+
+  // Individual events
+  for (const ev of events) {
+    const lastmod = (ev.updated_at || ev.start_date || '').split('T')[0]
+    urls.push(`
+  <url>
+    <loc>${escapeXml(siteUrl)}/events/${escapeXml(ev.slug)}</loc>
     ${lastmod ? `<lastmod>${lastmod}</lastmod>` : ''}
     <changefreq>weekly</changefreq>
     <priority>0.65</priority>

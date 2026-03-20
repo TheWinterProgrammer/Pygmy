@@ -28,6 +28,8 @@ import tagsRoutes from './routes/tags.js'
 import formsRoutes from './routes/forms.js'
 import webhooksRoutes from './routes/webhooks.js'
 import notificationsRoutes from './routes/notifications.js'
+import eventsRoutes from './routes/events.js'
+import mediaFoldersRoutes from './routes/media_folders.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -103,6 +105,8 @@ app.use('/api/tags', tagsRoutes)
 app.use('/api/forms', formsRoutes)
 app.use('/api/webhooks', webhooksRoutes)
 app.use('/api/notifications', notificationsRoutes)
+app.use('/api/events', eventsRoutes)
+app.use('/api/media-folders', mediaFoldersRoutes)
 
 // ─── SEO (public) ─────────────────────────────────────────────────────────────
 app.use('/', seoRoutes)

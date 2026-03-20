@@ -57,7 +57,19 @@ router.get('/', (req, res) => {
     LIMIT ?
   `).all(pattern, pattern, pattern, pattern, limit)
 
-  res.json({ posts, pages, products, query: q })
+  // Search events (published only)
+  const events = db.prepare(`
+    SELECT id, title, slug, excerpt, cover_image, start_date, end_date, location, venue
+    FROM events
+    WHERE status = 'published'
+      AND (title LIKE ? OR excerpt LIKE ? OR description LIKE ? OR location LIKE ?)
+    ORDER BY
+      CASE WHEN title LIKE ? THEN 0 ELSE 1 END,
+      start_date ASC
+    LIMIT ?
+  `).all(pattern, pattern, pattern, pattern, pattern, limit)
+
+  res.json({ posts, pages, products, events, query: q })
 })
 
 export default router

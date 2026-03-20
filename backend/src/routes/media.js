@@ -38,11 +38,23 @@ const upload = multer({
 
 const router = Router()
 
-// GET /api/media
+// GET /api/media — supports ?folder_id=<id|null>
 router.get('/', (req, res) => {
-  const { limit = 50, offset = 0 } = req.query
-  const rows = db.prepare('SELECT * FROM media ORDER BY created_at DESC LIMIT ? OFFSET ?').all(Number(limit), Number(offset))
-  const { total } = db.prepare('SELECT COUNT(*) as total FROM media').get()
+  const { limit = 50, offset = 0, folder_id } = req.query
+  let rows, total
+
+  if (folder_id === 'null' || folder_id === '0') {
+    // Root (no folder)
+    rows = db.prepare('SELECT * FROM media WHERE folder_id IS NULL ORDER BY created_at DESC LIMIT ? OFFSET ?').all(Number(limit), Number(offset))
+    total = db.prepare('SELECT COUNT(*) as total FROM media WHERE folder_id IS NULL').get().total
+  } else if (folder_id) {
+    rows = db.prepare('SELECT * FROM media WHERE folder_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?').all(Number(folder_id), Number(limit), Number(offset))
+    total = db.prepare('SELECT COUNT(*) as total FROM media WHERE folder_id = ?').get(Number(folder_id)).total
+  } else {
+    rows = db.prepare('SELECT * FROM media ORDER BY created_at DESC LIMIT ? OFFSET ?').all(Number(limit), Number(offset))
+    total = db.prepare('SELECT COUNT(*) as total FROM media').get().total
+  }
+
   res.json({ media: rows, total })
 })
 
@@ -95,22 +107,28 @@ router.post('/', authMiddleware, upload.single('file'), async (req, res) => {
   }
 
   const url = `/uploads/media/${finalFilename}`
+  const folderId = req.body.folder_id ? parseInt(req.body.folder_id) : null
   const info = db.prepare(`
-    INSERT INTO media (filename, original, mime_type, size, width, height, alt, url)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(finalFilename, file.originalname, finalMime, finalSize, width, height, '', url)
+    INSERT INTO media (filename, original, mime_type, size, width, height, alt, url, folder_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(finalFilename, file.originalname, finalMime, finalSize, width, height, '', url, folderId)
 
   const media = db.prepare('SELECT * FROM media WHERE id = ?').get(info.lastInsertRowid)
   logActivity(req.user?.id, req.user?.name, 'uploaded media', 'media', media.id, file.originalname)
   res.status(201).json(media)
 })
 
-// PUT /api/media/:id — update alt text (auth)
+// PUT /api/media/:id — update alt text and/or folder_id (auth)
 router.put('/:id', authMiddleware, (req, res) => {
   const media = db.prepare('SELECT * FROM media WHERE id = ?').get(req.params.id)
   if (!media) return res.status(404).json({ error: 'Not found' })
 
-  db.prepare('UPDATE media SET alt = ? WHERE id = ?').run(req.body.alt || '', media.id)
+  const alt = req.body.alt !== undefined ? req.body.alt : media.alt
+  const folder_id = req.body.folder_id !== undefined
+    ? (req.body.folder_id === null || req.body.folder_id === '' ? null : parseInt(req.body.folder_id))
+    : media.folder_id
+
+  db.prepare('UPDATE media SET alt = ?, folder_id = ? WHERE id = ?').run(alt, folder_id, media.id)
   res.json(db.prepare('SELECT * FROM media WHERE id = ?').get(media.id))
 })
 

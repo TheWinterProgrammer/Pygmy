@@ -115,6 +115,17 @@
           </div>
         </div>
       </div>
+      <div class="stat-card glass">
+        <div class="stat-icon">📆</div>
+        <div class="stat-body">
+          <div class="stat-num">{{ stats.events?.total ?? 0 }}</div>
+          <div class="stat-label">
+            Events
+            <span v-if="(stats.events?.upcoming ?? 0) > 0" class="badge badge-published">{{ stats.events.upcoming }} upcoming</span>
+            <RouterLink to="/events" class="stat-link">→ Events</RouterLink>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="section glass" v-if="stats?.recentPosts?.length">
@@ -161,6 +172,7 @@
       <RouterLink to="/redirects" class="btn btn-ghost">🔀 Redirects</RouterLink>
       <RouterLink to="/newsletter" class="btn btn-ghost">📨 Newsletter</RouterLink>
       <RouterLink to="/forms" class="btn btn-ghost">📋 Forms</RouterLink>
+      <RouterLink to="/events/new" class="btn btn-ghost">📆 New Event</RouterLink>
       <RouterLink to="/webhooks" class="btn btn-ghost">🔗 Webhooks</RouterLink>
       <RouterLink to="/backup" class="btn btn-ghost">🗄️ Backup</RouterLink>
     </div>

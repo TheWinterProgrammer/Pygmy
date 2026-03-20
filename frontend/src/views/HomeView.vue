@@ -50,8 +50,36 @@
     </div>
   </section>
 
+  <!-- ───── Upcoming Events ───── -->
+  <section class="events-section container" v-if="upcomingEvents.length">
+    <h2 class="section-title">Upcoming Events</h2>
+    <div class="events-row">
+      <RouterLink
+        v-for="ev in upcomingEvents"
+        :key="ev.id"
+        :to="`/events/${ev.slug}`"
+        class="event-card glass"
+      >
+        <div class="event-date-badge">
+          <span class="em">{{ formatMonth(ev.start_date) }}</span>
+          <span class="ed">{{ formatDay(ev.start_date) }}</span>
+        </div>
+        <div class="event-info">
+          <div class="event-title">{{ ev.title }}</div>
+          <div class="event-loc" v-if="ev.location || ev.venue">
+            📍 {{ ev.venue || ev.location }}
+          </div>
+        </div>
+        <span class="event-arrow">→</span>
+      </RouterLink>
+    </div>
+    <div class="view-all">
+      <RouterLink to="/events" class="btn btn-outline">All Events</RouterLink>
+    </div>
+  </section>
+
   <!-- ───── Empty state ───── -->
-  <section class="empty-section container" v-else-if="loaded">
+  <section class="empty-section container" v-else-if="loaded && !posts.length">
     <div class="empty-glass glass">
       <p>No posts yet. Check back soon!</p>
     </div>
@@ -68,6 +96,7 @@ const posts = ref([])
 const total = ref(0)
 const loaded = ref(false)
 const scrolled = ref(false)
+const upcomingEvents = ref([])
 
 const heroBg = computed(() => {
   const url = site.settings.hero_bg_url
@@ -85,6 +114,13 @@ onMounted(async () => {
     posts.value = data.posts
     total.value = data.total
   } catch {}
+  try {
+    const { data } = await api.get('/events/upcoming?limit=3')
+    upcomingEvents.value = (data || []).map(e => ({
+      ...e,
+      tags: typeof e.tags === 'string' ? JSON.parse(e.tags) : (e.tags || [])
+    }))
+  } catch {}
   loaded.value = true
   window.addEventListener('scroll', onScroll, { passive: true })
   // Update SEO
@@ -100,6 +136,12 @@ function onScroll() {
 function formatDate(iso) {
   if (!iso) return ''
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+function formatMonth(d) {
+  return new Date(d).toLocaleDateString('en-US', { month: 'short' }).toUpperCase()
+}
+function formatDay(d) {
+  return new Date(d).getDate()
 }
 </script>
 
@@ -284,6 +326,36 @@ function formatDate(iso) {
 }
 
 .view-all { text-align: center; }
+
+/* ─── Events widget ─── */
+.events-section { padding: 4rem 1.5rem 2rem; }
+.events-row { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem; }
+.event-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  color: var(--text);
+  transition: all 0.2s;
+}
+.event-card:hover { transform: translateX(4px); border-color: var(--accent); }
+.event-date-badge {
+  background: var(--accent);
+  color: #fff;
+  border-radius: 0.4rem;
+  padding: 0.3rem 0.6rem;
+  text-align: center;
+  min-width: 48px;
+  flex-shrink: 0;
+}
+.em { display: block; font-size: 0.58rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+.ed { display: block; font-size: 1.25rem; font-weight: 800; line-height: 1; }
+.event-info { flex: 1; }
+.event-title { font-weight: 600; font-size: 0.95rem; }
+.event-loc { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem; }
+.event-arrow { color: var(--text-muted); font-size: 1rem; }
 
 /* ─── Empty ─── */
 .empty-section { padding: 6rem 1.5rem; }

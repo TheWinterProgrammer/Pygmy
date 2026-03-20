@@ -92,6 +92,7 @@ const navItems = [
   { to: '/pages',      icon: '📄', label: 'Pages' },
   { to: '/posts',      icon: '✍️',  label: 'Posts' },
   { to: '/products',   icon: '🛍️',  label: 'Products' },
+  { to: '/events',     icon: '📆',  label: 'Events' },
   { to: '/media',      icon: '🖼️',  label: 'Media' },
   { to: '/navigation', icon: '🧭', label: 'Navigation' },
   { to: '/comments',   icon: '💬', label: 'Comments' },

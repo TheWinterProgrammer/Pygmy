@@ -31,6 +31,14 @@ const routes = [
     component: () => import('../views/FormView.vue')
   },
   {
+    path: '/events',
+    component: () => import('../views/EventsView.vue')
+  },
+  {
+    path: '/events/:slug',
+    component: () => import('../views/EventView.vue')
+  },
+  {
     path: '/blog/:slug',
     component: () => import('../views/PostView.vue')
   },

@@ -100,6 +100,10 @@ router.get('/events', authMiddleware, (req, res) => {
     { value: 'form.submitted',     label: 'Form submitted' },
     { value: 'subscriber.new',     label: 'New newsletter subscriber' },
     { value: 'media.uploaded',     label: 'Media uploaded' },
+    { value: 'event.created',      label: 'Event created' },
+    { value: 'event.updated',      label: 'Event updated' },
+    { value: 'event.published',    label: 'Event published' },
+    { value: 'event.deleted',      label: 'Event deleted' },
   ])
 })
 

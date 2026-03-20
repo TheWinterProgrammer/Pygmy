@@ -237,9 +237,41 @@ db.exec(`
     last_error         TEXT,
     created_at         TEXT    NOT NULL DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS events (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    title        TEXT    NOT NULL,
+    slug         TEXT    UNIQUE NOT NULL,
+    excerpt      TEXT    NOT NULL DEFAULT '',
+    description  TEXT    NOT NULL DEFAULT '',
+    cover_image  TEXT,
+    start_date   TEXT    NOT NULL,
+    end_date     TEXT,
+    all_day      INTEGER NOT NULL DEFAULT 0,
+    location     TEXT    NOT NULL DEFAULT '',
+    venue        TEXT    NOT NULL DEFAULT '',
+    ticket_url   TEXT    NOT NULL DEFAULT '',
+    tags         TEXT    NOT NULL DEFAULT '[]',
+    status       TEXT    NOT NULL DEFAULT 'draft',
+    featured     INTEGER NOT NULL DEFAULT 0,
+    meta_title   TEXT,
+    meta_desc    TEXT,
+    created_at   TEXT    NOT NULL DEFAULT (datetime('now')),
+    updated_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_events_start ON events(start_date ASC);
+
+  CREATE TABLE IF NOT EXISTS media_folders (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT    NOT NULL,
+    slug       TEXT    UNIQUE NOT NULL,
+    parent_id  INTEGER REFERENCES media_folders(id) ON DELETE SET NULL,
+    created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
 `)
 
-// ─── Migrations (safe ALTER TABLE if column not already present) ──────────────
+// ─── Migrations (safe ALTER TABLE if column not already present) ─────────────
 const existingPageCols = db.pragma('table_info(pages)').map(c => c.name)
 if (!existingPageCols.includes('publish_at')) {
   db.exec(`ALTER TABLE pages ADD COLUMN publish_at TEXT`)
@@ -248,6 +280,12 @@ if (!existingPageCols.includes('publish_at')) {
 const existingProductCols = db.pragma('table_info(products)').map(c => c.name)
 if (!existingProductCols.includes('publish_at')) {
   db.exec(`ALTER TABLE products ADD COLUMN publish_at TEXT`)
+}
+
+// folder_id on media
+const existingMediaCols = db.pragma('table_info(media)').map(c => c.name)
+if (!existingMediaCols.includes('folder_id')) {
+  db.exec(`ALTER TABLE media ADD COLUMN folder_id INTEGER REFERENCES media_folders(id) ON DELETE SET NULL`)
 }
 
 // 2FA columns on users

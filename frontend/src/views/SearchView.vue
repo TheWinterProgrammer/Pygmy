@@ -27,7 +27,7 @@
       <!-- Results -->
       <template v-else-if="results">
         <!-- No results -->
-        <div class="empty-state" v-if="!results.posts.length && !results.pages.length && !results.products?.length">
+        <div class="empty-state" v-if="!results.posts.length && !results.pages.length && !results.products?.length && !results.events?.length">
           <p class="text-muted">No results found for <strong>"{{ results.query }}"</strong></p>
         </div>
 
@@ -78,6 +78,32 @@
                   <div class="result-meta" v-if="p.price !== null">
                     <span class="tag" v-if="p.sale_price">${{ p.sale_price }}</span>
                     <span class="date text-muted" :style="p.sale_price ? 'text-decoration:line-through' : ''">${{ p.price }}</span>
+                  </div>
+                </div>
+              </RouterLink>
+            </div>
+          </section>
+
+          <!-- Events -->
+          <section v-if="results.events?.length" class="result-section">
+            <h2 class="section-label">Events ({{ results.events.length }})</h2>
+            <div class="results-grid">
+              <RouterLink
+                v-for="ev in results.events"
+                :key="ev.id"
+                :to="`/events/${ev.slug}`"
+                class="result-card glass"
+              >
+                <div class="result-cover" v-if="ev.cover_image">
+                  <img :src="ev.cover_image" :alt="ev.title" />
+                </div>
+                <div class="result-body">
+                  <div class="result-type">📆 Event</div>
+                  <h3 class="result-title" v-html="highlight(ev.title)"></h3>
+                  <p class="result-excerpt text-muted" v-if="ev.excerpt" v-html="highlight(ev.excerpt)"></p>
+                  <div class="result-meta">
+                    <span class="date text-muted" v-if="ev.start_date">{{ new Date(ev.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) }}</span>
+                    <span class="tag" v-if="ev.location">📍 {{ ev.location }}</span>
                   </div>
                 </div>
               </RouterLink>
