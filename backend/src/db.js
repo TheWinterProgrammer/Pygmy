@@ -292,6 +292,25 @@ db.exec(`
     expires_at   TEXT    NOT NULL,
     PRIMARY KEY(entity_type, entity_id)
   );
+
+  CREATE TABLE IF NOT EXISTS orders (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_number    TEXT    UNIQUE NOT NULL,
+    status          TEXT    NOT NULL DEFAULT 'pending',
+    customer_name   TEXT    NOT NULL,
+    customer_email  TEXT    NOT NULL,
+    customer_phone  TEXT    NOT NULL DEFAULT '',
+    shipping_address TEXT   NOT NULL DEFAULT '',
+    items           TEXT    NOT NULL DEFAULT '[]',
+    subtotal        REAL    NOT NULL DEFAULT 0,
+    total           REAL    NOT NULL DEFAULT 0,
+    notes           TEXT    NOT NULL DEFAULT '',
+    created_at      TEXT    NOT NULL DEFAULT (datetime('now')),
+    updated_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status, created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_orders_email  ON orders(customer_email);
 `)
 
 // ─── Migrations (safe ALTER TABLE if column not already present) ─────────────
@@ -354,6 +373,13 @@ const defaultSettings = {
   footer_scripts: '',
   // robots.txt
   robots_txt: 'User-agent: *\nAllow: /',
+  // E-commerce / shop
+  shop_enabled: '1',
+  shop_currency: 'EUR',
+  shop_currency_symbol: '€',
+  shop_checkout_intro: 'Complete your order below.',
+  shop_thankyou_message: 'Thank you for your order! We\'ll be in touch shortly.',
+  notify_new_order: '1',
 }
 
 const insertSetting = db.prepare(`

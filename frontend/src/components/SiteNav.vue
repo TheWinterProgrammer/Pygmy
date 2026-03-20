@@ -39,6 +39,14 @@
         </svg>
       </RouterLink>
 
+      <!-- Cart button -->
+      <button class="nav-cart-btn" @click="cart.toggle()" aria-label="Cart" title="Shopping cart">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
+        </svg>
+        <span v-if="cart.count > 0" class="cart-badge">{{ cart.count > 9 ? '9+' : cart.count }}</span>
+      </button>
+
       <!-- Hamburger -->
       <button class="hamburger" @click="mobileOpen = !mobileOpen" aria-label="Menu">
         <span></span><span></span><span></span>
@@ -68,8 +76,10 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useSiteStore } from '../stores/site.js'
+import { useCartStore } from '../stores/cart.js'
 
 const site = useSiteStore()
+const cart = useCartStore()
 const route = useRoute()
 const scrolled = ref(false)
 const mobileOpen = ref(false)
@@ -223,6 +233,40 @@ const flatNav = computed(() => {
   color: var(--text);
   background: rgba(255,255,255,0.06);
   text-decoration: none;
+}
+
+/* Cart button */
+.nav-cart-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.2s, background 0.2s;
+  flex-shrink: 0;
+}
+.nav-cart-btn:hover {
+  color: var(--text);
+  background: rgba(255,255,255,0.06);
+}
+.cart-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  background: var(--accent);
+  color: #fff;
+  font-size: .62rem;
+  font-weight: 700;
+  border-radius: 99px;
+  padding: .05em .35em;
+  min-width: 1.4em;
+  text-align: center;
+  line-height: 1.6;
 }
 
 /* Hamburger */

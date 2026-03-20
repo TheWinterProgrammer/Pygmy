@@ -80,6 +80,19 @@
             >#{{ tag }}</RouterLink>
           </div>
 
+          <!-- Add to Cart -->
+          <div class="atc-row" v-if="product.price !== null">
+            <div class="qty-selector">
+              <button @click="qty = Math.max(1, qty - 1)">−</button>
+              <input type="number" v-model.number="qty" min="1" max="99" />
+              <button @click="qty = Math.min(99, qty + 1)">+</button>
+            </div>
+            <button class="btn btn-primary btn-lg atc-btn" @click="addToCart">
+              <span v-if="addedFlash">✓ Added!</span>
+              <span v-else>🛒 Add to Cart</span>
+            </button>
+          </div>
+
           <div class="back-link">
             <RouterLink to="/shop" class="btn btn-outline">← Back to Shop</RouterLink>
           </div>
@@ -101,13 +114,25 @@ import { useRoute } from 'vue-router'
 import { useHead } from '@vueuse/head'
 import api from '../api.js'
 import { useSiteStore } from '../stores/site.js'
+import { useCartStore } from '../stores/cart.js'
 
 const route   = useRoute()
 const site    = useSiteStore()
-const product = ref(null)
-const loading = ref(true)
+const cart      = useCartStore()
+const product   = ref(null)
+const loading   = ref(true)
 const isPreview = ref(false)
 const activeImage = ref(null)
+const qty        = ref(1)
+const addedFlash = ref(false)
+
+function addToCart() {
+  if (!product.value) return
+  cart.addItem(product.value, qty.value)
+  cart.open()
+  addedFlash.value = true
+  setTimeout(() => { addedFlash.value = false }, 2000)
+}
 
 const allImages = computed(() => {
   if (!product.value) return []
@@ -273,6 +298,44 @@ function fmt(n) {
   transition: all 0.15s;
 }
 .pill:hover { color: var(--accent); border-color: var(--accent); }
+
+/* Add to cart */
+.atc-row {
+  display: flex;
+  gap: .75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.qty-selector {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  background: rgba(255,255,255,.07);
+  border: 1px solid var(--border);
+  border-radius: .5rem;
+  padding: .3rem .5rem;
+}
+.qty-selector button {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0 .25rem;
+  line-height: 1;
+}
+.qty-selector input {
+  width: 2.5rem;
+  text-align: center;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: .95rem;
+  font-family: inherit;
+}
+.qty-selector input::-webkit-inner-spin-button,
+.qty-selector input::-webkit-outer-spin-button { -webkit-appearance: none; }
+.atc-btn { min-width: 160px; flex: 1; }
 
 .back-link { margin-top: 0.5rem; }
 .btn-outline {

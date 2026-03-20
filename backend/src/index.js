@@ -33,6 +33,7 @@ import eventsRoutes from './routes/events.js'
 import mediaFoldersRoutes from './routes/media_folders.js'
 import apiKeysRoutes from './routes/api_keys.js'
 import locksRoutes from './routes/locks.js'
+import ordersRoutes from './routes/orders.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -90,6 +91,13 @@ const searchLimiter = rateLimit({
 const formSubmitLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, max: 5, standardHeaders: true, legacyHeaders: false,
   message: jsonError('Too many form submissions. Please wait.'),
+  skip: (req) => !!req.headers.authorization,
+})
+
+// Order checkout: 10 per hour per IP (public)
+const orderLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false,
+  message: jsonError('Too many checkout attempts. Please wait.'),
   skip: (req) => !!req.headers.authorization,
 })
 
@@ -157,6 +165,7 @@ app.use('/api/events', eventsRoutes)
 app.use('/api/media-folders', mediaFoldersRoutes)
 app.use('/api/api-keys', apiKeysRoutes)
 app.use('/api/locks', locksRoutes)
+app.use('/api/orders', orderLimiter, ordersRoutes)
 
 // ─── SEO (public) ─────────────────────────────────────────────────────────────
 app.use('/', seoRoutes)

@@ -39,6 +39,14 @@ const routes = [
     component: () => import('../views/EventView.vue')
   },
   {
+    path: '/checkout',
+    component: () => import('../views/CheckoutView.vue')
+  },
+  {
+    path: '/order/:orderNumber',
+    component: () => import('../views/OrderConfirmView.vue')
+  },
+  {
     path: '/blog/:slug',
     component: () => import('../views/PostView.vue')
   },

@@ -126,6 +126,19 @@
           </div>
         </div>
       </div>
+      <div class="stat-card glass" :class="{ 'accent-card': (stats.orders?.pending ?? 0) > 0 }">
+        <div class="stat-icon">📦</div>
+        <div class="stat-body">
+          <div class="stat-num">
+            {{ stats.orders?.total ?? 0 }}
+            <span v-if="(stats.orders?.pending ?? 0) > 0" class="badge-alert">{{ stats.orders.pending }} new</span>
+          </div>
+          <div class="stat-label">
+            Orders
+            <RouterLink to="/orders" class="stat-link">→ Orders</RouterLink>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="section glass" v-if="stats?.recentPosts?.length">
@@ -175,6 +188,7 @@
       <RouterLink to="/events/new" class="btn btn-ghost">📆 New Event</RouterLink>
       <RouterLink to="/webhooks" class="btn btn-ghost">🔗 Webhooks</RouterLink>
       <RouterLink to="/backup" class="btn btn-ghost">🗄️ Backup</RouterLink>
+      <RouterLink to="/orders" class="btn btn-ghost">📦 Orders</RouterLink>
     </div>
   </div>
 </template>

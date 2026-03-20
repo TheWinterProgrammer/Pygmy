@@ -65,6 +65,16 @@
                 @click.prevent="filterTag(tag)"
               >#{{ tag }}</button>
             </div>
+            <!-- Quick Add to Cart -->
+            <button
+              v-if="p.price !== null"
+              class="quick-atc"
+              @click.prevent="quickAdd(p)"
+              :class="{ added: addedIds.has(p.id) }"
+              :title="addedIds.has(p.id) ? 'Added!' : 'Add to cart'"
+            >
+              {{ addedIds.has(p.id) ? '✓' : '🛒' }}
+            </button>
           </div>
         </div>
       </RouterLink>
@@ -106,9 +116,11 @@
 import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '../api.js'
+import { useCartStore } from '../stores/cart.js'
 
 const route  = useRoute()
 const router = useRouter()
+const cart   = useCartStore()
 
 const products       = ref([])
 const categories     = ref([])
@@ -118,6 +130,17 @@ const limit          = 12
 const offset         = ref(0)
 const activeCategory = ref(route.query.category || null)
 const activeTag      = ref(route.query.tag || null)
+const addedIds       = ref(new Set())
+
+function quickAdd(product) {
+  cart.addItem(product, 1)
+  cart.open()
+  addedIds.value = new Set([...addedIds.value, product.id])
+  setTimeout(() => {
+    addedIds.value.delete(product.id)
+    addedIds.value = new Set(addedIds.value)
+  }, 2000)
+}
 
 onMounted(async () => {
   const { data } = await api.get('/products/categories')
@@ -288,6 +311,21 @@ function fmt(n) {
   text-decoration: none;
 }
 .pill:hover { color: var(--accent); border-color: var(--accent); }
+
+/* Quick Add to Cart button */
+.quick-atc {
+  align-self: flex-end;
+  background: rgba(255,255,255,.07);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: .5rem;
+  padding: .3rem .65rem;
+  font-size: .85rem;
+  cursor: pointer;
+  transition: all .2s;
+}
+.quick-atc:hover { border-color: var(--accent); color: var(--accent); background: rgba(var(--accent-rgb),.1); }
+.quick-atc.added { border-color: #4caf50; color: #4caf50; background: rgba(76,175,80,.12); }
 
 .empty-state { display: flex; justify-content: center; padding: 3rem 1.5rem; }
 .empty-card { padding: 2rem 3rem; text-align: center; border-radius: var(--radius); }

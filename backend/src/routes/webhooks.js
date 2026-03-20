@@ -104,6 +104,8 @@ router.get('/events', authMiddleware, (req, res) => {
     { value: 'event.updated',      label: 'Event updated' },
     { value: 'event.published',    label: 'Event published' },
     { value: 'event.deleted',      label: 'Event deleted' },
+    { value: 'order.created',      label: 'New order placed' },
+    { value: 'order.status_changed', label: 'Order status changed' },
   ])
 })
 

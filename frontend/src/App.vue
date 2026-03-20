@@ -13,6 +13,7 @@
     <SiteNav />
     <RouterView />
     <SiteFooter />
+    <CartDrawer />
   </div>
 
   <!-- Loading screen -->
@@ -26,6 +27,7 @@ import { onMounted } from 'vue'
 import { useSiteStore } from './stores/site.js'
 import SiteNav from './components/SiteNav.vue'
 import SiteFooter from './components/SiteFooter.vue'
+import CartDrawer from './components/CartDrawer.vue'
 
 const site = useSiteStore()
 onMounted(() => site.load())

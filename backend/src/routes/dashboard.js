@@ -59,6 +59,11 @@ router.get('/stats', authMiddleware, (req, res) => {
   // Media folders
   const totalFolders = db.prepare('SELECT COUNT(*) as count FROM media_folders').get().count
 
+  // Orders
+  const totalOrders   = db.prepare('SELECT COUNT(*) as count FROM orders').get().count
+  const pendingOrders = db.prepare("SELECT COUNT(*) as count FROM orders WHERE status = 'pending'").get().count
+  const orderRevenue  = db.prepare("SELECT COALESCE(SUM(total),0) as r FROM orders WHERE status IN ('completed','processing','shipped')").get().r
+
   // Recent activity
   const recentActivity = db.prepare(`
     SELECT * FROM activity_log ORDER BY created_at DESC LIMIT 10
@@ -80,6 +85,7 @@ router.get('/stats', authMiddleware, (req, res) => {
     webhooks: { total: totalWebhooks, active: activeWebhooks },
     events: { total: totalEvents, published: publishedEvents, upcoming: upcomingEvents },
     media_folders: { total: totalFolders },
+    orders: { total: totalOrders, pending: pendingOrders, revenue: orderRevenue },
     recentPosts,
     recentActivity
   })

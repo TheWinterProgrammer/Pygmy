@@ -91,6 +91,7 @@ const navItems = [
   { to: '/dashboard',  icon: '📊', label: 'Dashboard' },
   { to: '/pages',      icon: '📄', label: 'Pages' },
   { to: '/posts',      icon: '✍️',  label: 'Posts' },
+  { to: '/orders',     icon: '📦',  label: 'Orders' },
   { to: '/products',   icon: '🛍️',  label: 'Products' },
   { to: '/events',     icon: '📆',  label: 'Events' },
   { to: '/media',      icon: '🖼️',  label: 'Media' },
