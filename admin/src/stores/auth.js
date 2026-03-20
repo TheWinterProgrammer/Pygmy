@@ -8,8 +8,10 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isLoggedIn = computed(() => !!token.value)
 
-  async function login(email, password) {
-    const { data } = await api.post('/auth/login', { email, password })
+  async function login(email, password, otp) {
+    const payload = { email, password }
+    if (otp) payload.otp = otp
+    const { data } = await api.post('/auth/login', payload)
     token.value = data.token
     user.value = data.user
     localStorage.setItem('pygmy_token', data.token)

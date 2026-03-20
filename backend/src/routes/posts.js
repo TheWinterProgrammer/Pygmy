@@ -265,4 +265,39 @@ router.delete('/:id', authMiddleware, (req, res) => {
   res.json({ message: 'Deleted' })
 })
 
+// POST /api/posts/bulk — bulk action on multiple posts
+router.post('/bulk', authMiddleware, (req, res) => {
+  const { ids, action } = req.body
+  if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: 'ids required' })
+  if (!['publish', 'unpublish', 'delete'].includes(action)) return res.status(400).json({ error: 'Invalid action' })
+
+  const now = new Date().toISOString()
+  let affected = 0
+
+  const doInTransaction = db.transaction(() => {
+    for (const id of ids) {
+      const post = db.prepare('SELECT * FROM posts WHERE id = ?').get(id)
+      if (!post) continue
+      if (action === 'delete') {
+        db.prepare('DELETE FROM posts WHERE id = ?').run(id)
+        logActivity(req.user?.id, req.user?.name, 'deleted post', 'post', post.id, post.title)
+        fireWebhooks('post.deleted', { id: post.id, title: post.title, slug: post.slug })
+      } else {
+        const newStatus = action === 'publish' ? 'published' : 'draft'
+        const newPublished = action === 'publish' ? (post.published_at || now) : post.published_at
+        db.prepare(`UPDATE posts SET status = ?, published_at = ?, updated_at = ? WHERE id = ?`)
+          .run(newStatus, newPublished, now, id)
+        logActivity(req.user?.id, req.user?.name, `${action}ed post`, 'post', post.id, post.title)
+        if (action === 'publish' && post.status !== 'published') {
+          const updated = db.prepare('SELECT * FROM posts WHERE id = ?').get(id)
+          fireWebhooks('post.published', parsePost(updated))
+        }
+      }
+      affected++
+    }
+  })
+  doInTransaction()
+  res.json({ affected })
+})
+
 export default router

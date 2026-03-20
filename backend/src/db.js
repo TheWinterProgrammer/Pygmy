@@ -250,6 +250,15 @@ if (!existingProductCols.includes('publish_at')) {
   db.exec(`ALTER TABLE products ADD COLUMN publish_at TEXT`)
 }
 
+// 2FA columns on users
+const existingUserCols = db.pragma('table_info(users)').map(c => c.name)
+if (!existingUserCols.includes('totp_secret')) {
+  db.exec(`ALTER TABLE users ADD COLUMN totp_secret TEXT`)
+}
+if (!existingUserCols.includes('totp_enabled')) {
+  db.exec(`ALTER TABLE users ADD COLUMN totp_enabled INTEGER NOT NULL DEFAULT 0`)
+}
+
 // ─── Default settings ─────────────────────────────────────────────────────────
 
 const defaultSettings = {

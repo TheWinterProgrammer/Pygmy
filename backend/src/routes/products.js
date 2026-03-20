@@ -287,4 +287,32 @@ router.delete('/:id', authMiddleware, (req, res) => {
   res.json({ success: true })
 })
 
+// POST /api/products/bulk — bulk action on multiple products
+router.post('/bulk', authMiddleware, (req, res) => {
+  const { ids, action } = req.body
+  if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: 'ids required' })
+  if (!['publish', 'unpublish', 'delete'].includes(action)) return res.status(400).json({ error: 'Invalid action' })
+
+  const now = new Date().toISOString()
+  let affected = 0
+
+  const doInTransaction = db.transaction(() => {
+    for (const id of ids) {
+      const product = db.prepare('SELECT * FROM products WHERE id = ?').get(id)
+      if (!product) continue
+      if (action === 'delete') {
+        db.prepare('DELETE FROM products WHERE id = ?').run(id)
+        logActivity(req.user?.id, req.user?.name, 'deleted product', 'product', product.id, product.name)
+      } else {
+        const newStatus = action === 'publish' ? 'published' : 'draft'
+        db.prepare(`UPDATE products SET status = ?, updated_at = ? WHERE id = ?`).run(newStatus, now, id)
+        logActivity(req.user?.id, req.user?.name, `${action}ed product`, 'product', product.id, product.name)
+      }
+      affected++
+    }
+  })
+  doInTransaction()
+  res.json({ affected })
+})
+
 export default router

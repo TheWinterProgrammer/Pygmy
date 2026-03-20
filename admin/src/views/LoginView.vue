@@ -4,10 +4,11 @@
       <div class="login-brand">
         <span class="logo">🪆</span>
         <h1>Pygmy</h1>
-        <p>CMS Admin Panel</p>
+        <p>{{ step === '2fa' ? 'Two-Factor Authentication' : 'CMS Admin Panel' }}</p>
       </div>
 
-      <form @submit.prevent="handleLogin" class="login-form">
+      <!-- Step 1: email + password -->
+      <form v-if="step === 'credentials'" @submit.prevent="handleLogin" class="login-form">
         <div class="form-group">
           <label>Email</label>
           <input v-model="email" type="email" class="input" placeholder="admin@pygmy.local" required autofocus />
@@ -18,6 +19,30 @@
         </div>
         <button type="submit" class="btn btn-primary" :disabled="loading" style="width:100%;justify-content:center;">
           {{ loading ? 'Signing in…' : 'Sign In' }}
+        </button>
+        <p v-if="error" class="error-msg">{{ error }}</p>
+      </form>
+
+      <!-- Step 2: 2FA OTP -->
+      <form v-else-if="step === '2fa'" @submit.prevent="handle2fa" class="login-form">
+        <p class="tfa-hint">Open your authenticator app and enter the 6-digit code.</p>
+        <div class="form-group">
+          <label>Authenticator Code</label>
+          <input
+            v-model="otp"
+            class="input otp-input"
+            placeholder="000000"
+            maxlength="6"
+            inputmode="numeric"
+            autofocus
+            required
+          />
+        </div>
+        <button type="submit" class="btn btn-primary" :disabled="loading || otp.length < 6" style="width:100%;justify-content:center;">
+          {{ loading ? 'Verifying…' : 'Verify' }}
+        </button>
+        <button type="button" class="btn btn-ghost" style="width:100%;justify-content:center;margin-top:0.4rem;" @click="step = 'credentials'; otp = ''">
+          ← Back
         </button>
         <p v-if="error" class="error-msg">{{ error }}</p>
       </form>
@@ -35,8 +60,10 @@ const router = useRouter()
 
 const email = ref('')
 const password = ref('')
+const otp = ref('')
 const loading = ref(false)
 const error = ref('')
+const step = ref('credentials') // 'credentials' | '2fa'
 
 async function handleLogin() {
   loading.value = true
@@ -45,7 +72,26 @@ async function handleLogin() {
     await auth.login(email.value, password.value)
     router.push('/dashboard')
   } catch (e) {
-    error.value = e.response?.data?.error || 'Login failed'
+    // Status 206 means 2FA is required
+    if (e.response?.status === 206 && e.response?.data?.requires_2fa) {
+      step.value = '2fa'
+    } else {
+      error.value = e.response?.data?.error || 'Login failed'
+    }
+  } finally {
+    loading.value = false
+  }
+}
+
+async function handle2fa() {
+  loading.value = true
+  error.value = ''
+  try {
+    await auth.login(email.value, password.value, otp.value)
+    router.push('/dashboard')
+  } catch (e) {
+    error.value = e.response?.data?.error || 'Invalid code'
+    otp.value = ''
   } finally {
     loading.value = false
   }
@@ -83,6 +129,17 @@ async function handleLogin() {
   margin-top: 0.75rem;
   color: var(--accent);
   font-size: 0.85rem;
+  text-align: center;
+}
+.tfa-hint {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-align: center;
+  margin-bottom: 1rem;
+}
+.otp-input {
+  letter-spacing: 0.3em;
+  font-size: 1.3rem;
   text-align: center;
 }
 </style>

@@ -154,4 +154,37 @@ router.delete('/:id', authMiddleware, (req, res) => {
   res.json({ message: 'Deleted' })
 })
 
+// POST /api/pages/bulk — bulk action on multiple pages
+router.post('/bulk', authMiddleware, (req, res) => {
+  const { ids, action } = req.body
+  if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: 'ids required' })
+  if (!['publish', 'unpublish', 'delete'].includes(action)) return res.status(400).json({ error: 'Invalid action' })
+
+  const now = new Date().toISOString()
+  let affected = 0
+
+  const doInTransaction = db.transaction(() => {
+    for (const id of ids) {
+      const page = db.prepare('SELECT * FROM pages WHERE id = ?').get(id)
+      if (!page) continue
+      if (action === 'delete') {
+        db.prepare('DELETE FROM pages WHERE id = ?').run(id)
+        logActivity(req.user?.id, req.user?.name, 'deleted page', 'page', page.id, page.title)
+        fireWebhooks('page.deleted', { id: page.id, title: page.title, slug: page.slug })
+      } else {
+        const newStatus = action === 'publish' ? 'published' : 'draft'
+        db.prepare(`UPDATE pages SET status = ?, updated_at = ? WHERE id = ?`).run(newStatus, now, id)
+        logActivity(req.user?.id, req.user?.name, `${action}ed page`, 'page', page.id, page.title)
+        if (action === 'publish' && page.status !== 'published') {
+          const updated = db.prepare('SELECT * FROM pages WHERE id = ?').get(id)
+          fireWebhooks('page.published', updated)
+        }
+      }
+      affected++
+    }
+  })
+  doInTransaction()
+  res.json({ affected })
+})
+
 export default router

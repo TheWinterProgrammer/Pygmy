@@ -238,7 +238,81 @@
           {{ savingProfile ? 'Saving…' : 'Update Profile' }}
         </button>
       </div>
+
+      <!-- 2FA Section -->
+      <div class="glass section tfa-section">
+        <h2 style="margin-bottom:0.5rem;">🔑 Two-Factor Authentication</h2>
+        <p style="color:var(--text-muted);font-size:0.88rem;margin-bottom:1.25rem;">
+          Add an extra layer of security. Use an authenticator app (Google Authenticator, Authy, etc.) to scan the QR code.
+        </p>
+
+        <!-- 2FA enabled badge -->
+        <div v-if="tfa.enabled" class="tfa-enabled-badge">
+          <span>✅ 2FA is active on your account</span>
+          <button class="btn btn-danger btn-sm" @click="showDisable2fa = true">Disable 2FA</button>
+        </div>
+
+        <!-- Setup flow -->
+        <template v-else>
+          <button v-if="!tfa.qr" class="btn btn-primary" @click="setup2fa" :disabled="tfa.loading">
+            {{ tfa.loading ? 'Generating…' : '⚙️ Set up 2FA' }}
+          </button>
+
+          <div v-if="tfa.qr" class="tfa-setup">
+            <div class="tfa-qr-wrap">
+              <img :src="tfa.qr" alt="2FA QR code" class="tfa-qr" />
+            </div>
+            <div class="tfa-setup-info">
+              <p>1. Scan this QR code with your authenticator app.</p>
+              <p>2. Enter the 6-digit code shown in the app to confirm.</p>
+              <div class="form-group" style="margin-top:0.75rem;">
+                <label>Verification Code</label>
+                <input
+                  v-model="tfa.token"
+                  class="input"
+                  placeholder="000000"
+                  maxlength="6"
+                  inputmode="numeric"
+                  style="letter-spacing:0.25em;font-size:1.1rem;"
+                  @keydown.enter="enable2fa"
+                />
+              </div>
+              <div v-if="tfa.error" class="tfa-error">{{ tfa.error }}</div>
+              <button class="btn btn-primary" @click="enable2fa" :disabled="tfa.loading || tfa.token.length < 6">
+                {{ tfa.loading ? 'Verifying…' : 'Activate 2FA' }}
+              </button>
+            </div>
+          </div>
+        </template>
+      </div>
     </div>
+
+    <!-- Disable 2FA modal -->
+    <Teleport to="body">
+      <div v-if="showDisable2fa" class="modal-overlay" @click.self="showDisable2fa = false">
+        <div class="modal glass">
+          <h3>Disable Two-Factor Authentication</h3>
+          <p style="color:var(--text-muted);font-size:0.88rem;margin:0.75rem 0;">
+            Enter your current 6-digit code or your account password to disable 2FA.
+          </p>
+          <div class="form-group">
+            <label>Authenticator Code <small>(or leave blank to use password)</small></label>
+            <input v-model="disableOtp.token" class="input" placeholder="000000" maxlength="6" />
+          </div>
+          <div class="form-group">
+            <label>Password <small>(if not using code)</small></label>
+            <input v-model="disableOtp.password" class="input" type="password" placeholder="••••••••" />
+          </div>
+          <div v-if="disableOtp.error" class="tfa-error">{{ disableOtp.error }}</div>
+          <div class="modal-actions">
+            <button class="btn btn-ghost" @click="showDisable2fa = false">Cancel</button>
+            <button class="btn btn-danger" @click="disable2fa" :disabled="disableOtp.loading">
+              {{ disableOtp.loading ? 'Disabling…' : 'Disable 2FA' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
     <!-- Media picker modal -->
     <MediaPickerModal
@@ -318,6 +392,60 @@ const maintenanceMode = computed({
   set: v => { form.value.maintenance_mode = v ? '1' : '0' }
 })
 
+// ─── 2FA state ────────────────────────────────────────────────────────────────
+const tfa = ref({ enabled: false, loading: false, qr: null, token: '', error: '' })
+const showDisable2fa = ref(false)
+const disableOtp = ref({ token: '', password: '', loading: false, error: '' })
+
+async function setup2fa() {
+  tfa.value.loading = true
+  tfa.value.error = ''
+  try {
+    const res = await api.get('/auth/2fa/setup')
+    tfa.value.qr = res.data.qr
+    tfa.value.token = ''
+  } catch (e) {
+    toast.error('Could not set up 2FA')
+  } finally {
+    tfa.value.loading = false
+  }
+}
+
+async function enable2fa() {
+  if (tfa.value.token.length < 6) return
+  tfa.value.loading = true
+  tfa.value.error = ''
+  try {
+    await api.post('/auth/2fa/enable', { token: tfa.value.token })
+    tfa.value.enabled = true
+    tfa.value.qr = null
+    toast.success('2FA enabled!')
+  } catch (e) {
+    tfa.value.error = e.response?.data?.error || 'Invalid code'
+  } finally {
+    tfa.value.loading = false
+  }
+}
+
+async function disable2fa() {
+  disableOtp.value.loading = true
+  disableOtp.value.error = ''
+  try {
+    await api.post('/auth/2fa/disable', {
+      token: disableOtp.value.token || undefined,
+      password: disableOtp.value.password || undefined
+    })
+    tfa.value.enabled = false
+    showDisable2fa.value = false
+    disableOtp.value = { token: '', password: '', loading: false, error: '' }
+    toast.success('2FA disabled')
+  } catch (e) {
+    disableOtp.value.error = e.response?.data?.error || 'Failed to disable'
+  } finally {
+    disableOtp.value.loading = false
+  }
+}
+
 onMounted(async () => {
   const [settingsRes, meRes] = await Promise.all([
     api.get('/settings'),
@@ -326,6 +454,7 @@ onMounted(async () => {
   Object.assign(form.value, settingsRes.data)
   profile.value.name = meRes.data.name
   profile.value.email = meRes.data.email
+  tfa.value.enabled = !!meRes.data.totp_enabled
   loaded.value = true
 })
 
@@ -461,4 +590,53 @@ function hslToHex(hsl) {
   line-height: 1.55;
   resize: vertical;
 }
+
+/* ─── 2FA ────────────────────────────────────────────────────────────── */
+.tfa-section { grid-column: span 2; }
+.tfa-enabled-badge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: hsl(145, 40%, 15%);
+  border: 1px solid hsl(145, 40%, 25%);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 1rem;
+  font-size: 0.88rem;
+}
+.tfa-setup {
+  display: flex;
+  gap: 1.5rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
+.tfa-qr-wrap {
+  background: #fff;
+  padding: 0.6rem;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+.tfa-qr { width: 160px; height: 160px; display: block; }
+.tfa-setup-info { flex: 1; min-width: 220px; }
+.tfa-setup-info p { font-size: 0.88rem; color: var(--text-muted); margin-bottom: 0.4rem; }
+.tfa-error {
+  color: var(--accent);
+  font-size: 0.83rem;
+  margin-bottom: 0.5rem;
+}
+
+/* ─── Modal ──────────────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+.modal {
+  width: min(440px, 95vw);
+  padding: 1.75rem;
+  border-radius: var(--radius);
+}
+.modal h3 { margin-bottom: 0.25rem; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem; }
 </style>

@@ -38,8 +38,9 @@ const routes = [
       { path: 'forms/new',    name: 'FormNew',     component: () => import('../views/FormEditView.vue') },
       { path: 'forms/:id',    name: 'FormEdit',    component: () => import('../views/FormEditView.vue') },
       { path: 'forms/:id/submissions', name: 'FormSubmissions', component: () => import('../views/FormSubmissionsView.vue') },
-      { path: 'webhooks',     name: 'Webhooks',    component: () => import('../views/WebhooksView.vue') },
-      { path: 'settings',     name: 'Settings',    component: () => import('../views/SettingsView.vue') },
+      { path: 'webhooks',         name: 'Webhooks',       component: () => import('../views/WebhooksView.vue') },
+      { path: 'notifications',    name: 'Notifications',  component: () => import('../views/NotificationsView.vue') },
+      { path: 'settings',         name: 'Settings',       component: () => import('../views/SettingsView.vue') },
     ]
   },
   { path: '/:pathMatch(.*)*', redirect: '/' }

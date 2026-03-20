@@ -107,6 +107,12 @@ frontend/           ← public website (port 5174)
 - Dynamic CMS page renderer
 - Loading skeletons + 404 states
 
+### Phase 14 — Two-Factor Authentication + Notification Center + Bulk Operations ✅
+- **Two-Factor Authentication (TOTP)** — `speakeasy` + `qrcode` libraries added; `totp_secret` + `totp_enabled` columns on `users` table; full API: `GET /api/auth/2fa/setup` generates a secret + QR code data URL, `POST /api/auth/2fa/enable` verifies the OTP and activates 2FA, `POST /api/auth/2fa/disable` deactivates (accepts current OTP or account password); login flow updated: if `totp_enabled` the backend returns HTTP 206 `{ requires_2fa: true }` after correct credentials; LoginView presents a second step with a large OTP input field and a back button; `SettingsView` → 🔑 Two-Factor Authentication section with QR code display + verification field + activate/disable flow; auth store `login()` accepts optional `otp` param
+- **Admin Notification Center** — new `GET /api/notifications/count` (badge totals: pending comments, unread contact messages, unread form submissions) and `GET /api/notifications` (merged feed of up to 15 newest items across all three sources); `NotificationBell.vue` component in the new AdminLayout top bar shows a live badge that re-polls every 60 s, opens a glass dropdown with grouped item list (icon, title, excerpt, time-ago) plus per-type summary links; `NotificationsView.vue` full-page notifications center (3 summary cards + full feed) accessible via sidebar 🔔 Notifications entry; sidebar entry also shows a live unread badge (re-polls every 90 s)
+- **Admin top bar** — AdminLayout now has a persistent header strip with current-page label, the notification bell, and a 🌐 "View site" shortcut button
+- **Bulk operations backend** — `POST /api/posts/bulk`, `POST /api/pages/bulk`, `POST /api/products/bulk` endpoints (each accepts `{ ids[], action: publish|unpublish|delete }`); run in a single SQLite transaction; fire webhooks + log activity per item; admin list views (Posts, Pages, Products) already shipped checkboxes + bulk-action bar, now wired to real backend endpoints
+
 ### Phase 13 — SEO Analyzer + Webhook Manager ✅
 - **SEO Analyzer** — live analysis panel in every post and page editor; shows a real-time Google SERP preview (title, URL, description formatted as Google would display them), character count progress bars for meta title (optimal 10–60 chars) and meta description (optimal 50–160 chars), a 9-point weighted checklist (meta title/desc present & right length, has slug, cover image, excerpt, ≥ 300 words of content, differentiated meta title), and a 0–100 score with Great / Needs work / Poor rating
 - **Webhook Manager** — full webhook system: `webhooks` SQLite table; REST API at `GET/POST/PUT/DELETE /api/webhooks`; webhooks fire on 17 event types (`post.created`, `post.published`, `post.updated`, `post.deleted`, `page.*`, `product.*`, `comment.approved`, `form.submitted`, `subscriber.new`, `media.uploaded`, plus wildcard `*`); each delivery is signed with HMAC-SHA256 (`X-Pygmy-Signature: sha256=…`) when a secret is configured; 10-second timeout per delivery; last delivery timestamp + HTTP status + error stored per webhook; admin `WebhooksView` with active/inactive toggle, event badges, URL display, ✅ one-click test delivery button, add/edit modal with event multi-select checkboxes, delete confirm; 🔗 Webhooks sidebar entry added
@@ -365,6 +371,26 @@ Font: **Poppins** via Google Fonts
 | PUT | `/api/webhooks/:id` | ✓ | Update webhook |
 | DELETE | `/api/webhooks/:id` | ✓ | Delete webhook |
 | POST | `/api/webhooks/:id/test` | ✓ | Send a test delivery |
+
+### Two-Factor Authentication
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET  | `/api/auth/2fa/setup` | ✓ | Generate TOTP secret + QR code data URL |
+| POST | `/api/auth/2fa/enable` | ✓ | Verify OTP `{token}` and activate 2FA |
+| POST | `/api/auth/2fa/disable` | ✓ | Disable 2FA `{token}` or `{password}` |
+
+### Notifications
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/notifications/count` | ✓ | Badge counts `{total, comments, contact, forms}` |
+| GET | `/api/notifications` | ✓ | Merged feed of up to 15 unread items |
+
+### Bulk Operations
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/api/posts/bulk` | ✓ | `{ids[], action: publish\|unpublish\|delete}` |
+| POST | `/api/pages/bulk` | ✓ | `{ids[], action: publish\|unpublish\|delete}` |
+| POST | `/api/products/bulk` | ✓ | `{ids[], action: publish\|unpublish\|delete}` |
 
 ### SEO (public)
 | Method | Path | Description |
