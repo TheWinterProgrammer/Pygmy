@@ -160,6 +160,20 @@
           </div>
         </div>
       </div>
+
+      <div class="stat-card glass" :class="{ 'accent-card': (stats.abandoned_carts?.count ?? 0) > 0 }">
+        <div class="stat-icon">🛒</div>
+        <div class="stat-body">
+          <div class="stat-num">
+            {{ stats.abandoned_carts?.count ?? 0 }}
+            <span v-if="(stats.abandoned_carts?.count ?? 0) > 0" class="badge-alert">recover</span>
+          </div>
+          <div class="stat-label">
+            Abandoned Carts
+            <RouterLink to="/abandoned-carts" class="stat-link">→ View</RouterLink>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Inventory alerts -->
@@ -231,6 +245,7 @@
       <RouterLink to="/orders" class="btn btn-ghost">📦 Orders</RouterLink>
       <RouterLink to="/customers" class="btn btn-ghost">🧑‍💼 Customers</RouterLink>
       <RouterLink to="/coupons" class="btn btn-ghost">🎟️ Coupons</RouterLink>
+      <RouterLink to="/abandoned-carts" class="btn btn-ghost">🛒 Abandoned Carts</RouterLink>
     </div>
   </div>
 </template>

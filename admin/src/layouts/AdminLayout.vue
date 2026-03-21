@@ -96,6 +96,7 @@ const navItems = [
   { to: '/shipping',   icon: '🚚',  label: 'Shipping' },
   { to: '/reviews',    icon: '⭐',  label: 'Reviews' },
   { to: '/customers',  icon: '🧑‍💼', label: 'Customers' },
+  { to: '/abandoned-carts', icon: '🛒', label: 'Abandoned Carts' },
   { to: '/products',   icon: '🛍️',  label: 'Products' },
   { to: '/events',     icon: '📆',  label: 'Events' },
   { to: '/media',      icon: '🖼️',  label: 'Media' },

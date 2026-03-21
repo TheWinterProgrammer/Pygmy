@@ -107,6 +107,7 @@
             <td style="text-align:right">
               <div class="actions">
                 <RouterLink :to="`/products/${p.id}`" class="btn btn-ghost btn-sm">Edit</RouterLink>
+                <button class="btn btn-ghost btn-sm" @click="duplicateProduct(p)" title="Duplicate as draft">⧉</button>
                 <button class="btn btn-danger btn-sm" @click="deleteSingle(p)">Delete</button>
               </div>
             </td>
@@ -189,6 +190,16 @@ async function deleteSingle(p) {
   await api.delete(`/products/${p.id}`)
   toast.success('Product deleted')
   await load()
+}
+
+async function duplicateProduct(p) {
+  try {
+    const { data } = await api.post(`/products/${p.id}/duplicate`)
+    toast.success(`"${data.name}" created as draft`)
+    await load()
+  } catch (e) {
+    toast.error(e.response?.data?.error || 'Duplicate failed')
+  }
 }
 
 function fmt(n) {

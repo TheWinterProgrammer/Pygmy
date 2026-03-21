@@ -188,3 +188,34 @@ router.post('/bulk', authMiddleware, (req, res) => {
 })
 
 export default router
+
+// ─── Duplicate page ───────────────────────────────────────────────────────────
+// POST /api/pages/:id/duplicate
+router.post('/:id/duplicate', authMiddleware, (req, res) => {
+  const orig = db.prepare('SELECT * FROM pages WHERE id = ?').get(req.params.id)
+  if (!orig) return res.status(404).json({ error: 'Page not found' })
+
+  const baseSlug = orig.slug + '-copy'
+  let slug = baseSlug, n = 1
+  while (db.prepare('SELECT id FROM pages WHERE slug = ?').get(slug)) {
+    slug = `${baseSlug}-${n++}`
+  }
+
+  const result = db.prepare(`
+    INSERT INTO pages (title, slug, excerpt, content, cover_image,
+      status, meta_title, meta_desc, author_id)
+    VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?)
+  `).run(
+    orig.title + ' (Copy)',
+    slug,
+    orig.excerpt || '',
+    orig.content || '',
+    orig.cover_image || '',
+    orig.meta_title || '',
+    orig.meta_desc || '',
+    orig.author_id,
+  )
+
+  const newPage = db.prepare('SELECT * FROM pages WHERE id = ?').get(result.lastInsertRowid)
+  res.status(201).json(newPage)
+})

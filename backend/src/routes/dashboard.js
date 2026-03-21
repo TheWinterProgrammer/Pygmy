@@ -72,6 +72,16 @@ router.get('/stats', authMiddleware, (req, res) => {
   const totalCustomers  = db.prepare('SELECT COUNT(*) as count FROM customers').get().count
   const activeCustomers = db.prepare('SELECT COUNT(*) as count FROM customers WHERE active = 1').get().count
 
+  // Abandoned carts
+  const abandonedCarts = db.prepare(`
+    SELECT COUNT(*) as count FROM abandoned_carts
+    WHERE recovered = 0 AND updated_at <= datetime('now', '-1 hours')
+  `).get().count
+  const abandonedRevenue = db.prepare(`
+    SELECT COALESCE(SUM(subtotal),0) as r FROM abandoned_carts
+    WHERE recovered = 0 AND updated_at <= datetime('now', '-1 hours')
+  `).get().r
+
   // Low stock products (track_stock=1 AND stock_quantity <= low_stock_threshold AND stock_quantity > 0)
   const lowStockProducts = db.prepare(`
     SELECT id, name, slug, stock_quantity, low_stock_threshold
@@ -111,6 +121,7 @@ router.get('/stats', authMiddleware, (req, res) => {
     orders: { total: totalOrders, pending: pendingOrders, revenue: orderRevenue },
     coupons: { total: totalCoupons, active: activeCoupons },
     customers: { total: totalCustomers, active: activeCustomers },
+    abandoned_carts: { count: abandonedCarts, revenue: abandonedRevenue },
     inventory: { low_stock: lowStockProducts, out_of_stock: outOfStockCount },
     recentPosts,
     recentActivity

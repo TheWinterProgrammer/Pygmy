@@ -89,7 +89,7 @@ export async function notifyNewContact({ name, email, subject, message }) {
  * Send a direct email (to any address, not just notify_email).
  * Used for customer-facing transactional emails.
  */
-async function sendMailTo({ to, subject, html, text }) {
+export async function sendMailTo({ to, subject, html, text }) {
   const cfg = getSmtpConfig()
   if (!cfg) return
 

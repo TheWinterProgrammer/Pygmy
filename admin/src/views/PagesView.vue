@@ -71,6 +71,7 @@
             <td style="text-align:right">
               <div class="actions">
                 <RouterLink :to="`/pages/${page.id}`" class="btn btn-ghost btn-sm">Edit</RouterLink>
+                <button class="btn btn-ghost btn-sm" @click="duplicatePage(page)" title="Duplicate as draft">⧉</button>
                 <button class="btn btn-danger btn-sm" @click="deleteSingle(page)">Delete</button>
               </div>
             </td>
@@ -146,6 +147,16 @@ async function deleteSingle(page) {
   await api.delete(`/pages/${page.id}`)
   toast.success('Page deleted')
   await load()
+}
+
+async function duplicatePage(page) {
+  try {
+    const { data } = await api.post(`/pages/${page.id}/duplicate`)
+    toast.success(`"${data.title}" created as draft`)
+    await load()
+  } catch (e) {
+    toast.error(e.response?.data?.error || 'Duplicate failed')
+  }
 }
 
 function formatDate(iso) {

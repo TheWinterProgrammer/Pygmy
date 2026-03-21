@@ -1,8 +1,20 @@
 // Pygmy CMS — Cart store (Pinia + localStorage)
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import api from '../api.js'
 
 const STORAGE_KEY = 'pygmy_cart'
+const SESSION_KEY  = 'pygmy_cart_session'
+
+// Stable session ID per browser session (persisted across page loads)
+function getOrCreateSessionId() {
+  let id = localStorage.getItem(SESSION_KEY)
+  if (!id) {
+    id = Math.random().toString(36).slice(2) + Date.now().toString(36)
+    localStorage.setItem(SESSION_KEY, id)
+  }
+  return id
+}
 
 export const useCartStore = defineStore('cart', () => {
   // Load persisted cart from localStorage
@@ -17,12 +29,33 @@ export const useCartStore = defineStore('cart', () => {
 
   const items = ref(loadPersisted())
   const isOpen = ref(false)
+  const sessionId = getOrCreateSessionId()
 
   // Persist on every change
   function persist() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(items.value))
     } catch {}
+  }
+
+  // Track abandoned cart (fire-and-forget, silent failure)
+  let trackTimer = null
+  function scheduleTrack(email = '', name = '') {
+    clearTimeout(trackTimer)
+    trackTimer = setTimeout(() => {
+      if (!items.value.length) return
+      api.post('/abandoned-carts/track', {
+        session_id: sessionId,
+        email,
+        name,
+        items: items.value,
+        subtotal: subtotal.value,
+      }).catch(() => {})
+    }, 2000) // debounce 2s
+  }
+
+  function markRecovered() {
+    api.post('/abandoned-carts/recover', { session_id: sessionId }).catch(() => {})
   }
 
   // ── Computed ───────────────────────────────────────────────────────────────
@@ -66,11 +99,13 @@ export const useCartStore = defineStore('cart', () => {
       })
     }
     persist()
+    scheduleTrack()
   }
 
   function removeItem(cartKey) {
     items.value = items.value.filter(i => (i.cart_key || String(i.product_id)) !== cartKey)
     persist()
+    scheduleTrack()
   }
 
   function updateQuantity(cartKey, quantity) {
@@ -79,6 +114,7 @@ export const useCartStore = defineStore('cart', () => {
     if (item) {
       item.quantity = quantity
       persist()
+      scheduleTrack()
     }
   }
 
@@ -87,9 +123,19 @@ export const useCartStore = defineStore('cart', () => {
     persist()
   }
 
+  /** Call when the customer enters their email on checkout (enriches abandoned cart record) */
+  function updateContactInfo(email, name) {
+    scheduleTrack(email, name)
+  }
+
   function open()  { isOpen.value = true }
   function close() { isOpen.value = false }
   function toggle() { isOpen.value = !isOpen.value }
 
-  return { items, count, subtotal, isOpen, addItem, removeItem, updateQuantity, clear, open, close, toggle }
+  return {
+    items, count, subtotal, isOpen, sessionId,
+    addItem, removeItem, updateQuantity, clear,
+    open, close, toggle,
+    updateContactInfo, markRecovered,
+  }
 })

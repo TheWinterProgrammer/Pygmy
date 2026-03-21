@@ -352,3 +352,46 @@ router.post('/bulk', authMiddleware, (req, res) => {
 })
 
 export default router
+
+// ─── Duplicate product ────────────────────────────────────────────────────────
+// POST /api/products/:id/duplicate
+router.post('/:id/duplicate', authMiddleware, (req, res) => {
+  const orig = db.prepare('SELECT * FROM products WHERE id = ?').get(req.params.id)
+  if (!orig) return res.status(404).json({ error: 'Product not found' })
+
+  const baseSlug = orig.slug + '-copy'
+  let slug = baseSlug, n = 1
+  while (db.prepare('SELECT id FROM products WHERE slug = ?').get(slug)) {
+    slug = `${baseSlug}-${n++}`
+  }
+
+  const result = db.prepare(`
+    INSERT INTO products (title, slug, excerpt, content, cover_image, gallery,
+      price, sale_price, sku, category_id, tags,
+      status, featured, meta_title, meta_desc,
+      track_stock, stock, allow_backorders, low_stock_threshold)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    orig.title + ' (Copy)',
+    slug,
+    orig.excerpt || '',
+    orig.content || '',
+    orig.cover_image || '',
+    orig.gallery || '[]',
+    orig.price || 0,
+    orig.sale_price || null,
+    orig.sku ? orig.sku + '-copy' : '',
+    orig.category_id || null,
+    orig.tags || '[]',
+    orig.featured || 0,
+    orig.meta_title || '',
+    orig.meta_desc || '',
+    orig.track_stock || 0,
+    orig.stock || 0,
+    orig.allow_backorders || 0,
+    orig.low_stock_threshold || 5,
+  )
+
+  const newProduct = db.prepare('SELECT * FROM products WHERE id = ?').get(result.lastInsertRowid)
+  res.status(201).json(newProduct)
+})

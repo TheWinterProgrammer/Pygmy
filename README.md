@@ -70,6 +70,7 @@ admin/              ← wp-admin equivalent (port 5173)
     FormSubmissionsView.vue ← submissions inbox with CSV export
     WebhooksView.vue    ← webhook manager (CRUD, test delivery, event selection)
     ApiKeysView.vue     ← API key manager (create/revoke/rotate, one-time reveal)
+    AbandonedCartsView.vue ← abandoned cart recovery (stats, filter, bulk email, detail modal)
     EventsView.vue      ← events list (filter by status/upcoming/past)
     EventEditView.vue   ← event editor (TipTap, media picker, dates, location, SEO)
     SettingsView.vue
@@ -113,6 +114,13 @@ frontend/           ← public website (port 5174)
 - Post detail with cover image, tags, SEO meta + OG tags
 - Dynamic CMS page renderer
 - Loading skeletons + 404 states
+
+### Phase 22 — Abandoned Cart Recovery ✅
+- **Abandoned cart tracking** — the frontend cart store (Pinia) automatically tracks every cart to the backend via a debounced `POST /api/abandoned-carts/track` (2s delay after each cart change); the session ID is a stable per-browser localStorage key; the record is enriched with the customer's email + name when they start typing on the checkout page (`updateContactInfo()`); on successful order placement the cart is marked recovered via `POST /api/abandoned-carts/recover`
+- **Recovery email** — `POST /api/abandoned-carts/notify` (admin-only) sends a branded HTML email to one or many cart holders; email includes an item table, subtotal, and a direct "Complete My Order →" CTA button back to `/checkout`; each notification is timestamped (`notified_at`) and the `notified` flag is set to prevent accidental double-sends; uses existing SMTP settings from Settings panel; gracefully skips carts without an email address
+- **Admin Abandoned Carts panel** (`/abandoned-carts`) — stats strip (total abandoned, emailed, recovered, lost revenue); filter bar (search by email/name, recovered/not recovered, notified/not notified, minimum idle age: 30 min / 1h / 3h / 24h); checkbox bulk-select with "Select All" and bulk "Send Recovery Email" button; per-row actions: 👁️ view cart items (detail modal), 📤 send single email, 🗑️ delete record; status pills (Recovered ✓, Emailed, Pending, No email); cart detail modal shows customer info, session ID, IP, timestamps, full item table with quantities and line totals; tooltips explain why email button is disabled (no address or already recovered); pagination (20 per page)
+- **Dashboard integration** — new 🛒 Abandoned Carts stat card (highlights accent when any carts need attention); quick-action "🛒 Abandoned Carts" button; `GET /api/dashboard/stats` now returns `abandoned_carts: { count, revenue }`
+- **Backend stats** — `GET /api/abandoned-carts/stats` returns total abandoned (1h+ idle), notified, recovered, and lost revenue totals; all lazy-purge of recovered carts is handled by checking `recovered = 0` in queries
 
 ### Phase 21 — Customer Accounts ✅
 - **Customer registration & login** — dedicated `/api/customers/register` and `/api/customers/login` endpoints using a separate CUSTOMER_JWT_SECRET; 30-day JWTs; bcrypt password hashing; returns safe customer object + token on success
@@ -537,6 +545,16 @@ Font: **Poppins** via Google Fonts
 | GET | `/api/customers/:id` | admin | Customer detail + addresses + orders |
 | PUT | `/api/customers/:id` | admin | Toggle `active` status |
 | DELETE | `/api/customers/:id` | admin | Delete customer (orders unlinked) |
+
+### Abandoned Carts
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/api/abandoned-carts/track` | — | Track/update cart `{session_id, email?, name?, items[], subtotal}` |
+| POST | `/api/abandoned-carts/recover` | — | Mark cart recovered `{session_id}` |
+| GET  | `/api/abandoned-carts` | ✓ | List abandoned carts (`?q=`, `?recovered=`, `?notified=`, `?hours_old=`, `?limit=`, `?offset=`) |
+| GET  | `/api/abandoned-carts/stats` | ✓ | Stats: `{total, notified, recovered, revenue}` |
+| POST | `/api/abandoned-carts/notify` | ✓ | Send recovery emails `{ids[]}` → `{sent, skipped}` |
+| DELETE | `/api/abandoned-carts/:id` | ✓ | Delete cart record |
 
 ### SEO (public)
 | Method | Path | Description |

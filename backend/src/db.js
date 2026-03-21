@@ -549,3 +549,23 @@ if (!orderColNames.includes('customer_id')) {
   db.exec(`ALTER TABLE orders ADD COLUMN customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL`)
 }
 
+
+// Abandoned carts table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS abandoned_carts (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id  TEXT    NOT NULL UNIQUE,
+    email       TEXT    NOT NULL DEFAULT '',
+    name        TEXT    NOT NULL DEFAULT '',
+    items       TEXT    NOT NULL DEFAULT '[]',
+    subtotal    REAL    NOT NULL DEFAULT 0,
+    recovered   INTEGER NOT NULL DEFAULT 0,
+    notified    INTEGER NOT NULL DEFAULT 0,
+    notified_at TEXT,
+    ip          TEXT    NOT NULL DEFAULT '',
+    created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+    updated_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_abandoned_carts_email ON abandoned_carts(email);
+  CREATE INDEX IF NOT EXISTS idx_abandoned_carts_updated ON abandoned_carts(updated_at);
+`)

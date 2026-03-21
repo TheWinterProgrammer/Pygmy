@@ -49,6 +49,7 @@ const routes = [
       { path: 'reviews',          name: 'Reviews',        component: () => import('../views/ReviewsView.vue') },
       { path: 'customers',        name: 'Customers',      component: () => import('../views/CustomersView.vue') },
       { path: 'shipping',         name: 'Shipping',       component: () => import('../views/ShippingView.vue') },
+      { path: 'abandoned-carts',  name: 'AbandonedCarts', component: () => import('../views/AbandonedCartsView.vue') },
       { path: 'settings',         name: 'Settings',       component: () => import('../views/SettingsView.vue') },
     ]
   },

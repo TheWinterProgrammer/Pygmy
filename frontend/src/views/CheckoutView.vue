@@ -29,7 +29,8 @@
               </div>
               <div class="field">
                 <label class="label">Email <span class="req">*</span></label>
-                <input class="input" type="email" v-model="form.customer_email" placeholder="jane@example.com" required />
+                <input class="input" type="email" v-model="form.customer_email" placeholder="jane@example.com" required
+                  @blur="cart.updateContactInfo(form.customer_email, form.customer_name)" />
                 <span class="field-error" v-if="errors.customer_email">{{ errors.customer_email }}</span>
               </div>
             </div>
@@ -315,6 +316,7 @@ async function placeOrder() {
     // Pass customer token so order is linked to their account
     const headers = customer.isLoggedIn ? { Authorization: `Bearer ${customer.token}` } : {}
     const { data } = await api.post('/orders', payload, { headers })
+    cart.markRecovered()
     cart.clear()
     submitted.value = true
     router.push(`/order/${data.order_number}`)

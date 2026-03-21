@@ -13,6 +13,12 @@
       @restore="applyRevision"
     />
     <LockBanner v-if="!isNew" :conflict="lock.conflict.value" />
+    <!-- Auto-save restore banner -->
+    <div v-if="showDraftBanner" class="autosave-banner">
+      <span>📝 You have an unsaved draft from {{ draftBannerTime ? new Date(draftBannerTime).toLocaleTimeString() : '' }}.</span>
+      <button class="btn btn-sm btn-primary" @click="restoreDraft">Restore</button>
+      <button class="btn btn-sm btn-ghost" @click="discardDraft">Discard</button>
+    </div>
     <div class="page-header">
       <h1>{{ isNew ? 'New Post' : 'Edit Post' }}</h1>
       <div class="header-actions">
@@ -155,6 +161,7 @@ import RevisionsModal from '../components/RevisionsModal.vue'
 import SeoAnalyzer from '../components/SeoAnalyzer.vue'
 import LockBanner from '../components/LockBanner.vue'
 import { useContentLock } from '../composables/useContentLock.js'
+import { useAutoSave } from '../composables/useAutoSave.js'
 
 const route  = useRoute()
 const router = useRouter()
@@ -183,6 +190,10 @@ const form = ref({
   meta_title: '', meta_desc: ''
 })
 
+const autoSave = useAutoSave('post', computed(() => isNew.value ? 'new' : route.params.id), form)
+const showDraftBanner = ref(false)
+const draftBannerTime = ref(null)
+
 onMounted(async () => {
   const { data: cats } = await api.get('/posts/categories')
   categories.value = cats
@@ -195,6 +206,16 @@ onMounted(async () => {
     tagsInput.value = post.tags.join(', ')
     slugManual.value = true
   }
+
+  // Check for unsaved draft
+  const draft = autoSave.checkRestore()
+  if (draft) {
+    showDraftBanner.value = true
+    draftBannerTime.value = draft.savedAt
+  }
+
+  // Start auto-saving after form is loaded
+  autoSave.watchForm()
 })
 
 function slugify(s) {
@@ -238,6 +259,7 @@ async function savePost(status, keepPublishedAt = false) {
       await api.put(`/posts/${route.params.id}`, payload)
       toast.success(status === 'scheduled' ? 'Post scheduled ⏰' : 'Post saved')
     }
+    autoSave.clear()
     router.push('/posts')
   } catch (e) {
     toast.error(e.response?.data?.error || 'Save failed')
@@ -255,9 +277,30 @@ function applyRevision(snapshot) {
   tagsInput.value = Array.isArray(snapshot.tags) ? snapshot.tags.join(', ') : ''
   toast.success('Revision restored — review and save to apply')
 }
+
+function restoreDraft() {
+  autoSave.restore((data) => {
+    Object.assign(form.value, data)
+    tagsInput.value = Array.isArray(data.tags) ? data.tags.join(', ') : (data.tags || '')
+    toast.success('Draft restored')
+  })
+  showDraftBanner.value = false
+}
+
+function discardDraft() {
+  autoSave.clear()
+  showDraftBanner.value = false
+}
 </script>
 
 <style scoped>
+.autosave-banner {
+  display: flex; align-items: center; gap: 0.75rem; padding: 0.65rem 1rem;
+  background: rgba(255, 200, 0, 0.12); border: 1px solid rgba(255, 200, 0, 0.25);
+  border-radius: var(--radius-sm); margin-bottom: 0.75rem; font-size: 0.87rem;
+  color: hsl(45, 80%, 70%);
+}
+.autosave-banner span { flex: 1; }
 .header-actions { display: flex; gap: 0.5rem; align-items: center; }
 .edit-layout {
   display: grid;
