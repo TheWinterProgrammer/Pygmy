@@ -115,6 +115,12 @@ frontend/           ← public website (port 5174)
 - Dynamic CMS page renderer
 - Loading skeletons + 404 states
 
+### Phase 24 — Page Content Blocks Builder ✅
+- **Visual block-based page builder** — every page in the CMS now has a **Content Blocks** section below the classic TipTap editor; blocks let admins build rich visual layouts without writing HTML; 14 block types supported: **Hero** (fullscreen banner with bg image/color, overlay, CTA button, text-align), **Features** (icon + title + text grid, 2/3/4 columns), **Text** (raw HTML/prose, max-width + alignment), **Image + Text** (side-by-side with optional CTA, left/right image toggle), **Gallery** (image grid with built-in lightbox, 2/3/4 columns), **Testimonials** (quote cards with avatar/author/role), **Call to Action** (headline + subtitle + button, optional bg color), **FAQ** (accordion with question/answer pairs), **Team** (member cards with photo/bio/role), **Pricing** (plan cards with feature lists, "Most Popular" highlight badge, CTA button), **Newsletter** (subscribe form wired to existing newsletter API), **Divider** (line, dots, or whitespace, 3 spacing sizes), **Spacer** (configurable height), **Embed** (raw HTML / iframes / scripts)
+- **Admin block builder UI** — collapsible block rows with type icon + preview text + ↑↓ move buttons + delete; block type picker grid (click to add); each block expands to reveal a dedicated settings editor with all relevant fields; "Save Block" button per block; lives inside `PageEditView` below the rich text editor; only shown for saved pages (new pages prompt to save first); `PageBlocksBuilder.vue` component + 14 `block-editors/` sub-components
+- **Frontend block renderer** — `BlockRenderer.vue` component loaded into `PageView`; fetches blocks via `GET /api/page-blocks?page_id=`; renders blocks in sequence; auto-hides page title when first block is a Hero; still renders classic TipTap content beneath blocks if both exist; Gallery has a built-in lightbox with prev/next navigation; FAQ items open/close with accordion; Newsletter block uses existing `/api/newsletter/subscribe`; fully responsive (all grids collapse to single column on mobile); Pricing plans show "Most Popular" badge with accent border
+- **Backend** — `page_blocks` SQLite table (id, page_id FK → cascade delete, type, sort_order, settings JSON, timestamps); REST API at `GET/POST/PUT/DELETE /api/page-blocks` + `POST /api/page-blocks/reorder`; 14 block type defaults with full `settings` schema seeded on creation; `GET /api/page-blocks/types` convenience endpoint
+
 ### Phase 23 — Product Quick-View Modal + Low Stock Email Alerts ✅
 - **Product Quick-View modal** — on the `/shop` listing page, every product card now has a 👁️ Quick View button (appears in the card footer alongside Wishlist and Quick-Add buttons); clicking it opens a full-featured overlay modal without leaving the page: displays the main product image + gallery thumbnails (clickable to swap main image), category, name, pricing (sale + original), excerpt, full variant picker (all groups with pill-style buttons, sold-out options disabled with strikethrough, price adjustments shown), stock status badge, quantity stepper, and an "Add to Cart" button with added feedback; pressing Escape or clicking the backdrop closes the modal; `document.body.scroll` is locked while open; "View full product page →" link takes to full `/shop/:slug` page; full mobile responsive (columns stack on narrow screens); smooth fade + scale transition animations; all using the same Pinia cart store and variant logic as the full product page
 - **Low stock email alerts** — when an admin updates a product via `PUT /api/products/:id`, the backend checks if the stock quantity crosses a meaningful threshold and fires a non-blocking email alert to the configured `notify_email`: an **out-of-stock alert** (🚨) fires when stock transitions from above 0 to ≤ 0 (and backorders are not allowed); a **low-stock alert** (⚠️) fires when stock crosses below the product's `low_stock_threshold` for the first time; alerts only fire on state transitions (not repeatedly while already low/OOS); emails include the product name, current stock count, threshold, and a direct link to the admin edit page; `notifyLowStock()` helper added to `email.js`; requires SMTP to be configured in Settings
@@ -505,6 +511,17 @@ Font: **Poppins** via Google Fonts
 | GET | `/api/locks/:type/:id` | ✓ | Check if entity is locked by someone else |
 | POST | `/api/locks` | ✓ | Acquire/refresh lock `{entity_type, entity_id}` |
 | DELETE | `/api/locks/:type/:id` | ✓ | Release a lock |
+
+### Page Blocks
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/page-blocks?page_id=` | — | List blocks for a page (ordered by sort_order) |
+| GET | `/api/page-blocks/types` | — | List supported block type names |
+| POST | `/api/page-blocks` | ✓ | Create block `{page_id, type, sort_order?, settings?}` |
+| PUT | `/api/page-blocks/:id` | ✓ | Update block settings (merged patch) |
+| POST | `/api/page-blocks/reorder` | ✓ | Reorder blocks `{page_id, order: [id…]}` |
+| DELETE | `/api/page-blocks/:id` | ✓ | Delete a single block |
+| DELETE | `/api/page-blocks?page_id=` | ✓ | Delete all blocks for a page |
 
 ### Orders
 | Method | Path | Auth | Description |

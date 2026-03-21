@@ -509,6 +509,20 @@ for (const [key, value] of Object.entries(defaultSettings)) {
   insertSetting.run(key, value)
 }
 
+// ─── Phase 24: Page Content Blocks ──────────────────────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS page_blocks (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    page_id    INTEGER NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
+    type       TEXT    NOT NULL DEFAULT 'text',
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    settings   TEXT    NOT NULL DEFAULT '{}',
+    created_at TEXT    NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_page_blocks_page ON page_blocks(page_id, sort_order);
+`)
+
 export default db
 // ─── Phase 21: Customer Accounts ─────────────────────────────────────────────
 db.exec(`

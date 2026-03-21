@@ -21,14 +21,30 @@
     </div>
 
     <!-- Page content -->
-    <article v-else class="container page-article">
-      <header class="page-header">
-        <h1 class="page-title">{{ page.title }}</h1>
-      </header>
-      <div class="glass page-body">
-        <div class="prose" v-html="page.content"></div>
+    <template v-else>
+      <!-- If blocks exist, render them full-width; show title if no hero block at top -->
+      <div v-if="blocks.length">
+        <div class="page-title-bar container" v-if="blocks[0]?.type !== 'hero'">
+          <h1 class="page-title">{{ page.title }}</h1>
+        </div>
+        <BlockRenderer :blocks="blocks" />
+        <!-- Classic content below blocks, if both exist -->
+        <article v-if="page.content" class="container page-article" style="padding-top:0">
+          <div class="glass page-body">
+            <div class="prose" v-html="page.content"></div>
+          </div>
+        </article>
       </div>
-    </article>
+      <!-- No blocks: classic layout -->
+      <article v-else class="container page-article">
+        <header class="page-header">
+          <h1 class="page-title">{{ page.title }}</h1>
+        </header>
+        <div class="glass page-body">
+          <div class="prose" v-html="page.content"></div>
+        </div>
+      </article>
+    </template>
   </div>
 </template>
 
@@ -37,22 +53,31 @@ import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useSiteStore } from '../stores/site.js'
 import api from '../api.js'
+import BlockRenderer from '../components/BlockRenderer.vue'
 
 const site = useSiteStore()
 const route = useRoute()
-const page = ref(null)
+const page    = ref(null)
+const blocks  = ref([])
 const loading = ref(true)
 const isPreview = ref(false)
 
 async function load() {
   loading.value = true
-  page.value = null
+  page.value  = null
+  blocks.value = []
   try {
     const previewToken = route.query.preview_token || ''
     const config = previewToken ? { headers: { Authorization: `Bearer ${previewToken}` } } : {}
     const { data } = await api.get(`/pages/${route.params.slug}`, config)
     isPreview.value = !!data._preview
     page.value = data
+
+    // Load content blocks
+    try {
+      const { data: bData } = await api.get(`/page-blocks?page_id=${data.id}`)
+      blocks.value = bData
+    } catch { blocks.value = [] }
     // SEO
     const title = data.meta_title || data.title
     const desc  = data.meta_desc || ''
@@ -136,6 +161,9 @@ onMounted(load)
 }
 .not-found-card p { color: var(--text-muted); }
 
+.page-title-bar {
+  padding: 3rem 1.5rem 1rem;
+}
 .page-article {
   padding: 2rem 1.5rem 5rem;
   max-width: 800px;

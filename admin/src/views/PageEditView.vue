@@ -32,12 +32,20 @@
             <input v-model="form.title" class="input" placeholder="Page title" @input="autoSlug" />
           </div>
           <div class="form-group">
-            <label>Content</label>
+            <label>Content <span style="color:var(--muted);font-size:0.78rem;font-weight:400;">(classic rich text — or use Content Blocks below for a visual layout)</span></label>
             <RichEditor v-model="form.content" placeholder="Write your page content…" />
           </div>
         </div>
         <div v-if="form.status === 'scheduled'" class="glass section scheduled-banner">
           ⏰ This page is scheduled to publish at <strong>{{ form.publish_at ? new Date(form.publish_at).toLocaleString() : '(no time set)' }}</strong>
+        </div>
+
+        <!-- Content Blocks Builder (only for saved pages) -->
+        <div class="glass section" v-if="!isNew">
+          <PageBlocksBuilder :page-id="route.params.id" />
+        </div>
+        <div class="glass section blocks-hint" v-else>
+          <p>💡 Save this page first, then you can add visual content blocks (Hero, Features, Gallery, etc.) to build a rich layout.</p>
         </div>
       </div>
 
@@ -124,6 +132,7 @@ import RichEditor from '../components/RichEditor.vue'
 import RevisionsModal from '../components/RevisionsModal.vue'
 import SeoAnalyzer from '../components/SeoAnalyzer.vue'
 import LockBanner from '../components/LockBanner.vue'
+import PageBlocksBuilder from '../components/PageBlocksBuilder.vue'
 import { useContentLock } from '../composables/useContentLock.js'
 import { useAutoSave } from '../composables/useAutoSave.js'
 
@@ -254,6 +263,11 @@ function discardDraft() {
   font-size: 0.9rem;
   color: var(--muted);
   border-left: 3px solid var(--accent);
+}
+.blocks-hint {
+  padding: 1rem 1.25rem;
+  font-size: 0.87rem;
+  color: var(--muted);
 }
 @media (max-width: 768px) {
   .edit-layout { grid-template-columns: 1fr; }

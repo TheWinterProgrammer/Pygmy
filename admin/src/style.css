@@ -172,3 +172,8 @@ label {
   margin-bottom: 1.5rem;
 }
 .page-header h1 { font-size: 1.4rem; }
+
+/* ── Block Editor helpers ────────────────────────────────────────────────── */
+.be-fields { display: flex; flex-direction: column; gap: 0; }
+.be-row { display: flex; gap: 1rem; flex-wrap: wrap; }
+.be-row > .form-group { flex: 1; min-width: 160px; }
