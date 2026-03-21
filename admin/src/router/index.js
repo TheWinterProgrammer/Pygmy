@@ -50,6 +50,8 @@ const routes = [
       { path: 'customers',        name: 'Customers',      component: () => import('../views/CustomersView.vue') },
       { path: 'shipping',         name: 'Shipping',       component: () => import('../views/ShippingView.vue') },
       { path: 'abandoned-carts',  name: 'AbandonedCarts', component: () => import('../views/AbandonedCartsView.vue') },
+      { path: 'homepage',          name: 'Homepage',       component: () => import('../views/HomepageBuilderView.vue') },
+      { path: 'tax-rates',        name: 'TaxRates',       component: () => import('../views/TaxRatesView.vue') },
       { path: 'settings',         name: 'Settings',       component: () => import('../views/SettingsView.vue') },
     ]
   },

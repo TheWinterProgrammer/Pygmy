@@ -452,6 +452,48 @@ db.exec(`
   );
 `)
 
+// ─── Phase 25: Tax Rates + Loyalty Transactions ──────────────────────────────
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS tax_rates (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT    NOT NULL DEFAULT 'VAT',
+    country     TEXT    NOT NULL DEFAULT '*',
+    state       TEXT    NOT NULL DEFAULT '',
+    rate        REAL    NOT NULL DEFAULT 0,
+    inclusive   INTEGER NOT NULL DEFAULT 0,
+    priority    INTEGER NOT NULL DEFAULT 0,
+    active      INTEGER NOT NULL DEFAULT 1,
+    created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS loyalty_transactions (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id  INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+    order_id     INTEGER REFERENCES orders(id) ON DELETE SET NULL,
+    type         TEXT    NOT NULL,
+    points       INTEGER NOT NULL,
+    note         TEXT    NOT NULL DEFAULT '',
+    created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_loyalty_customer ON loyalty_transactions(customer_id);
+`)
+
+// Migrations: orders tax columns
+const ordersColsPhase25 = db.pragma('table_info(orders)').map(c => c.name)
+if (!ordersColsPhase25.includes('tax_amount')) {
+  try { db.exec("ALTER TABLE orders ADD COLUMN tax_amount REAL NOT NULL DEFAULT 0") } catch {}
+}
+if (!ordersColsPhase25.includes('tax_rate_name')) {
+  try { db.exec("ALTER TABLE orders ADD COLUMN tax_rate_name TEXT NOT NULL DEFAULT ''") } catch {}
+}
+
+// Migration: customers points_balance column
+const customersColsPhase25 = db.pragma('table_info(customers)').map(c => c.name)
+if (!customersColsPhase25.includes('points_balance')) {
+  try { db.exec("ALTER TABLE customers ADD COLUMN points_balance INTEGER NOT NULL DEFAULT 0") } catch {}
+}
+
 // ─── Default settings ─────────────────────────────────────────────────────────
 
 const defaultSettings = {
@@ -499,6 +541,16 @@ const defaultSettings = {
   // Reviews
   reviews_enabled: '1',
   reviews_require_approval: '1',
+  // Tax / VAT
+  tax_enabled: '0',
+  tax_inclusive: '0',
+  tax_registration_number: '',
+  // Loyalty Points
+  loyalty_enabled: '0',
+  loyalty_points_per_unit: '1',
+  loyalty_redemption_rate: '100',
+  loyalty_min_redeem: '100',
+  loyalty_expiry_days: '0',
 }
 
 const insertSetting = db.prepare(`
@@ -522,6 +574,17 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_page_blocks_page ON page_blocks(page_id, sort_order);
 `)
+
+// Seed the system homepage page (slug = __home__, never shown in public page list)
+{
+  const existing = db.prepare("SELECT id FROM pages WHERE slug = '__home__'").get()
+  if (!existing) {
+    db.prepare(`
+      INSERT INTO pages (title, slug, content, status, sort_order)
+      VALUES ('Homepage', '__home__', '', 'published', -9999)
+    `).run()
+  }
+}
 
 export default db
 // ─── Phase 21: Customer Accounts ─────────────────────────────────────────────

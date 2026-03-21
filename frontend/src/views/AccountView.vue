@@ -122,6 +122,49 @@
             </button>
           </form>
         </div>
+
+        <!-- ── Points Tab ── -->
+        <div v-if="activeTab === 'points'">
+          <h2 class="tab-title">🏆 Loyalty Points</h2>
+          <div v-if="loyaltyLoading" class="loading">Loading…</div>
+          <template v-else>
+            <!-- Balance card -->
+            <div class="points-balance-card glass">
+              <div class="points-big">{{ loyaltyBalance }}</div>
+              <div class="points-label">points</div>
+              <div class="points-worth">Worth {{ currency }}{{ loyaltyWorth.toFixed(2) }}</div>
+            </div>
+
+            <!-- Redeem CTA -->
+            <div v-if="loyaltyEnabled && loyaltyBalance >= loyaltyMinRedeem" class="redeem-cta">
+              🛒 You have enough points to redeem at checkout! Add items to your cart and use your points during checkout.
+            </div>
+            <div v-else-if="loyaltyEnabled && loyaltyBalance < loyaltyMinRedeem" class="points-hint">
+              Earn {{ loyaltyMinRedeem - loyaltyBalance }} more points to start redeeming (minimum: {{ loyaltyMinRedeem }}).
+            </div>
+            <div v-else-if="!loyaltyEnabled" class="points-hint muted">
+              Loyalty program is not currently active.
+            </div>
+
+            <!-- Transaction history -->
+            <h3 class="section-title" style="margin-top:1.5rem;">Transaction History</h3>
+            <div v-if="loyaltyTxns.length === 0" class="muted" style="padding:1rem 0;">No transactions yet.</div>
+            <div v-else class="txn-list">
+              <div v-for="tx in loyaltyTxns" :key="tx.id" class="txn-row">
+                <div class="txn-type">
+                  <span :class="['txn-badge', tx.points > 0 ? 'txn-earn' : 'txn-spend']">{{ tx.type }}</span>
+                </div>
+                <div class="txn-info">
+                  <div class="txn-note">{{ tx.note || (tx.order_number ? `Order ${tx.order_number}` : '—') }}</div>
+                  <div class="txn-date muted">{{ formatDate(tx.created_at) }}</div>
+                </div>
+                <div :class="['txn-pts', tx.points > 0 ? 'pts-positive' : 'pts-negative']">
+                  {{ tx.points > 0 ? '+' : '' }}{{ tx.points }}
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
       </main>
     </div>
 
@@ -242,6 +285,7 @@ import { ref, computed, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCustomerStore } from '../stores/customer.js'
 import { useSiteStore } from '../stores/site.js'
+import api from '../api.js'
 
 const router = useRouter()
 const store = useCustomerStore()
@@ -258,6 +302,7 @@ const tabs = [
   { id: 'orders', icon: '📦', label: 'Orders' },
   { id: 'addresses', icon: '📍', label: 'Addresses' },
   { id: 'profile', icon: '✏️', label: 'Profile' },
+  { id: 'points', icon: '🏆', label: 'Points' },
 ]
 const activeTab = ref('orders')
 
@@ -364,11 +409,40 @@ function statusClass(s) {
   return { pending: 'status-pending', processing: 'status-processing', shipped: 'status-shipped', completed: 'status-completed', cancelled: 'status-cancelled', refunded: 'status-cancelled' }[s] || ''
 }
 
+// Loyalty
+const loyaltyBalance = ref(0)
+const loyaltyWorth = ref(0)
+const loyaltyEnabled = ref(false)
+const loyaltyMinRedeem = ref(100)
+const loyaltyRedemptionRate = ref(100)
+const loyaltyTxns = ref([])
+const loyaltyLoading = ref(false)
+
+async function loadLoyalty() {
+  loyaltyLoading.value = true
+  try {
+    const headers = { Authorization: `Bearer ${store.token}` }
+    const [balRes, txRes] = await Promise.all([
+      api.get('/loyalty/balance', { headers }),
+      api.get('/loyalty/transactions', { headers }),
+    ])
+    loyaltyBalance.value = balRes.data.balance || 0
+    loyaltyWorth.value = balRes.data.worth || 0
+    loyaltyEnabled.value = balRes.data.loyalty_enabled || false
+    loyaltyMinRedeem.value = balRes.data.min_redeem || 100
+    loyaltyRedemptionRate.value = balRes.data.redemption_rate || 100
+    loyaltyTxns.value = txRes.data || []
+  } catch {} finally {
+    loyaltyLoading.value = false
+  }
+}
+
 onMounted(async () => {
   if (!store.isLoggedIn) { router.push('/account/login'); return }
   await site.init()
   loadOrders()
   loadAddresses()
+  loadLoyalty()
   profile.first_name = store.customer?.first_name || ''
   profile.last_name = store.customer?.last_name || ''
   profile.phone = store.customer?.phone || ''
@@ -487,4 +561,24 @@ onMounted(async () => {
   .account-nav { flex-direction: row; flex-wrap: wrap; }
   .form-row { grid-template-columns: 1fr; }
 }
+
+/* Points Tab */
+.points-balance-card { border-radius: 1.25rem; padding: 2rem; text-align: center; margin-bottom: 1.25rem; display: flex; flex-direction: column; align-items: center; max-width: 280px; }
+.points-big { font-size: 3.5rem; font-weight: 800; color: #fbbf24; line-height: 1; }
+.points-label { font-size: 1rem; color: var(--muted); margin-bottom: 0.5rem; }
+.points-worth { font-size: 0.9rem; color: var(--muted); background: rgba(251,191,36,.1); padding: 0.3rem 0.8rem; border-radius: 99px; }
+.redeem-cta { background: rgba(34,197,94,.1); border: 1px solid rgba(34,197,94,.3); color: #4ade80; padding: 0.75rem 1rem; border-radius: 0.75rem; font-size: 0.875rem; margin-bottom: 1rem; }
+.points-hint { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); padding: 0.75rem 1rem; border-radius: 0.75rem; font-size: 0.875rem; color: var(--muted); margin-bottom: 1rem; }
+.txn-list { display: flex; flex-direction: column; gap: 0; }
+.txn-row { display: flex; align-items: center; gap: 1rem; padding: 0.75rem 0; border-bottom: 1px solid rgba(255,255,255,.06); }
+.txn-badge { padding: 0.15rem 0.55rem; border-radius: 99px; font-size: 0.72rem; font-weight: 600; text-transform: capitalize; }
+.txn-earn { background: rgba(34,197,94,.2); color: #4ade80; }
+.txn-spend { background: rgba(239,68,68,.2); color: #f87171; }
+.txn-info { flex: 1; min-width: 0; }
+.txn-note { font-size: 0.875rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.txn-date { font-size: 0.75rem; }
+.txn-pts { font-weight: 700; font-size: 0.95rem; white-space: nowrap; }
+.pts-positive { color: #4ade80; }
+.pts-negative { color: #f87171; }
+.muted { color: var(--muted); }
 </style>

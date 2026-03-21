@@ -174,6 +174,28 @@
           </div>
         </div>
       </div>
+
+      <div class="stat-card glass">
+        <div class="stat-icon">🧾</div>
+        <div class="stat-body">
+          <div class="stat-num">{{ stats.tax_rates?.active ?? 0 }}</div>
+          <div class="stat-label">
+            Active Tax Rates
+            <RouterLink to="/tax-rates" class="stat-link">→ Tax Rates</RouterLink>
+          </div>
+        </div>
+      </div>
+
+      <div class="stat-card glass" v-if="stats.loyalty?.enabled">
+        <div class="stat-icon">🏆</div>
+        <div class="stat-body">
+          <div class="stat-num">{{ fmt(stats.loyalty?.total_points ?? 0) }}</div>
+          <div class="stat-label">
+            Points in Circulation
+            <RouterLink to="/customers" class="stat-link">→ Customers</RouterLink>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Inventory alerts -->

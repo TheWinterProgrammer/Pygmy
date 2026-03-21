@@ -23,6 +23,7 @@
             <th>Email</th>
             <th>Orders</th>
             <th>Total Spent</th>
+            <th>🏆 Pts</th>
             <th>Status</th>
             <th>Joined</th>
             <th>Actions</th>
@@ -36,6 +37,10 @@
             <td>{{ c.email }}</td>
             <td>{{ c.order_count }}</td>
             <td>{{ currency }}{{ Number(c.total_spent).toFixed(2) }}</td>
+            <td>
+              <span v-if="c.points_balance > 0" class="badge badge-gold">🏆 {{ c.points_balance }}</span>
+              <span v-else class="muted-pts">—</span>
+            </td>
             <td>
               <span :class="['badge', c.active ? 'badge-green' : 'badge-red']">
                 {{ c.active ? 'Active' : 'Disabled' }}
@@ -96,6 +101,51 @@
               </tr>
             </tbody>
           </table>
+
+          <!-- Loyalty Points -->
+          <h3 style="margin-top:1.5rem;">🏆 Loyalty Points</h3>
+          <div class="loyalty-balance-card">
+            <span class="loyalty-pts">{{ detailData.points_balance ?? 0 }}</span>
+            <span class="loyalty-lbl">points</span>
+          </div>
+
+          <!-- Loyalty Transaction History -->
+          <div v-if="loyaltyTxns.length > 0" style="margin-top:0.75rem;">
+            <table class="data-table mini-table">
+              <thead><tr><th>Type</th><th>Points</th><th>Note</th><th>Date</th></tr></thead>
+              <tbody>
+                <tr v-for="tx in loyaltyTxns" :key="tx.id">
+                  <td><span :class="['badge', tx.points > 0 ? 'badge-green' : 'badge-red']">{{ tx.type }}</span></td>
+                  <td :style="{ color: tx.points > 0 ? '#4ade80' : '#f87171' }">
+                    {{ tx.points > 0 ? '+' : '' }}{{ tx.points }}
+                  </td>
+                  <td class="muted">{{ tx.note || (tx.order_number ? `Order ${tx.order_number}` : '—') }}</td>
+                  <td class="muted">{{ formatDate(tx.created_at) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-else class="muted" style="font-size:.85rem;margin-top:.5rem;">No loyalty transactions yet.</div>
+
+          <!-- Manual Adjustment -->
+          <div class="loyalty-adjust glass-sm" style="margin-top:1rem;">
+            <div style="font-size:.82rem;font-weight:600;margin-bottom:.5rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Manual Adjustment</div>
+            <div style="display:flex;gap:.5rem;align-items:flex-end;flex-wrap:wrap;">
+              <div style="display:flex;flex-direction:column;gap:.3rem;">
+                <label style="font-size:.75rem;color:var(--muted);">Points (+ to add, − to remove)</label>
+                <input v-model.number="adjustPoints" type="number" class="input" style="width:120px;" placeholder="e.g. 50" />
+              </div>
+              <div style="display:flex;flex-direction:column;gap:.3rem;flex:1;min-width:160px;">
+                <label style="font-size:.75rem;color:var(--muted);">Note</label>
+                <input v-model="adjustNote" class="input" placeholder="Reason for adjustment" />
+              </div>
+              <button class="btn btn-primary btn-sm" @click="doAdjust" :disabled="adjusting">
+                {{ adjusting ? '…' : 'Apply' }}
+              </button>
+            </div>
+            <div v-if="adjustError" class="muted" style="color:#f87171;font-size:.8rem;margin-top:.4rem;">{{ adjustError }}</div>
+            <div v-if="adjustSuccess" class="muted" style="color:#4ade80;font-size:.8rem;margin-top:.4rem;">{{ adjustSuccess }}</div>
+          </div>
         </div>
         <div v-else class="loading-state">Loading…</div>
       </div>
@@ -134,6 +184,14 @@ const detailData = ref(null)
 const deleteTarget = ref(null)
 const currency = ref('€')
 
+// Loyalty state
+const loyaltyTxns = ref([])
+const adjustPoints = ref(0)
+const adjustNote = ref('')
+const adjusting = ref(false)
+const adjustError = ref('')
+const adjustSuccess = ref('')
+
 let debounceTimer = null
 function debouncedFetch() {
   clearTimeout(debounceTimer)
@@ -162,8 +220,51 @@ async function fetchSettings() {
 async function openDetail(c) {
   detailCustomer.value = c
   detailData.value = null
+  loyaltyTxns.value = []
+  adjustPoints.value = 0
+  adjustNote.value = ''
+  adjustError.value = ''
+  adjustSuccess.value = ''
   const res = await fetch(`/api/customers/${c.id}`, { headers: { Authorization: `Bearer ${auth.token}` } })
   detailData.value = await res.json()
+  // Load loyalty transactions
+  try {
+    const txRes = await fetch(`/api/loyalty/admin/transactions/${c.id}`, { headers: { Authorization: `Bearer ${auth.token}` } })
+    if (txRes.ok) loyaltyTxns.value = await txRes.json()
+  } catch {}
+}
+
+async function doAdjust() {
+  adjustError.value = ''
+  adjustSuccess.value = ''
+  if (!adjustPoints.value || adjustPoints.value === 0) {
+    adjustError.value = 'Enter a non-zero points value.'
+    return
+  }
+  adjusting.value = true
+  try {
+    const res = await fetch('/api/loyalty/admin/adjust', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${auth.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customer_id: detailCustomer.value.id, points: adjustPoints.value, note: adjustNote.value })
+    })
+    const d = await res.json()
+    if (!res.ok) throw new Error(d.error || 'Failed')
+    adjustSuccess.value = `Done! New balance: ${d.new_balance} pts`
+    if (detailData.value) detailData.value.points_balance = d.new_balance
+    // Update customer list
+    const listCust = customers.value.find(c => c.id === detailCustomer.value.id)
+    if (listCust) listCust.points_balance = d.new_balance
+    adjustPoints.value = 0
+    adjustNote.value = ''
+    // Refresh transactions
+    const txRes = await fetch(`/api/loyalty/admin/transactions/${detailCustomer.value.id}`, { headers: { Authorization: `Bearer ${auth.token}` } })
+    if (txRes.ok) loyaltyTxns.value = await txRes.json()
+  } catch (e) {
+    adjustError.value = e.message
+  } finally {
+    adjusting.value = false
+  }
 }
 
 async function toggleActive(c) {
@@ -247,4 +348,10 @@ onMounted(() => {
 .modal-actions { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.25rem; }
 
 h3 { font-size: 0.95rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem; }
+.badge-gold { background: rgba(234,179,8,0.2); color: #fbbf24; }
+.muted-pts { color: var(--muted); font-size: 0.8rem; }
+.loyalty-balance-card { display: inline-flex; align-items: baseline; gap: 0.4rem; background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.3); border-radius: 0.75rem; padding: 0.5rem 1rem; }
+.loyalty-pts { font-size: 1.5rem; font-weight: 700; color: #fbbf24; }
+.loyalty-lbl { font-size: 0.8rem; color: var(--muted); }
+.loyalty-adjust { border-radius: 0.75rem; padding: 0.875rem 1rem; margin-top: 0.75rem; }
 </style>

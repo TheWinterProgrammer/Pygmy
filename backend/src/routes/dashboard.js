@@ -82,6 +82,17 @@ router.get('/stats', authMiddleware, (req, res) => {
     WHERE recovered = 0 AND updated_at <= datetime('now', '-1 hours')
   `).get().r
 
+  // Tax rates
+  const activeTaxRates = db.prepare("SELECT COUNT(*) as count FROM tax_rates WHERE active = 1").get().count
+
+  // Loyalty
+  const loyaltyEnabledSetting = db.prepare("SELECT value FROM settings WHERE key = 'loyalty_enabled'").get()?.value
+  const loyaltyEnabled = loyaltyEnabledSetting === '1'
+  let totalLoyaltyPoints = 0
+  if (loyaltyEnabled) {
+    totalLoyaltyPoints = db.prepare("SELECT COALESCE(SUM(points_balance),0) as total FROM customers").get().total
+  }
+
   // Low stock products (track_stock=1 AND stock_quantity <= low_stock_threshold AND stock_quantity > 0)
   const lowStockProducts = db.prepare(`
     SELECT id, name, slug, stock_quantity, low_stock_threshold
@@ -123,6 +134,8 @@ router.get('/stats', authMiddleware, (req, res) => {
     customers: { total: totalCustomers, active: activeCustomers },
     abandoned_carts: { count: abandonedCarts, revenue: abandonedRevenue },
     inventory: { low_stock: lowStockProducts, out_of_stock: outOfStockCount },
+    tax_rates: { active: activeTaxRates },
+    loyalty: { enabled: loyaltyEnabled, total_points: totalLoyaltyPoints },
     recentPosts,
     recentActivity
   })

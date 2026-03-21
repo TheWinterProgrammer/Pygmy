@@ -113,6 +113,7 @@ const navItems = [
   { to: '/notifications', icon: '🔔', label: 'Notifications' },
   { to: '/backup',        icon: '🗄️',  label: 'Backup' },
   { to: '/api-keys',      icon: '🔑',  label: 'API Keys' },
+  { to: '/tax-rates',     icon: '🧾',  label: 'Tax Rates' },
   { to: '/settings',      icon: '⚙️',  label: 'Settings' },
 ]
 

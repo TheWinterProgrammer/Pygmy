@@ -95,6 +95,31 @@
             </div>
             <div class="coupon-error" v-if="couponError">{{ couponError }}</div>
 
+            <!-- Loyalty Points -->
+            <template v-if="loyaltyEnabled && customer.isLoggedIn && loyaltyBalance >= loyaltyMinRedeem">
+              <h3 class="form-section-title" style="margin-top:1.5rem;">🏆 Use Loyalty Points</h3>
+              <div class="loyalty-balance-info">
+                You have <strong>{{ loyaltyBalance }}</strong> points
+                (worth {{ fmt(loyaltyBalance / loyaltyRedemptionRate) }})
+              </div>
+              <div v-if="!loyaltyApplied" class="coupon-row">
+                <input
+                  class="input coupon-input"
+                  type="number"
+                  v-model.number="loyaltyPointsInput"
+                  :placeholder="`Enter points (max ${loyaltyBalance})`"
+                  :max="loyaltyBalance"
+                  min="0"
+                />
+                <button type="button" class="btn btn-ghost" @click="applyLoyaltyPoints">Apply</button>
+              </div>
+              <div v-else class="coupon-success">
+                🏆 <strong>{{ parseInt(loyaltyPointsInput) }} points</strong> applied — {{ fmt(loyaltyDiscount) }} off
+                <button type="button" class="btn btn-ghost btn-sm" @click="removeLoyaltyPoints" style="margin-left:.5rem;">✕ Remove</button>
+              </div>
+              <div class="coupon-error" v-if="loyaltyError">{{ loyaltyError }}</div>
+            </template>
+
             <div class="field-error global-error" v-if="submitError">{{ submitError }}</div>
 
             <button type="submit" class="btn btn-primary btn-lg submit-btn" :disabled="placing">
@@ -138,11 +163,15 @@
               </span>
               <span class="text-muted" v-else>Select country</span>
             </div>
-            <div class="summary-divider"></div>
-            <div class="summary-row summary-row" v-if="selectedRate && !selectedRate.free">
-              <span class="text-muted">Shipping cost</span>
-              <span>{{ fmt(selectedRate.cost) }}</span>
+            <div class="summary-row" v-if="taxAmount > 0">
+              <span class="text-muted">{{ taxRateName || 'Tax' }} ({{ taxRate }}%)</span>
+              <span>{{ fmt(taxAmount) }}</span>
             </div>
+            <div class="summary-row discount-row" v-if="loyaltyApplied && loyaltyDiscount > 0">
+              <span class="text-muted">🏆 Loyalty discount</span>
+              <span style="color:hsl(140,60%,60%);">−{{ fmt(loyaltyDiscount) }}</span>
+            </div>
+            <div class="summary-divider"></div>
             <div class="summary-row summary-total">
               <span>Total</span>
               <strong style="color:var(--accent);">{{ fmt(orderTotal) }}</strong>
@@ -183,6 +212,22 @@ const shippingRates   = ref([])
 const selectedRate    = ref(null)
 const loadingRates    = ref(false)
 
+// Tax state
+const taxAmount   = ref(0)
+const taxRateName = ref('')
+const taxRate     = ref(0)
+const taxLoading  = ref(false)
+
+// Loyalty state
+const loyaltyBalance  = ref(0)
+const loyaltyEnabled  = ref(false)
+const loyaltyMinRedeem = ref(100)
+const loyaltyRedemptionRate = ref(100)
+const loyaltyPointsInput = ref(0)
+const loyaltyDiscount = ref(0)
+const loyaltyError    = ref('')
+const loyaltyApplied  = ref(false)
+
 // Common country list
 const countryList = [
   { code: 'AT', name: 'Austria' }, { code: 'BE', name: 'Belgium' }, { code: 'BR', name: 'Brazil' },
@@ -218,12 +263,35 @@ async function calculateShipping() {
   } finally {
     loadingRates.value = false
   }
+  // Calculate tax for selected country
+  await calculateTax()
+}
+
+async function calculateTax() {
+  taxAmount.value = 0
+  taxRateName.value = ''
+  taxRate.value = 0
+  if (!shippingCountry.value) return
+  taxLoading.value = true
+  try {
+    const { data } = await api.post('/tax-rates/calculate', {
+      country: shippingCountry.value,
+      subtotal: cart.subtotal - (appliedCoupon.value?.discount || 0),
+    })
+    taxAmount.value = data.tax_amount || 0
+    taxRateName.value = data.name || ''
+    taxRate.value = data.rate || 0
+  } catch {
+    taxAmount.value = 0
+  } finally {
+    taxLoading.value = false
+  }
 }
 
 const shippingCost = computed(() => (selectedRate.value && !selectedRate.value.free) ? selectedRate.value.cost : 0)
 
 const orderTotal = computed(() =>
-  Math.max(0, cart.subtotal - (appliedCoupon.value?.discount || 0) + shippingCost.value)
+  Math.max(0, cart.subtotal - (appliedCoupon.value?.discount || 0) - loyaltyDiscount.value + shippingCost.value + taxAmount.value)
 )
 
 async function applyCoupon() {
@@ -283,14 +351,46 @@ function fmt(v) {
 }
 
 // Auto-fill from customer account if logged in
-onMounted(() => {
+onMounted(async () => {
   if (customer.isLoggedIn && customer.customer) {
     const c = customer.customer
     if (!form.customer_name) form.customer_name = `${c.first_name || ''} ${c.last_name || ''}`.trim()
     if (!form.customer_email) form.customer_email = c.email || ''
     if (!form.customer_phone) form.customer_phone = c.phone || ''
+    // Fetch loyalty balance
+    try {
+      const headers = { Authorization: `Bearer ${customer.token}` }
+      const res = await api.get('/loyalty/balance', { headers })
+      loyaltyBalance.value = res.data.balance || 0
+      loyaltyEnabled.value = res.data.loyalty_enabled || false
+      loyaltyMinRedeem.value = res.data.min_redeem || 100
+      loyaltyRedemptionRate.value = res.data.redemption_rate || 100
+    } catch {}
   }
 })
+
+async function applyLoyaltyPoints() {
+  loyaltyError.value = ''
+  const pts = parseInt(loyaltyPointsInput.value) || 0
+  if (pts <= 0) { loyaltyError.value = 'Enter a valid number of points.'; return }
+  if (pts < loyaltyMinRedeem.value) { loyaltyError.value = `Minimum redemption is ${loyaltyMinRedeem.value} points.`; return }
+  if (pts > loyaltyBalance.value) { loyaltyError.value = `You only have ${loyaltyBalance.value} points.`; return }
+  try {
+    const headers = { Authorization: `Bearer ${customer.token}` }
+    const { data } = await api.post('/loyalty/redeem', { points: pts }, { headers })
+    loyaltyDiscount.value = data.discount || 0
+    loyaltyApplied.value = true
+  } catch (e) {
+    loyaltyError.value = e.response?.data?.error || 'Could not apply points.'
+  }
+}
+
+function removeLoyaltyPoints() {
+  loyaltyDiscount.value = 0
+  loyaltyApplied.value = false
+  loyaltyPointsInput.value = 0
+  loyaltyError.value = ''
+}
 
 async function placeOrder() {
   submitError.value = ''
@@ -311,6 +411,9 @@ async function placeOrder() {
       shipping_country: shippingCountry.value || '',
       shipping_rate_name: selectedRate.value?.name || '',
       shipping_cost: shippingCost.value,
+      tax_amount: taxAmount.value,
+      tax_rate_name: taxRateName.value,
+      redeem_points: loyaltyApplied.value ? (parseInt(loyaltyPointsInput.value) || 0) : 0,
     }
 
     // Pass customer token so order is linked to their account
@@ -451,4 +554,5 @@ async function placeOrder() {
 .summary-divider { height: 1px; background: rgba(255,255,255,.08); margin: .875rem 0; }
 .summary-row { display: flex; justify-content: space-between; align-items: baseline; gap: .5rem; font-size: .9rem; margin-bottom: .4rem; }
 .summary-total { font-size: 1rem; margin-bottom: 0; }
+.loyalty-balance-info { font-size: .85rem; color: var(--text-muted); margin-bottom: .75rem; padding: .4rem .75rem; background: rgba(251,191,36,.08); border: 1px solid rgba(251,191,36,.25); border-radius: .5rem; }
 </style>

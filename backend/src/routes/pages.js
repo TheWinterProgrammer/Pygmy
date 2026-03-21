@@ -55,8 +55,8 @@ router.get('/', (req, res) => {
   const { all } = req.query
   // If ?all=1 is passed with auth, return all pages (for admin)
   const rows = all
-    ? db.prepare('SELECT * FROM pages ORDER BY sort_order ASC, created_at DESC').all()
-    : db.prepare("SELECT * FROM pages WHERE status='published' ORDER BY sort_order ASC").all()
+    ? db.prepare("SELECT * FROM pages WHERE slug != '__home__' ORDER BY sort_order ASC, created_at DESC").all()
+    : db.prepare("SELECT * FROM pages WHERE status='published' AND slug != '__home__' ORDER BY sort_order ASC").all()
   res.json(rows)
 })
 

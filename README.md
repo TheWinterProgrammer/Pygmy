@@ -115,6 +115,10 @@ frontend/           ← public website (port 5174)
 - Dynamic CMS page renderer
 - Loading skeletons + 404 states
 
+### Phase 25 — Tax/VAT Manager + Loyalty Points System ✅
+- **Tax/VAT Manager** — full tax calculation system: `tax_rates` table with country (ISO-3166 or `*` wildcard), state, rate%, inclusive/exclusive mode, priority, and active toggle; `POST /api/tax-rates/calculate` computes tax at checkout (exclusive = added on top; inclusive = extracted from price); tax rows added to orders table (`tax_amount`, `tax_rate_name`); invoice HTML updated with tax line + Tax Registration Number in header; admin **TaxRatesView.vue** with stats strip, sortable table with flag emojis + country codes, active toggle, and full add/edit modal with 25-country dropdown; Tax Rates sidebar entry + route added; Settings page gains 🧾 Tax/VAT section (enable, inclusive mode, registration number); `POST /api/orders` accepts and validates `tax_amount` + `tax_rate_name` from frontend; frontend `CheckoutView.vue` auto-calculates tax when shipping country is selected and shows a "VAT (X%): €X.XX" line in the order summary; tax included in order total
+- **Loyalty Points System** — full earn/redeem/adjust points flow: `loyalty_transactions` table (earn, redeem, adjust, expire types); `points_balance` column added to `customers`; order placement auto-earns points (floor of `order_total × points_per_unit`) and supports optional `redeem_points` in the order body (deducted from `discount_amount`); `GET /api/loyalty/balance` and `GET /api/loyalty/transactions` for customers; `POST /api/loyalty/redeem` validates points before checkout; admin endpoints for listing customers by points + manual adjustments; **CustomersView.vue** gains a 🏆 Pts column in the table + a Loyalty Points section in the detail modal (current balance, last 10 transactions, manual +/− adjustment form with note); **AccountView.vue** gains a 4th tab 🏆 Points showing balance card, "Worth €X.XX", transaction history, and a "Redeem at checkout" CTA when eligible; **CheckoutView.vue** shows loyalty redemption section for logged-in customers with sufficient points (enter points, apply button → discount line); **SettingsView.vue** gains 🏆 Loyalty Program section (enable, points per unit, redemption rate, minimum points, expiry days); **DashboardView.vue** gains two new stat cards: "🧾 Tax Rates" (active count → /tax-rates) and "🏆 Loyalty" (total points in circulation, shown only when loyalty is enabled); `GET /api/dashboard/stats` extended with `tax_rates.active` and `loyalty.{enabled, total_points}`
+
 ### Phase 24 — Page Content Blocks Builder ✅
 - **Visual block-based page builder** — every page in the CMS now has a **Content Blocks** section below the classic TipTap editor; blocks let admins build rich visual layouts without writing HTML; 14 block types supported: **Hero** (fullscreen banner with bg image/color, overlay, CTA button, text-align), **Features** (icon + title + text grid, 2/3/4 columns), **Text** (raw HTML/prose, max-width + alignment), **Image + Text** (side-by-side with optional CTA, left/right image toggle), **Gallery** (image grid with built-in lightbox, 2/3/4 columns), **Testimonials** (quote cards with avatar/author/role), **Call to Action** (headline + subtitle + button, optional bg color), **FAQ** (accordion with question/answer pairs), **Team** (member cards with photo/bio/role), **Pricing** (plan cards with feature lists, "Most Popular" highlight badge, CTA button), **Newsletter** (subscribe form wired to existing newsletter API), **Divider** (line, dots, or whitespace, 3 spacing sizes), **Spacer** (configurable height), **Embed** (raw HTML / iframes / scripts)
 - **Admin block builder UI** — collapsible block rows with type icon + preview text + ↑↓ move buttons + delete; block type picker grid (click to add); each block expands to reveal a dedicated settings editor with all relevant fields; "Save Block" button per block; lives inside `PageEditView` below the rich text editor; only shown for saved pages (new pages prompt to save first); `PageBlocksBuilder.vue` component + 14 `block-editors/` sub-components
@@ -583,3 +587,22 @@ Font: **Poppins** via Google Fonts
 | GET | `/sitemap.xml` | XML sitemap of all published pages + posts + active forms |
 | GET | `/feed.xml` | RSS 2.0 feed of latest 20 posts |
 | GET | `/robots.txt` | Robots exclusion file (managed via Settings) |
+
+### Tax Rates (Phase 25)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET    | `/api/tax-rates` | ✓ | List all tax rates (admin) |
+| POST   | `/api/tax-rates` | ✓ | Create rate `{name, country, state?, rate, inclusive?, priority?, active?}` |
+| PUT    | `/api/tax-rates/:id` | ✓ | Update rate |
+| DELETE | `/api/tax-rates/:id` | ✓ | Delete rate |
+| POST   | `/api/tax-rates/calculate` | — | Calculate tax `{country, subtotal}` → `{tax_amount, rate, name, applicable_rate}` |
+
+### Loyalty Points (Phase 25)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET  | `/api/loyalty/balance` | customer JWT | Balance + worth + settings |
+| GET  | `/api/loyalty/transactions` | customer JWT | Transaction history (last 50) |
+| POST | `/api/loyalty/redeem` | customer JWT | Validate redemption `{points}` → `{discount, points_used}` |
+| GET  | `/api/loyalty/admin/customers` | ✓ | Customers with points balances |
+| POST | `/api/loyalty/admin/adjust` | ✓ | Manual adjustment `{customer_id, points, note}` |
+| GET  | `/api/loyalty/admin/transactions/:customer_id` | ✓ | Last 10 transactions for a customer |

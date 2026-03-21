@@ -31,6 +31,23 @@ function parseBlock(row) {
   }
 }
 
+// ── GET /api/page-blocks/home — get homepage blocks ─────────────────────────
+router.get('/home', (req, res) => {
+  const homePage = db.prepare("SELECT id FROM pages WHERE slug = '__home__'").get()
+  if (!homePage) return res.json([])
+  const blocks = db.prepare(
+    'SELECT * FROM page_blocks WHERE page_id = ? ORDER BY sort_order ASC'
+  ).all(homePage.id)
+  res.json(blocks.map(parseBlock))
+})
+
+// ── GET /api/page-blocks/home-id — get homepage page id (for admin builder) ─
+router.get('/home-id', (req, res) => {
+  const homePage = db.prepare("SELECT id FROM pages WHERE slug = '__home__'").get()
+  if (!homePage) return res.status(404).json({ error: 'Homepage not found' })
+  res.json({ page_id: homePage.id })
+})
+
 // ── GET /api/page-blocks?page_id= — list blocks for a page ──────────────────
 router.get('/', (req, res) => {
   const { page_id } = req.query

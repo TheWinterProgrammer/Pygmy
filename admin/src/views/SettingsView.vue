@@ -242,6 +242,55 @@
         </div>
       </div>
 
+      <!-- Tax / VAT Settings -->
+      <div class="glass section">
+        <h2 style="margin-bottom:1.25rem;">🧾 Tax / VAT</h2>
+        <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:1.25rem;">
+          Configure tax/VAT calculation for your shop. Tax rates are managed in
+          <RouterLink to="/tax-rates" style="color:var(--accent);">Tax Rates</RouterLink>.
+        </p>
+        <label class="toggle-label" style="margin-bottom:1rem;">
+          <input type="checkbox" v-model="taxEnabled" />
+          <span>Enable tax/VAT calculation at checkout</span>
+        </label>
+        <label class="toggle-label" style="margin-bottom:1.25rem;">
+          <input type="checkbox" v-model="taxInclusive" />
+          <span>Prices include tax (inclusive mode — tax extracted from price, not added on top)</span>
+        </label>
+        <div class="form-group">
+          <label>Tax Registration Number <small style="color:var(--text-muted)">(shown on invoices)</small></label>
+          <input v-model="form.tax_registration_number" class="input" placeholder="e.g. DE123456789" style="max-width:280px;" />
+        </div>
+      </div>
+
+      <!-- Loyalty Program -->
+      <div class="glass section">
+        <h2 style="margin-bottom:1.25rem;">🏆 Loyalty Program</h2>
+        <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:1.25rem;">
+          Reward customers with points for every purchase. Points can be redeemed for discounts at checkout.
+        </p>
+        <label class="toggle-label" style="margin-bottom:1.25rem;">
+          <input type="checkbox" v-model="loyaltyEnabled" />
+          <span>Enable loyalty program</span>
+        </label>
+        <div class="form-group">
+          <label>Points Per Unit of Currency <small style="color:var(--text-muted)">(e.g. 1 = 1 point per €1 spent)</small></label>
+          <input v-model.number="form.loyalty_points_per_unit" type="number" step="0.1" min="0" class="input" style="max-width:120px;" />
+        </div>
+        <div class="form-group">
+          <label>Redemption Rate <small style="color:var(--text-muted)">(points needed per 1 unit of currency, e.g. 100 pts = €1 off)</small></label>
+          <input v-model.number="form.loyalty_redemption_rate" type="number" min="1" class="input" style="max-width:120px;" />
+        </div>
+        <div class="form-group">
+          <label>Minimum Points to Redeem</label>
+          <input v-model.number="form.loyalty_min_redeem" type="number" min="1" class="input" style="max-width:120px;" />
+        </div>
+        <div class="form-group">
+          <label>Points Expiry (days) <small style="color:var(--text-muted)">(0 = never expire)</small></label>
+          <input v-model.number="form.loyalty_expiry_days" type="number" min="0" class="input" style="max-width:120px;" />
+        </div>
+      </div>
+
       <!-- Maintenance Mode -->
       <div class="glass section">
         <h2 style="margin-bottom:1.25rem;">🚧 Maintenance Mode</h2>
@@ -427,6 +476,16 @@ const form = ref({
   order_status_subject: '',
   notify_new_order: '1',
   notify_order_status: '1',
+  // tax
+  tax_enabled: '0',
+  tax_inclusive: '0',
+  tax_registration_number: '',
+  // loyalty
+  loyalty_enabled: '0',
+  loyalty_points_per_unit: '1',
+  loyalty_redemption_rate: '100',
+  loyalty_min_redeem: '100',
+  loyalty_expiry_days: '0',
 })
 
 // Checkbox helpers (settings stored as '1'/'0')
@@ -453,6 +512,18 @@ const notifyNewOrder = computed({
 const notifyOrderStatus = computed({
   get: () => form.value.notify_order_status === '1',
   set: v => { form.value.notify_order_status = v ? '1' : '0' }
+})
+const taxEnabled = computed({
+  get: () => form.value.tax_enabled === '1',
+  set: v => { form.value.tax_enabled = v ? '1' : '0' }
+})
+const taxInclusive = computed({
+  get: () => form.value.tax_inclusive === '1',
+  set: v => { form.value.tax_inclusive = v ? '1' : '0' }
+})
+const loyaltyEnabled = computed({
+  get: () => form.value.loyalty_enabled === '1',
+  set: v => { form.value.loyalty_enabled = v ? '1' : '0' }
 })
 
 // ─── 2FA state ────────────────────────────────────────────────────────────────

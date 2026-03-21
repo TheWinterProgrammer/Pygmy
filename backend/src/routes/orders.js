@@ -36,6 +36,11 @@ function generateOrderNumber() {
 
 const ORDER_STATUSES = ['pending', 'processing', 'shipped', 'completed', 'cancelled', 'refunded']
 
+// ─── Helper: get setting value ────────────────────────────────────────────────
+function getSetting(key) {
+  return db.prepare("SELECT value FROM settings WHERE key = ?").get(key)?.value
+}
+
 // ─── Public: Create order (checkout) ─────────────────────────────────────────
 // POST /api/orders
 router.post('/', (req, res) => {
@@ -45,6 +50,8 @@ router.post('/', (req, res) => {
     coupon_code = '',
     shipping_cost = 0, shipping_zone = '', shipping_method = '',
     shipping_country = '', shipping_rate_name = '',
+    tax_amount = 0, tax_rate_name = '',
+    redeem_points = 0,
   } = req.body
 
   if (!customer_name || !customer_email) {
@@ -106,18 +113,43 @@ router.post('/', (req, res) => {
   }
 
   const shippingCostNum = Math.max(0, parseFloat(shipping_cost) || 0)
-  const computedTotal = Math.max(0, computedSubtotal - discountAmount + shippingCostNum)
-  const orderNumber = generateOrderNumber()
+  const taxAmountNum = Math.max(0, parseFloat(tax_amount) || 0)
+  const taxRateNameStr = (tax_rate_name || '').trim()
 
   const customerId = resolveCustomerId(req)
 
-  // Use a transaction: insert order + decrement stock + increment coupon uses
+  // Loyalty: validate redeem_points if provided
+  let loyaltyDiscount = 0
+  let redeemPointsNum = parseInt(redeem_points) || 0
+  if (redeemPointsNum > 0 && customerId) {
+    const loyaltyEnabled = getSetting('loyalty_enabled') === '1'
+    if (loyaltyEnabled) {
+      const cust = db.prepare('SELECT points_balance FROM customers WHERE id = ?').get(customerId)
+      if (cust && cust.points_balance >= redeemPointsNum) {
+        const redemptionRate = parseInt(getSetting('loyalty_redemption_rate') || '100')
+        loyaltyDiscount = redeemPointsNum / redemptionRate
+      } else {
+        redeemPointsNum = 0 // not enough points — skip silently
+      }
+    } else {
+      redeemPointsNum = 0
+    }
+  } else {
+    redeemPointsNum = 0
+  }
+
+  // Tax inclusive means tax is already in subtotal, so don't add it again
+  const taxInclusive = getSetting('tax_inclusive') === '1'
+  const computedTotal = Math.max(0, computedSubtotal - discountAmount - loyaltyDiscount + shippingCostNum + (taxInclusive ? 0 : taxAmountNum))
+  const orderNumber = generateOrderNumber()
+
+  // Use a transaction: insert order + decrement stock + increment coupon uses + loyalty
   const placeOrder = db.transaction(() => {
     const result = db.prepare(`
       INSERT INTO orders (order_number, status, customer_name, customer_email, customer_phone,
         shipping_address, items, subtotal, discount_amount, shipping_cost, shipping_zone, shipping_method,
-        shipping_country, shipping_rate_name, total, coupon_code, notes, customer_id)
-      VALUES (?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        shipping_country, shipping_rate_name, total, coupon_code, notes, customer_id, tax_amount, tax_rate_name)
+      VALUES (?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       orderNumber,
       customer_name.trim(),
@@ -126,7 +158,7 @@ router.post('/', (req, res) => {
       (shipping_address || '').trim(),
       JSON.stringify(validatedItems),
       computedSubtotal,
-      discountAmount,
+      discountAmount + loyaltyDiscount,
       shippingCostNum,
       (shipping_zone || '').trim(),
       (shipping_method || '').trim(),
@@ -135,8 +167,12 @@ router.post('/', (req, res) => {
       computedTotal,
       appliedCoupon,
       (notes || '').trim(),
-      customerId
+      customerId,
+      taxAmountNum,
+      taxRateNameStr
     )
+
+    const newOrderId = result.lastInsertRowid
 
     // Decrement stock for tracked products
     for (const item of validatedItems) {
@@ -158,11 +194,40 @@ router.post('/', (req, res) => {
       `).run(appliedCoupon)
     }
 
-    return result.lastInsertRowid
+    // Loyalty: earn points
+    const loyaltyEnabled = getSetting('loyalty_enabled') === '1'
+    if (loyaltyEnabled && customerId) {
+      const pointsPerUnit = parseFloat(getSetting('loyalty_points_per_unit') || '1')
+      const pointsEarned = Math.floor(computedTotal * pointsPerUnit)
+
+      if (pointsEarned > 0) {
+        db.prepare(`
+          INSERT INTO loyalty_transactions (customer_id, order_id, type, points, note)
+          VALUES (?, ?, 'earn', ?, ?)
+        `).run(customerId, newOrderId, pointsEarned, `Earned from order ${orderNumber}`)
+        db.prepare(`
+          UPDATE customers SET points_balance = points_balance + ? WHERE id = ?
+        `).run(pointsEarned, customerId)
+      }
+
+      // Loyalty: redeem points
+      if (redeemPointsNum > 0) {
+        db.prepare(`
+          INSERT INTO loyalty_transactions (customer_id, order_id, type, points, note)
+          VALUES (?, ?, 'redeem', ?, ?)
+        `).run(customerId, newOrderId, -redeemPointsNum, `Redeemed on order ${orderNumber}`)
+        db.prepare(`
+          UPDATE customers SET points_balance = MAX(0, points_balance - ?) WHERE id = ?
+        `).run(redeemPointsNum, customerId)
+      }
+    }
+
+    return newOrderId
   })
 
   const newId = placeOrder()
   const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(newId)
+
 
   // Send webhook (fire-and-forget)
   try { fireWebhooks('order.created', { order_number: orderNumber, total: computedTotal }) } catch {}
@@ -178,6 +243,8 @@ router.post('/', (req, res) => {
     shipping_cost: order.shipping_cost,
     shipping_zone: order.shipping_zone,
     shipping_method: order.shipping_method,
+    tax_amount: order.tax_amount,
+    tax_rate_name: order.tax_rate_name,
     total: order.total,
     coupon_code: order.coupon_code,
     status: order.status,
@@ -369,11 +436,12 @@ router.get('/:id/invoice', authMiddleware, (req, res) => {
   const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id)
   if (!order) return res.status(404).json({ error: 'Order not found' })
 
-  const settingRows = db.prepare(`SELECT key, value FROM settings WHERE key IN ('site_name','shop_currency_symbol','site_logo')`).all()
+  const settingRows = db.prepare(`SELECT key, value FROM settings WHERE key IN ('site_name','shop_currency_symbol','site_logo','tax_registration_number')`).all()
   const s = {}
   settingRows.forEach(r => (s[r.key] = r.value))
   const siteName = s.site_name || 'Pygmy CMS'
   const sym = s.shop_currency_symbol || '€'
+  const taxRegNumber = s.tax_registration_number || ''
   const items = JSON.parse(order.items || '[]')
 
   const itemRows = items.map(i => `
@@ -400,6 +468,12 @@ router.get('/:id/invoice', authMiddleware, (req, res) => {
       <td colspan="3" style="text-align:right">Shipping</td>
       <td style="text-align:right">Free</td>
     </tr>`
+
+  const taxRow = order.tax_amount > 0 ? `
+    <tr class="subtotal-row">
+      <td colspan="3" style="text-align:right">${order.tax_rate_name || 'Tax'}</td>
+      <td style="text-align:right">${sym}${Number(order.tax_amount).toFixed(2)}</td>
+    </tr>` : ''
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -443,6 +517,7 @@ router.get('/:id/invoice', authMiddleware, (req, res) => {
     <div>
       <h1>${siteName}</h1>
       <div style="margin-top:.3rem; color:#555; font-size:12px;">Invoice / Order Confirmation</div>
+      ${taxRegNumber ? `<div style="margin-top:.2rem; color:#555; font-size:12px;">Tax Reg: ${taxRegNumber}</div>` : ''}
     </div>
     <div class="meta">
       <strong>${order.order_number}</strong><br>
@@ -488,6 +563,7 @@ router.get('/:id/invoice', authMiddleware, (req, res) => {
       </tr>
       ${discountRow}
       ${shippingRow}
+      ${taxRow}
       <tr class="total-row">
         <td colspan="3" style="text-align:right">Total</td>
         <td style="text-align:right">${sym}${Number(order.total).toFixed(2)}</td>
