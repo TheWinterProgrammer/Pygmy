@@ -49,6 +49,7 @@
 
         <div class="confirm-actions">
           <RouterLink to="/shop" class="btn btn-primary">Continue Shopping</RouterLink>
+          <RouterLink to="/order/lookup" class="btn btn-ghost">📦 Track Order</RouterLink>
           <RouterLink to="/" class="btn btn-ghost">← Home</RouterLink>
         </div>
       </div>

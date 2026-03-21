@@ -119,12 +119,110 @@
         <h2>Product Details</h2>
         <div class="prose" v-html="product.description"></div>
       </div>
+
+      <!-- Reviews Section -->
+      <div class="reviews-section">
+        <h2 class="reviews-title">Customer Reviews</h2>
+
+        <!-- Aggregate stats -->
+        <div class="reviews-stats glass" v-if="reviewStats.total > 0">
+          <div class="stats-avg">
+            <span class="avg-number">{{ reviewStats.avg_rating }}</span>
+            <div class="stars-display">
+              <span v-for="n in 5" :key="n" class="star" :class="{ filled: n <= Math.round(reviewStats.avg_rating) }">★</span>
+            </div>
+            <span class="avg-label">{{ reviewStats.total }} {{ reviewStats.total === 1 ? 'review' : 'reviews' }}</span>
+          </div>
+          <div class="stats-bars">
+            <div v-for="n in [5,4,3,2,1]" :key="n" class="bar-row">
+              <span class="bar-label">{{ n }} ★</span>
+              <div class="bar-track">
+                <div class="bar-fill" :style="{ width: reviewStats.total ? ((reviewStats['r'+n] || 0) / reviewStats.total * 100) + '%' : '0%' }"></div>
+              </div>
+              <span class="bar-count">{{ reviewStats['r'+n] || 0 }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Review list -->
+        <div class="reviews-list" v-if="reviews.length">
+          <div v-for="r in reviews" :key="r.id" class="review-card glass">
+            <div class="review-header">
+              <div class="review-meta">
+                <span class="review-author">{{ r.author_name }}</span>
+                <span class="review-date text-muted">{{ formatDate(r.created_at) }}</span>
+              </div>
+              <div class="review-stars">
+                <span v-for="n in 5" :key="n" class="star sm" :class="{ filled: n <= r.rating }">★</span>
+              </div>
+            </div>
+            <div class="review-title" v-if="r.title">{{ r.title }}</div>
+            <p class="review-body text-muted">{{ r.body }}</p>
+          </div>
+        </div>
+        <div class="no-reviews text-muted" v-else-if="!loadingReviews">
+          No reviews yet. Be the first!
+        </div>
+
+        <!-- Submit review form -->
+        <div class="review-form glass" v-if="product">
+          <h3 class="review-form-title">Write a Review</h3>
+          <div v-if="reviewSubmitted" class="review-success">
+            ✅ Thanks for your review! It will appear after approval.
+          </div>
+          <form v-else @submit.prevent="submitReview" novalidate>
+            <div class="field-row-2">
+              <div class="field">
+                <label class="label">Your Name <span class="req">*</span></label>
+                <input class="input" type="text" v-model="reviewForm.author_name" placeholder="Jane Doe" />
+                <span class="field-error" v-if="reviewErrors.author_name">{{ reviewErrors.author_name }}</span>
+              </div>
+              <div class="field">
+                <label class="label">Email (not shown)</label>
+                <input class="input" type="email" v-model="reviewForm.author_email" placeholder="jane@example.com" />
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="label">Rating <span class="req">*</span></label>
+              <div class="star-picker">
+                <button
+                  v-for="n in 5" :key="n"
+                  type="button"
+                  class="star-pick" :class="{ active: n <= reviewForm.rating }"
+                  @click="reviewForm.rating = n"
+                  @mouseover="reviewHover = n"
+                  @mouseleave="reviewHover = 0"
+                  :style="{ color: n <= (reviewHover || reviewForm.rating) ? 'hsl(44,90%,55%)' : undefined }"
+                >★</button>
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="label">Review Title</label>
+              <input class="input" type="text" v-model="reviewForm.title" placeholder="Great product!" />
+            </div>
+
+            <div class="field">
+              <label class="label">Review <span class="req">*</span></label>
+              <textarea class="input" rows="4" v-model="reviewForm.body" placeholder="Share your experience…"></textarea>
+              <span class="field-error" v-if="reviewErrors.body">{{ reviewErrors.body }}</span>
+            </div>
+
+            <div class="field-error" v-if="reviewErrors.global">{{ reviewErrors.global }}</div>
+
+            <button type="submit" class="btn btn-primary" :disabled="submittingReview">
+              {{ submittingReview ? 'Submitting…' : 'Submit Review' }}
+            </button>
+          </form>
+        </div>
+      </div>
     </article>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, reactive, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useHead } from '@vueuse/head'
 import api from '../api.js'
@@ -140,6 +238,55 @@ const isPreview = ref(false)
 const activeImage = ref(null)
 const qty        = ref(1)
 const addedFlash = ref(false)
+
+// Reviews
+const reviews         = ref([])
+const reviewStats     = ref({ total: 0, avg_rating: 0 })
+const loadingReviews  = ref(false)
+const reviewSubmitted = ref(false)
+const submittingReview = ref(false)
+const reviewHover     = ref(0)
+const reviewForm      = reactive({ author_name: '', author_email: '', rating: 5, title: '', body: '' })
+const reviewErrors    = reactive({ author_name: '', body: '', global: '' })
+
+async function loadReviews(productId) {
+  loadingReviews.value = true
+  try {
+    const { data } = await api.get('/reviews', { params: { product_id: productId, limit: 20 } })
+    reviews.value    = data.reviews || []
+    reviewStats.value = data.stats || { total: 0, avg_rating: 0 }
+  } catch {
+    reviews.value = []
+  } finally {
+    loadingReviews.value = false
+  }
+}
+
+function formatDate(d) {
+  return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
+async function submitReview() {
+  reviewErrors.author_name = reviewErrors.body = reviewErrors.global = ''
+  if (!reviewForm.author_name.trim()) { reviewErrors.author_name = 'Name is required.'; return }
+  if (!reviewForm.body.trim()) { reviewErrors.body = 'Review text is required.'; return }
+  submittingReview.value = true
+  try {
+    await api.post('/reviews', {
+      product_id:   product.value.id,
+      author_name:  reviewForm.author_name.trim(),
+      author_email: reviewForm.author_email.trim(),
+      rating:       reviewForm.rating,
+      title:        reviewForm.title.trim(),
+      body:         reviewForm.body.trim(),
+    })
+    reviewSubmitted.value = true
+  } catch (err) {
+    reviewErrors.global = err.response?.data?.error || 'Something went wrong. Please try again.'
+  } finally {
+    submittingReview.value = false
+  }
+}
 
 function addToCart() {
   if (!product.value) return
@@ -181,6 +328,8 @@ async function load() {
       entity_slug: data.slug,
       entity_title: data.name
     }).catch(() => {})
+    // Load reviews
+    loadReviews(data.id)
   } catch {
     product.value = null
   } finally {
@@ -411,4 +560,62 @@ function fmt(n) {
   overflow-x: auto;
   margin-bottom: 1rem;
 }
+
+/* ── Reviews ─────────────────────────────────────────────────── */
+.reviews-section { margin-top: 2.5rem; }
+.reviews-title { font-size: 1.35rem; font-weight: 700; margin-bottom: 1.25rem; }
+
+.reviews-stats {
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+  padding: 1.5rem;
+  border-radius: var(--radius);
+  margin-bottom: 1.5rem;
+}
+@media (max-width: 540px) { .reviews-stats { flex-direction: column; align-items: flex-start; } }
+
+.stats-avg { display: flex; flex-direction: column; align-items: center; gap: .25rem; min-width: 100px; }
+.avg-number { font-size: 2.5rem; font-weight: 800; color: var(--text); line-height: 1; }
+.avg-label  { font-size: .8rem; color: var(--text-muted); }
+
+.star { color: rgba(255,255,255,.2); font-size: 1rem; }
+.star.filled { color: hsl(44,90%,55%); }
+.star.sm { font-size: .85rem; }
+
+.stats-bars { flex: 1; display: flex; flex-direction: column; gap: .4rem; }
+.bar-row { display: flex; align-items: center; gap: .5rem; font-size: .82rem; }
+.bar-label { width: 2.5rem; text-align: right; color: var(--text-muted); white-space: nowrap; }
+.bar-track { flex: 1; height: 8px; background: rgba(255,255,255,.08); border-radius: 99px; overflow: hidden; }
+.bar-fill { height: 100%; background: hsl(44,90%,55%); border-radius: 99px; transition: width 0.4s; }
+.bar-count { width: 1.5rem; color: var(--text-muted); }
+
+.reviews-list { display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem; }
+.review-card { padding: 1.25rem 1.5rem; border-radius: var(--radius); }
+.review-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: .5rem; }
+.review-meta { display: flex; flex-direction: column; gap: .15rem; }
+.review-author { font-weight: 700; font-size: .95rem; }
+.review-date { font-size: .78rem; }
+.review-stars { display: flex; gap: .1rem; }
+.review-title { font-weight: 600; font-size: .92rem; margin-bottom: .35rem; }
+.review-body { font-size: .9rem; line-height: 1.65; margin: 0; }
+
+.no-reviews { font-size: .9rem; margin-bottom: 2rem; }
+
+.review-form { padding: 1.75rem; border-radius: var(--radius); margin-top: 1rem; }
+.review-form-title { font-size: 1.1rem; font-weight: 700; margin: 0 0 1.25rem; }
+.review-success { color: hsl(140,60%,55%); background: hsl(140,60%,8%); border: 1px solid hsl(140,60%,18%); border-radius: .5rem; padding: .75rem 1rem; font-size: .92rem; }
+.field-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+@media (max-width: 540px) { .field-row-2 { grid-template-columns: 1fr; } }
+.field { margin-bottom: 1rem; display: flex; flex-direction: column; gap: .3rem; }
+.req { color: var(--accent); }
+.field-error { color: var(--accent); font-size: .8rem; }
+.label { font-size: .85rem; font-weight: 600; }
+
+.star-picker { display: flex; gap: .2rem; }
+.star-pick {
+  background: none; border: none; font-size: 1.75rem; cursor: pointer;
+  color: rgba(255,255,255,.15); transition: color 0.15s; padding: 0 .1rem;
+}
+.star-pick.active, .star-pick:hover { color: hsl(44,90%,55%); }
 </style>

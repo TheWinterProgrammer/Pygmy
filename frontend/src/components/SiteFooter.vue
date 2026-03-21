@@ -17,6 +17,14 @@
           </li>
         </ul>
       </nav>
+
+      <nav class="footer-nav">
+        <ul>
+          <li><a href="/order/lookup">📦 Track Order</a></li>
+          <li><a href="/contact">Contact</a></li>
+          <li><a href="/search">Search</a></li>
+        </ul>
+      </nav>
     </div>
     <div class="footer-bottom container">
       <span class="text-muted">{{ site.settings.footer_text || `© ${year} ${site.settings.site_name}` }}</span>

@@ -46,6 +46,8 @@ const routes = [
       { path: 'webhooks',         name: 'Webhooks',       component: () => import('../views/WebhooksView.vue') },
       { path: 'notifications',    name: 'Notifications',  component: () => import('../views/NotificationsView.vue') },
       { path: 'api-keys',         name: 'ApiKeys',        component: () => import('../views/ApiKeysView.vue') },
+      { path: 'reviews',          name: 'Reviews',        component: () => import('../views/ReviewsView.vue') },
+      { path: 'shipping',         name: 'Shipping',       component: () => import('../views/ShippingView.vue') },
       { path: 'settings',         name: 'Settings',       component: () => import('../views/SettingsView.vue') },
     ]
   },

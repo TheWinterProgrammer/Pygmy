@@ -312,6 +312,40 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_orders_email  ON orders(customer_email);
 
+  -- ── Shipping Zones ───────────────────────────────────────────────────────────
+  CREATE TABLE IF NOT EXISTS shipping_zones (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT    NOT NULL,
+    countries   TEXT    NOT NULL DEFAULT '[]',  -- JSON array of ISO-3166 alpha-2 codes; [] = rest of world
+    created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS shipping_rates (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    zone_id     INTEGER NOT NULL REFERENCES shipping_zones(id) ON DELETE CASCADE,
+    name        TEXT    NOT NULL DEFAULT 'Standard Shipping',
+    type        TEXT    NOT NULL DEFAULT 'flat',  -- 'flat' | 'free' | 'threshold'
+    rate        REAL    NOT NULL DEFAULT 0,       -- cost (ignored for free; threshold is min order for free)
+    min_order   REAL    NOT NULL DEFAULT 0,       -- used by 'threshold' type
+    active      INTEGER NOT NULL DEFAULT 1,
+    created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- ── Product Reviews ───────────────────────────────────────────────────────────
+  CREATE TABLE IF NOT EXISTS product_reviews (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id   INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    author_name  TEXT    NOT NULL,
+    author_email TEXT    NOT NULL DEFAULT '',
+    rating       INTEGER NOT NULL DEFAULT 5,  -- 1–5
+    title        TEXT    NOT NULL DEFAULT '',
+    body         TEXT    NOT NULL DEFAULT '',
+    status       TEXT    NOT NULL DEFAULT 'pending',  -- 'pending' | 'approved' | 'rejected'
+    created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_reviews_product ON product_reviews(product_id, status);
+
   -- ── Coupons ──────────────────────────────────────────────────────────────────
   CREATE TABLE IF NOT EXISTS coupons (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -378,6 +412,24 @@ if (!existingUserCols.includes('totp_enabled')) {
   db.exec(`ALTER TABLE users ADD COLUMN totp_enabled INTEGER NOT NULL DEFAULT 0`)
 }
 
+// shipping_cost column on orders
+const existingOrderCols2 = db.pragma('table_info(orders)').map(c => c.name)
+if (!existingOrderCols2.includes('shipping_cost')) {
+  db.exec(`ALTER TABLE orders ADD COLUMN shipping_cost REAL NOT NULL DEFAULT 0`)
+}
+if (!existingOrderCols2.includes('shipping_zone')) {
+  db.exec(`ALTER TABLE orders ADD COLUMN shipping_zone TEXT NOT NULL DEFAULT ''`)
+}
+if (!existingOrderCols2.includes('shipping_method')) {
+  db.exec(`ALTER TABLE orders ADD COLUMN shipping_method TEXT NOT NULL DEFAULT ''`)
+}
+if (!existingOrderCols2.includes('shipping_country')) {
+  db.exec(`ALTER TABLE orders ADD COLUMN shipping_country TEXT NOT NULL DEFAULT ''`)
+}
+if (!existingOrderCols2.includes('shipping_rate_name')) {
+  db.exec(`ALTER TABLE orders ADD COLUMN shipping_rate_name TEXT NOT NULL DEFAULT ''`)
+}
+
 // ─── Default settings ─────────────────────────────────────────────────────────
 
 const defaultSettings = {
@@ -422,6 +474,9 @@ const defaultSettings = {
   notify_order_status: '1',
   order_confirmation_subject: 'Your order has been received — #{order_number}',
   order_status_subject: 'Order #{order_number} status update',
+  // Reviews
+  reviews_enabled: '1',
+  reviews_require_approval: '1',
 }
 
 const insertSetting = db.prepare(`

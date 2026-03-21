@@ -93,6 +93,8 @@ const navItems = [
   { to: '/posts',      icon: '✍️',  label: 'Posts' },
   { to: '/orders',     icon: '📦',  label: 'Orders' },
   { to: '/coupons',    icon: '🎟️',  label: 'Coupons' },
+  { to: '/shipping',   icon: '🚚',  label: 'Shipping' },
+  { to: '/reviews',    icon: '⭐',  label: 'Reviews' },
   { to: '/products',   icon: '🛍️',  label: 'Products' },
   { to: '/events',     icon: '📆',  label: 'Events' },
   { to: '/media',      icon: '🖼️',  label: 'Media' },

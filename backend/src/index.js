@@ -35,6 +35,8 @@ import apiKeysRoutes from './routes/api_keys.js'
 import locksRoutes from './routes/locks.js'
 import ordersRoutes from './routes/orders.js'
 import couponsRoutes from './routes/coupons.js'
+import shippingRoutes from './routes/shipping.js'
+import reviewsRoutes from './routes/reviews.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -168,6 +170,8 @@ app.use('/api/api-keys', apiKeysRoutes)
 app.use('/api/locks', locksRoutes)
 app.use('/api/orders', orderLimiter, ordersRoutes)
 app.use('/api/coupons', couponsRoutes)
+app.use('/api/shipping', shippingRoutes)
+app.use('/api/reviews', reviewsRoutes)
 
 // ─── SEO (public) ─────────────────────────────────────────────────────────────
 app.use('/', seoRoutes)

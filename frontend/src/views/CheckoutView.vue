@@ -45,6 +45,30 @@
                 placeholder="Street address, city, postal code, country…"></textarea>
             </div>
 
+            <!-- Shipping -->
+            <h3 class="form-section-title" style="margin-top:1.5rem;">🚚 Shipping</h3>
+            <div class="field-row-2">
+              <div class="field">
+                <label class="label">Country</label>
+                <select class="input" v-model="shippingCountry" @change="calculateShipping">
+                  <option value="">— Select country —</option>
+                  <option v-for="c in countryList" :key="c.code" :value="c.code">{{ c.name }}</option>
+                </select>
+              </div>
+            </div>
+            <div class="shipping-rates" v-if="shippingRates.length">
+              <label v-for="rate in shippingRates" :key="rate.id" class="shipping-option" :class="{ selected: selectedRate?.id === rate.id }">
+                <input type="radio" name="shipping_rate" :value="rate.id" @change="selectedRate = rate" :checked="selectedRate?.id === rate.id" />
+                <span class="rate-name">{{ rate.name }}</span>
+                <span class="rate-cost" v-if="rate.free">Free</span>
+                <span class="rate-cost" v-else>{{ fmt(rate.cost) }}</span>
+              </label>
+            </div>
+            <div class="text-muted shipping-note" v-else-if="shippingCountry && !loadingRates" style="font-size:.85rem;margin-bottom:1rem;">
+              No shipping rates available for this country. Contact us.
+            </div>
+            <div class="text-muted shipping-note" v-if="loadingRates" style="font-size:.85rem;margin-bottom:1rem;">Calculating…</div>
+
             <h3 class="form-section-title" style="margin-top:1.5rem;">📝 Notes</h3>
             <div class="field">
               <textarea class="input" rows="2" v-model="form.notes"
@@ -107,9 +131,17 @@
             </div>
             <div class="summary-row">
               <span class="text-muted">Shipping</span>
-              <span class="text-muted">Calculated on confirmation</span>
+              <span v-if="selectedRate">
+                <span v-if="selectedRate.free" style="color:hsl(140,60%,60%);">Free</span>
+                <span v-else>{{ fmt(selectedRate.cost) }}</span>
+              </span>
+              <span class="text-muted" v-else>Select country</span>
             </div>
             <div class="summary-divider"></div>
+            <div class="summary-row summary-row" v-if="selectedRate && !selectedRate.free">
+              <span class="text-muted">Shipping cost</span>
+              <span>{{ fmt(selectedRate.cost) }}</span>
+            </div>
             <div class="summary-row summary-total">
               <span>Total</span>
               <strong style="color:var(--accent);">{{ fmt(orderTotal) }}</strong>
@@ -142,8 +174,53 @@ const applyingCoupon = ref(false)
 const couponError    = ref('')
 const appliedCoupon  = ref(null) // { code, type, value, discount }
 
+// Shipping state
+const shippingCountry = ref('')
+const shippingRates   = ref([])
+const selectedRate    = ref(null)
+const loadingRates    = ref(false)
+
+// Common country list
+const countryList = [
+  { code: 'AT', name: 'Austria' }, { code: 'BE', name: 'Belgium' }, { code: 'BR', name: 'Brazil' },
+  { code: 'CA', name: 'Canada' }, { code: 'CN', name: 'China' }, { code: 'HR', name: 'Croatia' },
+  { code: 'CZ', name: 'Czech Republic' }, { code: 'DK', name: 'Denmark' }, { code: 'FI', name: 'Finland' },
+  { code: 'FR', name: 'France' }, { code: 'DE', name: 'Germany' }, { code: 'GR', name: 'Greece' },
+  { code: 'HU', name: 'Hungary' }, { code: 'IN', name: 'India' }, { code: 'IE', name: 'Ireland' },
+  { code: 'IL', name: 'Israel' }, { code: 'IT', name: 'Italy' }, { code: 'JP', name: 'Japan' },
+  { code: 'MX', name: 'Mexico' }, { code: 'NL', name: 'Netherlands' }, { code: 'NZ', name: 'New Zealand' },
+  { code: 'NO', name: 'Norway' }, { code: 'PL', name: 'Poland' }, { code: 'PT', name: 'Portugal' },
+  { code: 'RO', name: 'Romania' }, { code: 'RU', name: 'Russia' }, { code: 'SA', name: 'Saudi Arabia' },
+  { code: 'RS', name: 'Serbia' }, { code: 'SK', name: 'Slovakia' }, { code: 'SI', name: 'Slovenia' },
+  { code: 'ZA', name: 'South Africa' }, { code: 'ES', name: 'Spain' }, { code: 'SE', name: 'Sweden' },
+  { code: 'CH', name: 'Switzerland' }, { code: 'TR', name: 'Turkey' }, { code: 'UA', name: 'Ukraine' },
+  { code: 'AE', name: 'United Arab Emirates' }, { code: 'GB', name: 'United Kingdom' },
+  { code: 'US', name: 'United States' }, { code: 'VN', name: 'Vietnam' },
+].sort((a, b) => a.name.localeCompare(b.name))
+
+async function calculateShipping() {
+  selectedRate.value = null
+  shippingRates.value = []
+  if (!shippingCountry.value) return
+  loadingRates.value = true
+  try {
+    const { data } = await api.post('/shipping/calculate', {
+      country_code: shippingCountry.value,
+      subtotal: cart.subtotal,
+    })
+    shippingRates.value = data.rates || []
+    if (shippingRates.value.length === 1) selectedRate.value = shippingRates.value[0]
+  } catch {
+    shippingRates.value = []
+  } finally {
+    loadingRates.value = false
+  }
+}
+
+const shippingCost = computed(() => (selectedRate.value && !selectedRate.value.free) ? selectedRate.value.cost : 0)
+
 const orderTotal = computed(() =>
-  Math.max(0, cart.subtotal - (appliedCoupon.value?.discount || 0))
+  Math.max(0, cart.subtotal - (appliedCoupon.value?.discount || 0) + shippingCost.value)
 )
 
 async function applyCoupon() {
@@ -218,6 +295,9 @@ async function placeOrder() {
       subtotal: cart.subtotal,
       total:    orderTotal.value,
       coupon_code: appliedCoupon.value?.code || '',
+      shipping_country: shippingCountry.value || '',
+      shipping_rate_name: selectedRate.value?.name || '',
+      shipping_cost: shippingCost.value,
     }
 
     const { data } = await api.post('/orders', payload)
@@ -312,6 +392,23 @@ async function placeOrder() {
   margin-bottom: .75rem;
 }
 .discount-row span:last-child { font-weight: 600; }
+
+/* Shipping */
+.shipping-rates { display: flex; flex-direction: column; gap: .5rem; margin-bottom: 1rem; }
+.shipping-option {
+  display: flex; align-items: center; gap: .75rem;
+  padding: .7rem 1rem;
+  border-radius: .625rem;
+  border: 1px solid rgba(255,255,255,.1);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.shipping-option:hover { border-color: rgba(255,255,255,.2); }
+.shipping-option.selected { border-color: var(--accent); background: rgba(var(--accent-rgb),.08); }
+.shipping-option input[type="radio"] { accent-color: var(--accent); width: 16px; height: 16px; }
+.rate-name { flex: 1; font-size: .92rem; }
+.rate-cost { font-weight: 700; font-size: .92rem; }
+.shipping-note { margin-bottom: 1rem; }
 
 /* Summary */
 .summary-card {

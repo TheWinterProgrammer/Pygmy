@@ -29,6 +29,8 @@ router.post('/', (req, res) => {
     customer_name, customer_email, customer_phone,
     shipping_address, items, subtotal, total, notes,
     coupon_code = '',
+    shipping_cost = 0, shipping_zone = '', shipping_method = '',
+    shipping_country = '', shipping_rate_name = '',
   } = req.body
 
   if (!customer_name || !customer_email) {
@@ -89,15 +91,17 @@ router.post('/', (req, res) => {
     appliedCoupon = couponResult.coupon.code
   }
 
-  const computedTotal = Math.max(0, computedSubtotal - discountAmount)
+  const shippingCostNum = Math.max(0, parseFloat(shipping_cost) || 0)
+  const computedTotal = Math.max(0, computedSubtotal - discountAmount + shippingCostNum)
   const orderNumber = generateOrderNumber()
 
   // Use a transaction: insert order + decrement stock + increment coupon uses
   const placeOrder = db.transaction(() => {
     const result = db.prepare(`
       INSERT INTO orders (order_number, status, customer_name, customer_email, customer_phone,
-        shipping_address, items, subtotal, discount_amount, total, coupon_code, notes)
-      VALUES (?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        shipping_address, items, subtotal, discount_amount, shipping_cost, shipping_zone, shipping_method,
+        shipping_country, shipping_rate_name, total, coupon_code, notes)
+      VALUES (?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       orderNumber,
       customer_name.trim(),
@@ -107,6 +111,11 @@ router.post('/', (req, res) => {
       JSON.stringify(validatedItems),
       computedSubtotal,
       discountAmount,
+      shippingCostNum,
+      (shipping_zone || '').trim(),
+      (shipping_method || '').trim(),
+      (shipping_country || '').trim().toUpperCase(),
+      (shipping_rate_name || '').trim(),
       computedTotal,
       appliedCoupon,
       (notes || '').trim()
@@ -149,6 +158,9 @@ router.post('/', (req, res) => {
     order_number: order.order_number,
     subtotal: order.subtotal,
     discount_amount: order.discount_amount,
+    shipping_cost: order.shipping_cost,
+    shipping_zone: order.shipping_zone,
+    shipping_method: order.shipping_method,
     total: order.total,
     coupon_code: order.coupon_code,
     status: order.status,
@@ -191,6 +203,40 @@ router.get('/', authMiddleware, (req, res) => {
   })
 })
 
+// ─── Public: Order lookup by order_number + email ────────────────────────────
+// POST /api/orders/lookup
+router.post('/lookup', (req, res) => {
+  const { order_number, email } = req.body
+  if (!order_number || !email) {
+    return res.status(400).json({ error: 'order_number and email are required' })
+  }
+  const order = db.prepare(`
+    SELECT * FROM orders
+    WHERE UPPER(order_number) = UPPER(?) AND LOWER(customer_email) = LOWER(?)
+  `).get(order_number.trim(), email.trim())
+
+  if (!order) return res.status(404).json({ error: 'Order not found. Please check your order number and email address.' })
+
+  res.json({
+    id: order.id,
+    order_number: order.order_number,
+    status: order.status,
+    customer_name: order.customer_name,
+    items: JSON.parse(order.items || '[]'),
+    subtotal: order.subtotal,
+    discount_amount: order.discount_amount,
+    shipping_cost: order.shipping_cost,
+    shipping_zone: order.shipping_zone,
+    shipping_method: order.shipping_method,
+    coupon_code: order.coupon_code,
+    total: order.total,
+    notes: order.notes,
+    shipping_address: order.shipping_address,
+    created_at: order.created_at,
+    updated_at: order.updated_at,
+  })
+})
+
 // ─── Admin: Get single order ──────────────────────────────────────────────────
 // GET /api/orders/:id
 router.get('/:id', authMiddleware, (req, res) => {
@@ -212,6 +258,11 @@ router.get('/confirm/:orderNumber', (req, res) => {
     customer_name: order.customer_name,
     items: JSON.parse(order.items || '[]'),
     subtotal: order.subtotal,
+    discount_amount: order.discount_amount,
+    shipping_cost: order.shipping_cost,
+    shipping_zone: order.shipping_zone,
+    shipping_method: order.shipping_method,
+    coupon_code: order.coupon_code,
     total: order.total,
     created_at: order.created_at,
   })
@@ -293,6 +344,147 @@ router.get('/export/csv', authMiddleware, (req, res) => {
   res.setHeader('Content-Type', 'text/csv')
   res.setHeader('Content-Disposition', `attachment; filename="orders-export-${new Date().toISOString().slice(0,10)}.csv"`)
   res.send(csv)
+})
+
+// ─── Admin: Invoice HTML (print-ready) ───────────────────────────────────────
+// GET /api/orders/:id/invoice
+router.get('/:id/invoice', authMiddleware, (req, res) => {
+  const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id)
+  if (!order) return res.status(404).json({ error: 'Order not found' })
+
+  const settingRows = db.prepare(`SELECT key, value FROM settings WHERE key IN ('site_name','shop_currency_symbol','site_logo')`).all()
+  const s = {}
+  settingRows.forEach(r => (s[r.key] = r.value))
+  const siteName = s.site_name || 'Pygmy CMS'
+  const sym = s.shop_currency_symbol || '€'
+  const items = JSON.parse(order.items || '[]')
+
+  const itemRows = items.map(i => `
+    <tr>
+      <td>${i.name || i.product_id}</td>
+      <td style="text-align:center">${i.quantity}</td>
+      <td style="text-align:right">${sym}${Number(i.unit_price || 0).toFixed(2)}</td>
+      <td style="text-align:right">${sym}${Number(i.line_total || 0).toFixed(2)}</td>
+    </tr>
+  `).join('')
+
+  const discountRow = order.discount_amount > 0 ? `
+    <tr class="subtotal-row">
+      <td colspan="3" style="text-align:right">Discount${order.coupon_code ? ` (${order.coupon_code})` : ''}</td>
+      <td style="text-align:right">−${sym}${Number(order.discount_amount).toFixed(2)}</td>
+    </tr>` : ''
+
+  const shippingRow = order.shipping_cost > 0 ? `
+    <tr class="subtotal-row">
+      <td colspan="3" style="text-align:right">Shipping${order.shipping_method ? ` (${order.shipping_method})` : ''}</td>
+      <td style="text-align:right">${sym}${Number(order.shipping_cost).toFixed(2)}</td>
+    </tr>` : `
+    <tr class="subtotal-row">
+      <td colspan="3" style="text-align:right">Shipping</td>
+      <td style="text-align:right">Free</td>
+    </tr>`
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Invoice ${order.order_number}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #111; background: #fff; font-size: 13px; }
+    .page { max-width: 760px; margin: 0 auto; padding: 2.5rem 2rem; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2.5rem; border-bottom: 2px solid #111; padding-bottom: 1.25rem; }
+    .header h1 { font-size: 2rem; font-weight: 800; letter-spacing: -0.03em; }
+    .header .meta { text-align: right; font-size: 12px; color: #555; line-height: 1.8; }
+    .meta strong { color: #111; font-size: 13px; }
+    .bill-section { display: flex; gap: 2rem; margin-bottom: 2rem; }
+    .bill-box { flex: 1; }
+    .bill-box h4 { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: #888; margin-bottom: .4rem; }
+    .bill-box p { line-height: 1.7; font-size: 13px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; }
+    thead th { background: #111; color: #fff; padding: .5rem .75rem; text-align: left; font-size: 12px; font-weight: 600; }
+    thead th:nth-child(2), thead th:nth-child(3), thead th:nth-child(4) { text-align: right; }
+    tbody td { padding: .55rem .75rem; border-bottom: 1px solid #eee; vertical-align: top; }
+    .subtotal-row td { border-bottom: none; color: #555; padding: .3rem .75rem; }
+    .total-row td { border-top: 2px solid #111; font-weight: 700; font-size: 15px; padding: .6rem .75rem; }
+    .status-badge { display: inline-block; padding: .2em .75em; border-radius: 999px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; background: #f0f0f0; color: #333; }
+    .footer { margin-top: 3rem; border-top: 1px solid #eee; padding-top: 1rem; font-size: 11px; color: #aaa; text-align: center; }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .no-print { display: none; }
+      .page { padding: 1rem; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+  <div class="no-print" style="margin-bottom:1rem; display:flex; gap:.5rem;">
+    <button onclick="window.print()" style="padding:.4rem 1rem;background:#111;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">🖨️ Print / Save PDF</button>
+    <button onclick="window.close()" style="padding:.4rem 1rem;background:#eee;color:#333;border:none;border-radius:4px;cursor:pointer;font-size:13px;">✕ Close</button>
+  </div>
+  <div class="header">
+    <div>
+      <h1>${siteName}</h1>
+      <div style="margin-top:.3rem; color:#555; font-size:12px;">Invoice / Order Confirmation</div>
+    </div>
+    <div class="meta">
+      <strong>${order.order_number}</strong><br>
+      Date: ${new Date(order.created_at).toLocaleDateString('en-GB', { year:'numeric', month:'long', day:'numeric' })}<br>
+      Status: <span class="status-badge">${order.status}</span>
+    </div>
+  </div>
+
+  <div class="bill-section">
+    <div class="bill-box">
+      <h4>Billed To</h4>
+      <p>
+        <strong>${order.customer_name}</strong><br>
+        ${order.customer_email}<br>
+        ${order.customer_phone ? order.customer_phone + '<br>' : ''}
+        ${order.shipping_address ? order.shipping_address.replace(/\n/g, '<br>') : ''}
+      </p>
+    </div>
+    ${order.shipping_zone ? `<div class="bill-box">
+      <h4>Shipping</h4>
+      <p>Zone: ${order.shipping_zone}<br>${order.shipping_method || ''}</p>
+    </div>` : ''}
+    ${order.notes ? `<div class="bill-box">
+      <h4>Notes</h4>
+      <p>${order.notes.replace(/\n/g, '<br>')}</p>
+    </div>` : ''}
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Product</th>
+        <th style="text-align:right">Qty</th>
+        <th style="text-align:right">Unit Price</th>
+        <th style="text-align:right">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${itemRows}
+      <tr class="subtotal-row">
+        <td colspan="3" style="text-align:right; padding-top:.75rem;">Subtotal</td>
+        <td style="text-align:right; padding-top:.75rem;">${sym}${Number(order.subtotal).toFixed(2)}</td>
+      </tr>
+      ${discountRow}
+      ${shippingRow}
+      <tr class="total-row">
+        <td colspan="3" style="text-align:right">Total</td>
+        <td style="text-align:right">${sym}${Number(order.total).toFixed(2)}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="footer">Thank you for your order. If you have any questions, please contact us.</div>
+</div>
+</body>
+</html>`
+
+  res.setHeader('Content-Type', 'text/html')
+  res.send(html)
 })
 
 // ─── Admin: Stats ─────────────────────────────────────────────────────────────

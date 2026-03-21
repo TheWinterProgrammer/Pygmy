@@ -129,6 +129,16 @@
               <span>🎟️ Coupon ({{ selected.coupon_code }})</span>
               <span>−{{ fmtCurrency(selected.discount_amount) }}</span>
             </div>
+            <div v-if="selected.shipping_cost > 0" class="order-subtotal-row"
+                 style="display:flex;justify-content:space-between;font-size:.88rem;padding:.3rem 0;color:var(--text-muted);">
+              <span>🚚 Shipping{{ selected.shipping_rate_name ? ` (${selected.shipping_rate_name})` : '' }}{{ selected.shipping_country ? ` — ${selected.shipping_country}` : '' }}</span>
+              <span>{{ fmtCurrency(selected.shipping_cost) }}</span>
+            </div>
+            <div v-else-if="selected.shipping_country" class="order-subtotal-row"
+                 style="display:flex;justify-content:space-between;font-size:.88rem;padding:.3rem 0;color:hsl(140,60%,55%);">
+              <span>🚚 Shipping{{ selected.shipping_rate_name ? ` (${selected.shipping_rate_name})` : '' }} — {{ selected.shipping_country }}</span>
+              <span>Free</span>
+            </div>
             <div class="order-total-row">
               <span>Total</span>
               <strong style="color:var(--accent);">{{ fmtCurrency(selected.total) }}</strong>
@@ -149,6 +159,7 @@
         </div>
         <div class="modal-footer">
           <button class="btn btn-ghost" @click="selected = null">Close</button>
+          <button class="btn btn-ghost" @click="printInvoice(selected)" title="Open print-ready invoice">🖨️ Invoice</button>
           <button class="btn btn-danger" @click="confirmDelete(selected)">Delete order</button>
         </div>
       </div>
@@ -301,6 +312,10 @@ async function saveNotes() {
   } finally {
     saving.value = false
   }
+}
+
+function printInvoice(order) {
+  window.open(`http://localhost:3200/api/orders/${order.id}/invoice`, '_blank')
 }
 
 function confirmDelete(order) {

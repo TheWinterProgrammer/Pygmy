@@ -43,6 +43,10 @@ const routes = [
     component: () => import('../views/CheckoutView.vue')
   },
   {
+    path: '/order/lookup',
+    component: () => import('../views/OrderLookupView.vue')
+  },
+  {
     path: '/order/:orderNumber',
     component: () => import('../views/OrderConfirmView.vue')
   },
