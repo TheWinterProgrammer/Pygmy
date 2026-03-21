@@ -114,6 +114,13 @@ frontend/           ← public website (port 5174)
 - Dynamic CMS page renderer
 - Loading skeletons + 404 states
 
+### Phase 19 — Product Reviews + Shipping at Checkout + Order Lookup ✅
+- **Product Reviews on public frontend** — `ProductView` shows star-rating aggregate (avg score + 5-bar histogram by star count), a scrollable review list (author, date, star row, title, body), and a full "Write a Review" form with interactive star picker, name/email/title/body fields, and a post-submission confirmation; calls `GET /api/reviews?product_id=` for approved reviews with stats, and `POST /api/reviews` to submit (held pending until admin approves); review list and form loaded alongside product data on route mount
+- **Shipping calculator at checkout** — `CheckoutView` now features a country dropdown (40 countries alphabetically sorted), fires `POST /api/shipping/calculate` when a country is chosen, and renders the returned zone rates as radio buttons (name + cost; threshold/free rates are resolved server-side); the selected rate's cost is added to `orderTotal`; if only one rate exists it is auto-selected; if no rates exist for the country a "contact us" notice is shown; `shipping_country`, `shipping_rate_name`, and `shipping_cost` are all included in the order payload; backend `orders.js` and `db.js` updated to accept + store the two new columns
+- **Order Lookup page (`/order/lookup`)** — new public page with a glass card form (order number + email); calls `POST /api/orders/lookup` and displays a full order summary: status pill (color-coded per status), customer name, shipping address, order date, items table with thumbnail/qty/line-total, subtotal, discount, shipping cost, and grand total; "Track another order" button to reset; link added to `OrderConfirmView` CTAs and `SiteFooter` quick-links column
+- **Admin Orders modal** — shipping country, rate name, and cost now displayed in the order detail panel (shows "Free" when cost = 0 and a country was selected)
+- **Admin ShippingView bugfix** — removed broken `useSiteStore` import (admin panel has no site store); currency symbol is now loaded lazily via `GET /api/settings` on mount
+
 ### Phase 18 — E-Commerce Settings + Orders CSV Export + Inventory API ✅
 - **E-Commerce settings section in admin Settings** — new 🛒 E-Commerce section with: currency code + symbol (used across checkout, order confirmation, admin panels), checkout intro text (displayed at top of `/checkout`), thank-you message (shown on order confirmation page), order confirmation email subject (`#{order_number}` placeholder), order status update email subject, and toggle checkboxes for "email admin on new order" and "email customer on status change"; all settings persisted via existing `PUT /api/settings` batch endpoint
 - **Orders CSV export** — `GET /api/orders/export/csv` endpoint (admin, JWT-authenticated); supports `?status=`, `?from=` and `?to=` date filters; generates a properly escaped CSV with columns: order_number, status, customer_name, customer_email, customer_phone, shipping_address, subtotal, discount_amount, coupon_code, total, notes, created_at; admin Orders panel header gets an ⬇️ Export CSV button (respects current status filter, blob-downloads via fetch with auth header)
@@ -471,12 +478,13 @@ Font: **Poppins** via Google Fonts
 ### Orders
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/api/orders` | — | Place order (checkout, validates prices server-side) |
+| POST | `/api/orders` | — | Place order (checkout, validates prices server-side; accepts `shipping_country`, `shipping_rate_name`, `shipping_cost`) |
 | GET  | `/api/orders` | ✓ | List orders (`?status=`, `?q=`, `?limit=`, `?offset=`) |
 | GET  | `/api/orders/stats/summary` | ✓ | Revenue + status counts |
 | GET  | `/api/orders/export/csv` | ✓ | CSV export (`?status=`, `?from=`, `?to=` filters) |
 | GET  | `/api/orders/:id` | ✓ | Single order detail (admin) |
 | GET  | `/api/orders/confirm/:orderNumber` | — | Public order confirmation (limited fields) |
+| POST | `/api/orders/lookup` | — | Public order tracking `{order_number, email}` |
 | PUT  | `/api/orders/:id` | ✓ | Update status / notes |
 | DELETE | `/api/orders/:id` | ✓ | Delete order |
 
