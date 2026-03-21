@@ -37,6 +37,7 @@ import ordersRoutes from './routes/orders.js'
 import couponsRoutes from './routes/coupons.js'
 import shippingRoutes from './routes/shipping.js'
 import reviewsRoutes from './routes/reviews.js'
+import variantsRoutes from './routes/variants.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -172,6 +173,7 @@ app.use('/api/orders', orderLimiter, ordersRoutes)
 app.use('/api/coupons', couponsRoutes)
 app.use('/api/shipping', shippingRoutes)
 app.use('/api/reviews', reviewsRoutes)
+app.use('/api/variants', variantsRoutes)
 
 // ─── SEO (public) ─────────────────────────────────────────────────────────────
 app.use('/', seoRoutes)

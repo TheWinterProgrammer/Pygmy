@@ -430,6 +430,28 @@ if (!existingOrderCols2.includes('shipping_rate_name')) {
   db.exec(`ALTER TABLE orders ADD COLUMN shipping_rate_name TEXT NOT NULL DEFAULT ''`)
 }
 
+// product_variants table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS product_variants (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id  INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    name        TEXT    NOT NULL,
+    options     TEXT    NOT NULL DEFAULT '[]',
+    created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+    updated_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS product_variant_options (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    variant_id  INTEGER NOT NULL REFERENCES product_variants(id) ON DELETE CASCADE,
+    label       TEXT    NOT NULL,
+    price_adj   REAL    NOT NULL DEFAULT 0,
+    sku_suffix  TEXT    NOT NULL DEFAULT '',
+    stock       INTEGER NOT NULL DEFAULT -1,
+    sort_order  INTEGER NOT NULL DEFAULT 0
+  );
+`)
+
 // ─── Default settings ─────────────────────────────────────────────────────────
 
 const defaultSettings = {

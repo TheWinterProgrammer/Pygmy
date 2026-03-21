@@ -56,6 +56,38 @@
           </button>
         </div>
 
+        <!-- Variants -->
+        <div class="glass section" v-if="!isNew">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+            <h3 style="margin:0">🎛️ Product Variants</h3>
+            <button type="button" class="btn btn-ghost btn-sm" @click="addVariantGroup">+ Add Variant</button>
+          </div>
+          <p class="text-muted" style="font-size:.85rem;margin-bottom:1rem;" v-if="!variantGroups.length">
+            No variants yet. Add options like Size or Color to let customers choose.
+          </p>
+
+          <div class="variant-group-card glass" v-for="(vg, gi) in variantGroups" :key="gi">
+            <div class="vg-header">
+              <input class="input vg-name" v-model="vg.name" placeholder="Variant name (e.g. Size, Color)" />
+              <button type="button" class="btn btn-ghost btn-sm" @click="saveVariantGroup(gi)" :disabled="vg.saving">
+                {{ vg.saving ? '…' : '💾 Save' }}
+              </button>
+              <button type="button" class="btn btn-ghost btn-sm" @click="deleteVariantGroup(gi)">🗑</button>
+            </div>
+
+            <div class="vg-options">
+              <div class="vg-option" v-for="(opt, oi) in vg.options" :key="oi">
+                <input class="input opt-label" v-model="opt.label" placeholder="Label (e.g. Medium)" />
+                <input class="input opt-adj" v-model.number="opt.price_adj" type="number" step="0.01" placeholder="±price" title="Price adjustment" />
+                <input class="input opt-sku" v-model="opt.sku_suffix" placeholder="SKU suffix" />
+                <input class="input opt-stock" v-model.number="opt.stock" type="number" min="-1" placeholder="Stock (-1 = unlimited)" title="Stock (-1 = unlimited)" />
+                <button type="button" class="btn-icon" @click="vg.options.splice(oi, 1)">✕</button>
+              </div>
+              <button type="button" class="btn btn-ghost btn-sm" style="margin-top:.5rem" @click="vg.options.push({ label:'', price_adj:0, sku_suffix:'', stock:-1 })">+ Add Option</button>
+            </div>
+          </div>
+        </div>
+
         <!-- SEO -->
         <div class="glass section">
           <h3 style="margin-bottom:1rem">SEO</h3>
@@ -202,6 +234,78 @@ const lock     = useContentLock('product', computed(() => isNew.value ? null : r
 const saving   = ref(false)
 const showPicker  = ref(false)
 
+// ─── Variants ─────────────────────────────────────────────────────────────────
+const variantGroups = ref([]) // [{ id?, name, options: [{label,price_adj,sku_suffix,stock}], saving }]
+
+async function loadVariants() {
+  if (isNew.value) return
+  try {
+    const { data } = await api.get('/variants', { params: { product_id: route.params.id } })
+    variantGroups.value = (data || []).map(v => ({
+      id: v.id,
+      name: v.name,
+      options: (v.options || []).map(o => ({
+        id: o.id,
+        label: o.label,
+        price_adj: o.price_adj || 0,
+        sku_suffix: o.sku_suffix || '',
+        stock: o.stock !== undefined ? o.stock : -1,
+      })),
+      saving: false,
+    }))
+  } catch {
+    variantGroups.value = []
+  }
+}
+
+function addVariantGroup() {
+  variantGroups.value.push({ name: '', options: [{ label: '', price_adj: 0, sku_suffix: '', stock: -1 }], saving: false })
+}
+
+async function saveVariantGroup(gi) {
+  const vg = variantGroups.value[gi]
+  if (!vg.name.trim()) { toast.error('Variant name required'); return }
+  vg.saving = true
+  try {
+    const payload = {
+      product_id: route.params.id,
+      name: vg.name.trim(),
+      options: vg.options.filter(o => o.label.trim()).map(o => ({
+        label: o.label.trim(),
+        price_adj: Number(o.price_adj) || 0,
+        sku_suffix: o.sku_suffix?.trim() || '',
+        stock: Number(o.stock) ?? -1,
+      })),
+    }
+    if (vg.id) {
+      const { data } = await api.put(`/variants/${vg.id}`, payload)
+      variantGroups.value[gi] = { ...variantGroups.value[gi], ...data, saving: false, options: data.options }
+    } else {
+      const { data } = await api.post('/variants', payload)
+      variantGroups.value[gi] = { ...data, saving: false, options: data.options }
+    }
+    toast.success('Variant saved')
+  } catch (e) {
+    toast.error(e.response?.data?.error || 'Save failed')
+  } finally {
+    vg.saving = false
+  }
+}
+
+async function deleteVariantGroup(gi) {
+  const vg = variantGroups.value[gi]
+  if (vg.id) {
+    try {
+      await api.delete(`/variants/${vg.id}`)
+    } catch {
+      toast.error('Delete failed')
+      return
+    }
+  }
+  variantGroups.value.splice(gi, 1)
+  toast.success('Variant removed')
+}
+
 function openPreview() {
   const token = localStorage.getItem('pygmy_token') || ''
   const url = `http://localhost:5174/shop/${form.value.slug}?preview_token=${encodeURIComponent(token)}`
@@ -228,6 +332,7 @@ onMounted(async () => {
   categories.value = cRes.data
 
   if (!isNew.value) {
+    loadVariants()
     try {
       const { data: product } = await api.get(`/products/id/${route.params.id}`)
       form.value = {
@@ -394,4 +499,42 @@ const saveScheduled = () => save('scheduled')
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
 }
+
+/* Variants */
+.variant-group-card {
+  padding: 1rem;
+  border-radius: .75rem;
+  margin-bottom: .75rem;
+}
+.vg-header {
+  display: flex;
+  gap: .5rem;
+  align-items: center;
+  margin-bottom: .75rem;
+  flex-wrap: wrap;
+}
+.vg-name { flex: 1; min-width: 120px; }
+.vg-options { display: flex; flex-direction: column; gap: .4rem; }
+.vg-option {
+  display: grid;
+  grid-template-columns: 1fr 90px 100px 90px auto;
+  gap: .4rem;
+  align-items: center;
+}
+@media (max-width: 640px) {
+  .vg-option { grid-template-columns: 1fr 80px auto; }
+  .opt-adj, .opt-sku, .opt-stock { display: none; }
+}
+.opt-label, .opt-adj, .opt-sku, .opt-stock { font-size: .82rem; }
+.btn-icon {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: .85rem;
+  padding: .2rem .3rem;
+  border-radius: .3rem;
+  transition: color .15s;
+}
+.btn-icon:hover { color: var(--accent); }
 </style>

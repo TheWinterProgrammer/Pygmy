@@ -35,31 +35,47 @@ export const useCartStore = defineStore('cart', () => {
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
-  function addItem(product, quantity = 1) {
-    const existing = items.value.find(i => i.product_id === product.id)
+  // cartKey: unique key per product+variant combo (e.g. "42" or "42:Color:Red")
+  function makeKey(productId, variantKey = null) {
+    return variantKey ? `${productId}:${variantKey}` : String(productId)
+  }
+
+  /**
+   * addItem(product, quantity, variantInfo?)
+   * variantInfo: { key: "Color:Red", label: "Color: Red", price_adj: 0 }
+   */
+  function addItem(product, quantity = 1, variantInfo = null) {
+    const cartKey = makeKey(product.id, variantInfo?.key)
+    const existing = items.value.find(i => i.cart_key === cartKey)
+    const basePrice = product.sale_price ?? product.price ?? 0
+    const unitPrice = basePrice + (variantInfo?.price_adj || 0)
+
     if (existing) {
       existing.quantity += quantity
     } else {
       items.value.push({
-        product_id:  product.id,
-        name:        product.name,
-        slug:        product.slug,
-        cover_image: product.cover_image || null,
-        unit_price:  product.sale_price ?? product.price ?? 0,
+        cart_key:     cartKey,
+        product_id:   product.id,
+        name:         product.name,
+        slug:         product.slug,
+        cover_image:  product.cover_image || null,
+        unit_price:   unitPrice,
         quantity,
+        variant_key:   variantInfo?.key   || null,
+        variant_label: variantInfo?.label || null,
       })
     }
     persist()
   }
 
-  function removeItem(productId) {
-    items.value = items.value.filter(i => i.product_id !== productId)
+  function removeItem(cartKey) {
+    items.value = items.value.filter(i => (i.cart_key || String(i.product_id)) !== cartKey)
     persist()
   }
 
-  function updateQuantity(productId, quantity) {
-    if (quantity < 1) return removeItem(productId)
-    const item = items.value.find(i => i.product_id === productId)
+  function updateQuantity(cartKey, quantity) {
+    if (quantity < 1) return removeItem(cartKey)
+    const item = items.value.find(i => (i.cart_key || String(i.product_id)) === cartKey)
     if (item) {
       item.quantity = quantity
       persist()

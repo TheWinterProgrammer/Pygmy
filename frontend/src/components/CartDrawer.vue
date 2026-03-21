@@ -22,23 +22,24 @@
 
       <!-- Items -->
       <div class="cart-items" v-else>
-        <div class="cart-item" v-for="item in cart.items" :key="item.product_id">
+        <div class="cart-item" v-for="item in cart.items" :key="item.cart_key || item.product_id">
           <div class="item-thumb">
             <img v-if="item.cover_image" :src="item.cover_image" :alt="item.name" />
             <div v-else class="item-thumb-placeholder">🛍️</div>
           </div>
           <div class="item-info">
             <RouterLink :to="`/shop/${item.slug}`" @click="cart.close()" class="item-name">{{ item.name }}</RouterLink>
+            <div class="item-variant text-muted" v-if="item.variant_label" style="font-size:.78rem;margin-top:.1rem;">{{ item.variant_label }}</div>
             <div class="item-price">{{ fmt(item.unit_price) }} each</div>
           </div>
           <div class="item-controls">
             <div class="qty-control">
-              <button @click="cart.updateQuantity(item.product_id, item.quantity - 1)">−</button>
+              <button @click="cart.updateQuantity(item.cart_key || String(item.product_id), item.quantity - 1)">−</button>
               <span>{{ item.quantity }}</span>
-              <button @click="cart.updateQuantity(item.product_id, item.quantity + 1)">+</button>
+              <button @click="cart.updateQuantity(item.cart_key || String(item.product_id), item.quantity + 1)">+</button>
             </div>
             <div class="item-line-total">{{ fmt(item.unit_price * item.quantity) }}</div>
-            <button class="item-remove" @click="cart.removeItem(item.product_id)" title="Remove">✕</button>
+            <button class="item-remove" @click="cart.removeItem(item.cart_key || String(item.product_id))" title="Remove">✕</button>
           </div>
         </div>
       </div>

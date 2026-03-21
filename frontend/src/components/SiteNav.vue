@@ -39,6 +39,14 @@
         </svg>
       </RouterLink>
 
+      <!-- Wishlist button -->
+      <RouterLink to="/wishlist" class="nav-wishlist-btn" aria-label="Wishlist" title="Wishlist">
+        <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+        </svg>
+        <span v-if="wishlist.count > 0" class="wishlist-badge">{{ wishlist.count > 9 ? '9+' : wishlist.count }}</span>
+      </RouterLink>
+
       <!-- Cart button -->
       <button class="nav-cart-btn" @click="cart.toggle()" aria-label="Cart" title="Shopping cart">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -77,9 +85,11 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useSiteStore } from '../stores/site.js'
 import { useCartStore } from '../stores/cart.js'
+import { useWishlistStore } from '../stores/wishlist.js'
 
-const site = useSiteStore()
-const cart = useCartStore()
+const site     = useSiteStore()
+const cart     = useCartStore()
+const wishlist = useWishlistStore()
 const route = useRoute()
 const scrolled = ref(false)
 const mobileOpen = ref(false)
@@ -233,6 +243,39 @@ const flatNav = computed(() => {
   color: var(--text);
   background: rgba(255,255,255,0.06);
   text-decoration: none;
+}
+
+/* Wishlist button */
+.nav-wishlist-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color 0.2s, background 0.2s;
+  flex-shrink: 0;
+}
+.nav-wishlist-btn:hover,
+.nav-wishlist-btn.router-link-active {
+  color: var(--accent);
+  background: rgba(255,255,255,0.06);
+}
+.wishlist-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  background: var(--accent);
+  color: #fff;
+  font-size: .62rem;
+  font-weight: 700;
+  border-radius: 99px;
+  padding: .05em .35em;
+  min-width: 1.4em;
+  text-align: center;
+  line-height: 1.6;
 }
 
 /* Cart button */

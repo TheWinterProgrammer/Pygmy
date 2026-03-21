@@ -114,6 +114,12 @@ frontend/           ← public website (port 5174)
 - Dynamic CMS page renderer
 - Loading skeletons + 404 states
 
+### Phase 20 — Product Variants + Wishlist ✅
+- **Product Variants** — admins can define unlimited variant groups per product (e.g. Size, Color) each with multiple options; each option has a label, optional price adjustment (±), SKU suffix, and per-option stock level (-1 = unlimited); variants are managed from the `ProductEditView` sidebar in a dedicated 🎛️ Variants section (appears after saving a new product); save/delete per group with instant feedback; backend `product_variants` + `product_variant_options` SQLite tables with full REST API at `GET /api/variants?product_id=`, `POST /api/variants`, `PUT /api/variants/:id`, `DELETE /api/variants/:id`; variants cascade-delete when the parent product is deleted
+- **Variant picker on public product page** — `ProductView` loads variants via `/api/variants` on mount; renders each group as a row of pill-style buttons; selected option highlighted in accent; sold-out options disabled with strikethrough; price adjustments shown inline on buttons; if variants exist, user must select one per group before adding to cart (validation error shown otherwise); selected variant key + label + price adjustment stored on cart item
+- **Cart variant support** — `cart.js` store updated: `addItem()` now accepts optional `variantInfo` param `{ key, label, price_adj }`; each cart item carries `cart_key` (e.g. `42:Size:Large|Color:Red`), `variant_label`, and variant-adjusted `unit_price`; `removeItem`/`updateQuantity` key on `cart_key`; `CartDrawer` displays variant label under item name and uses `cart_key` for quantity/remove ops; old single-variant carts gracefully fall back to product_id key
+- **Wishlist** — Pinia `wishlist.js` store with localStorage persistence; `toggle(product)`, `isWishlisted(id)`, `remove(id)`, `clear()`, reactive `count`; `WishlistView` at `/wishlist` — responsive card grid of saved products with cover image, name, excerpt, price, "View Product" link, and "Add to Cart" button; filled ♥ button in top-right of each card removes from wishlist; empty state with shop link; `SiteNav` gains a heart icon with live badge count (turns accent red when active); heart ♡/♥ toggle buttons added to every product card in `ProductsView` and inline with the ATC row in `ProductView`
+
 ### Phase 19 — Product Reviews + Shipping at Checkout + Order Lookup ✅
 - **Product Reviews on public frontend** — `ProductView` shows star-rating aggregate (avg score + 5-bar histogram by star count), a scrollable review list (author, date, star row, title, body), and a full "Write a Review" form with interactive star picker, name/email/title/body fields, and a post-submission confirmation; calls `GET /api/reviews?product_id=` for approved reviews with stats, and `POST /api/reviews` to submit (held pending until admin approves); review list and form loaded alongside product data on route mount
 - **Shipping calculator at checkout** — `CheckoutView` now features a country dropdown (40 countries alphabetically sorted), fires `POST /api/shipping/calculate` when a country is chosen, and renders the returned zone rates as radio buttons (name + cost; threshold/free rates are resolved server-side); the selected rate's cost is added to `orderTotal`; if only one rate exists it is auto-selected; if no rates exist for the country a "contact us" notice is shown; `shipping_country`, `shipping_rate_name`, and `shipping_cost` are all included in the order payload; backend `orders.js` and `db.js` updated to accept + store the two new columns
@@ -492,6 +498,14 @@ Font: **Poppins** via Google Fonts
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/api/products/inventory` | ✓ | Stock report: `{ items, outOfStock, lowStock, healthy }` for all tracked products |
+
+### Product Variants
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/variants?product_id=` | — | List variant groups + options for a product |
+| POST | `/api/variants` | ✓ | Create variant group `{product_id, name, options[]}` |
+| PUT | `/api/variants/:id` | ✓ | Update variant group (full replace of options) |
+| DELETE | `/api/variants/:id` | ✓ | Delete variant group (cascades options) |
 
 ### SEO (public)
 | Method | Path | Description |

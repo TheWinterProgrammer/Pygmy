@@ -93,6 +93,29 @@
             </span>
           </div>
 
+          <!-- Variant Picker -->
+          <div class="variants-section" v-if="variants.length">
+            <div class="variant-group" v-for="v in variants" :key="v.id">
+              <label class="variant-label">{{ v.name }}</label>
+              <div class="variant-options">
+                <button
+                  v-for="opt in v.options"
+                  :key="opt.id"
+                  class="variant-opt"
+                  :class="{ selected: selectedVariants[v.id] === opt.id, oos: opt.stock === 0 }"
+                  :disabled="opt.stock === 0"
+                  @click="selectVariant(v.id, v.name, opt)"
+                  :title="opt.stock === 0 ? 'Out of stock' : undefined"
+                >
+                  {{ opt.label }}
+                  <span class="opt-adj" v-if="opt.price_adj > 0">+{{ fmt(opt.price_adj) }}</span>
+                  <span class="opt-adj" v-else-if="opt.price_adj < 0">{{ fmt(opt.price_adj) }}</span>
+                </button>
+              </div>
+            </div>
+            <div class="variant-error" v-if="variantError">{{ variantError }}</div>
+          </div>
+
           <!-- Add to Cart -->
           <div class="atc-row" v-if="product.price !== null">
             <div class="qty-selector" v-if="product.in_stock || !product.track_stock">
@@ -105,6 +128,14 @@
               <span v-if="product.track_stock && !product.in_stock">Out of Stock</span>
               <span v-else-if="addedFlash">✓ Added!</span>
               <span v-else>🛒 Add to Cart</span>
+            </button>
+            <button
+              class="wishlist-btn"
+              @click="wishlist.toggle(product)"
+              :class="{ wished: wishlist.isWishlisted(product.id) }"
+              :title="wishlist.isWishlisted(product.id) ? 'Remove from wishlist' : 'Save to wishlist'"
+            >
+              {{ wishlist.isWishlisted(product.id) ? '♥' : '♡' }}
             </button>
           </div>
 
@@ -228,16 +259,51 @@ import { useHead } from '@vueuse/head'
 import api from '../api.js'
 import { useSiteStore } from '../stores/site.js'
 import { useCartStore } from '../stores/cart.js'
+import { useWishlistStore } from '../stores/wishlist.js'
 
 const route   = useRoute()
 const site    = useSiteStore()
 const cart      = useCartStore()
+const wishlist  = useWishlistStore()
 const product   = ref(null)
 const loading   = ref(true)
 const isPreview = ref(false)
 const activeImage = ref(null)
 const qty        = ref(1)
 const addedFlash = ref(false)
+
+// Variants
+const variants         = ref([])    // [{ id, name, options: [{ id, label, price_adj, sku_suffix, stock }] }]
+const selectedVariants = ref({})    // { variantGroupId: optionId }
+const selectedOptMap   = ref({})    // { variantGroupId: option object }
+const variantError     = ref('')
+
+function selectVariant(groupId, groupName, opt) {
+  selectedVariants.value[groupId] = opt.id
+  selectedOptMap.value[groupId] = { ...opt, groupName }
+  variantError.value = ''
+}
+
+const variantInfo = computed(() => {
+  if (!variants.value.length) return null
+  const keys = []
+  const labels = []
+  let priceAdj = 0
+  for (const v of variants.value) {
+    const opt = selectedOptMap.value[v.id]
+    if (opt) {
+      keys.push(`${v.name}:${opt.label}`)
+      labels.push(`${v.name}: ${opt.label}`)
+      priceAdj += opt.price_adj || 0
+    }
+  }
+  if (!keys.length) return null
+  return {
+    key:       keys.join('|'),
+    label:     labels.join(', '),
+    price_adj: priceAdj,
+  }
+})
 
 // Reviews
 const reviews         = ref([])
@@ -290,7 +356,15 @@ async function submitReview() {
 
 function addToCart() {
   if (!product.value) return
-  cart.addItem(product.value, qty.value)
+  // Validate all variant groups have a selection
+  if (variants.value.length) {
+    const missing = variants.value.find(v => !selectedVariants.value[v.id])
+    if (missing) {
+      variantError.value = `Please select a ${missing.name}`
+      return
+    }
+  }
+  cart.addItem(product.value, qty.value, variantInfo.value)
   cart.open()
   addedFlash.value = true
   setTimeout(() => { addedFlash.value = false }, 2000)
@@ -330,6 +404,15 @@ async function load() {
     }).catch(() => {})
     // Load reviews
     loadReviews(data.id)
+    // Load variants
+    try {
+      const { data: variantData } = await api.get('/variants', { params: { product_id: data.id } })
+      variants.value = variantData || []
+      selectedVariants.value = {}
+      selectedOptMap.value = {}
+    } catch {
+      variants.value = []
+    }
   } catch {
     product.value = null
   } finally {
@@ -474,6 +557,48 @@ function fmt(n) {
   transition: all 0.15s;
 }
 .pill:hover { color: var(--accent); border-color: var(--accent); }
+
+/* Variants */
+.variants-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: .5rem;
+}
+.variant-group { display: flex; flex-direction: column; gap: .4rem; }
+.variant-label { font-size: .8rem; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); font-weight: 600; }
+.variant-options { display: flex; flex-wrap: wrap; gap: .5rem; }
+.variant-opt {
+  padding: .4rem .85rem;
+  border-radius: .5rem;
+  border: 1.5px solid var(--border);
+  background: rgba(255,255,255,.05);
+  color: var(--text);
+  cursor: pointer;
+  font-size: .88rem;
+  transition: border-color .15s, background .15s, color .15s;
+}
+.variant-opt:hover:not(.oos) { border-color: var(--accent); color: var(--accent); }
+.variant-opt.selected { border-color: var(--accent); background: rgba(var(--accent-rgb, 229,57,53),.15); color: var(--accent); font-weight: 600; }
+.variant-opt.oos { opacity: .4; cursor: not-allowed; text-decoration: line-through; }
+.opt-adj { font-size: .78rem; margin-left: .25rem; color: var(--text-muted); }
+.variant-error { font-size: .85rem; color: var(--accent); }
+
+/* Wishlist button */
+.wishlist-btn {
+  background: rgba(255,255,255,.07);
+  border: 1.5px solid var(--border);
+  color: var(--text-muted);
+  border-radius: .5rem;
+  padding: .45rem .75rem;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: all .2s;
+  flex-shrink: 0;
+}
+.wishlist-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(255,60,60,.1); }
+.wishlist-btn.wished { border-color: var(--accent); color: var(--accent); background: rgba(255,60,60,.15); }
 
 /* Add to cart */
 .atc-row {

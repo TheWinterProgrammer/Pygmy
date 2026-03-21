@@ -66,6 +66,15 @@
                 @click.prevent="filterTag(tag)"
               >#{{ tag }}</button>
             </div>
+            <!-- Wishlist heart -->
+            <button
+              class="quick-wish"
+              @click.prevent="wishlist.toggle(p)"
+              :class="{ wished: wishlist.isWishlisted(p.id) }"
+              :title="wishlist.isWishlisted(p.id) ? 'Remove from wishlist' : 'Add to wishlist'"
+            >
+              {{ wishlist.isWishlisted(p.id) ? '♥' : '♡' }}
+            </button>
             <!-- Quick Add to Cart -->
             <button
               v-if="p.price !== null && (p.in_stock || !p.track_stock)"
@@ -118,10 +127,12 @@ import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '../api.js'
 import { useCartStore } from '../stores/cart.js'
+import { useWishlistStore } from '../stores/wishlist.js'
 
-const route  = useRoute()
-const router = useRouter()
-const cart   = useCartStore()
+const route    = useRoute()
+const router   = useRouter()
+const cart     = useCartStore()
+const wishlist = useWishlistStore()
 
 const products       = ref([])
 const categories     = ref([])
@@ -313,6 +324,22 @@ function fmt(n) {
   text-decoration: none;
 }
 .pill:hover { color: var(--accent); border-color: var(--accent); }
+
+/* Wishlist heart button */
+.quick-wish {
+  align-self: flex-end;
+  background: rgba(255,255,255,.07);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: .5rem;
+  padding: .3rem .6rem;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: all .2s;
+}
+.quick-wish:hover { border-color: var(--accent); color: var(--accent); background: rgba(255,60,60,.08); }
+.quick-wish.wished { border-color: var(--accent); color: var(--accent); background: rgba(255,60,60,.12); }
 
 /* Quick Add to Cart button */
 .quick-atc {
