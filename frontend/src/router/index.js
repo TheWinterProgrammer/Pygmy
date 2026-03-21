@@ -55,6 +55,14 @@ const routes = [
     component: () => import('../views/OrderConfirmView.vue')
   },
   {
+    path: '/account/login',
+    component: () => import('../views/AccountLoginView.vue')
+  },
+  {
+    path: '/account',
+    component: () => import('../views/AccountView.vue')
+  },
+  {
     path: '/blog/:slug',
     component: () => import('../views/PostView.vue')
   },

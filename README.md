@@ -114,6 +114,19 @@ frontend/           ← public website (port 5174)
 - Dynamic CMS page renderer
 - Loading skeletons + 404 states
 
+### Phase 21 — Customer Accounts ✅
+- **Customer registration & login** — dedicated `/api/customers/register` and `/api/customers/login` endpoints using a separate CUSTOMER_JWT_SECRET; 30-day JWTs; bcrypt password hashing; returns safe customer object + token on success
+- **Customer profile management** — `GET/PUT /api/customers/me` lets customers view and update their name, phone, and password (current password required to change); email is read-only
+- **Saved addresses** — full CRUD at `/api/customers/me/addresses`; unlimited addresses per customer; `is_default` flag (toggling default un-sets all others); label (Home/Work/etc.), full name, address lines, city, state, ZIP, country, phone
+- **Order history** — `GET /api/customers/me/orders` returns all orders linked to the customer's account with parsed items JSON; `GET /api/customers/me/orders/:orderNumber` returns full detail; orders automatically linked at checkout when a customer JWT is present (`customer_id` FK added to `orders` table)
+- **Auto-fill checkout** — `CheckoutView` detects a logged-in customer and pre-fills name, email, and phone; sends customer JWT with order so it's linked to their account
+- **Account icon in SiteNav** — person icon added next to wishlist; links to `/account` if logged in (shows accent dot badge) or `/account/login` if not
+- **Public frontend pages** — `AccountLoginView` (`/account/login`) — togglable sign-in / create account card with glass morphism; `AccountView` (`/account`) — full account dashboard with 3 tabs: **Orders** (card grid with status, items preview, total; click to open detail modal), **Addresses** (card grid with add/edit/delete and default badge; full address form modal), **Profile** (name/phone update + optional password change); redirects to login if not authenticated
+- **My Account link on order confirmation** — "👤 My Account" button added to `OrderConfirmView` CTAs
+- **Pinia customer store** — `stores/customer.js` with localStorage persistence; `isLoggedIn` computed; all API helpers; auto-logout on 401
+- **Admin Customers panel** — `CustomersView.vue` — searchable table of all customers (name, email, order count, total spent, active status, join date); click any row for detail modal (profile info, saved addresses, order history); Disable/Enable toggle; Delete (detaches orders, keeps them); 🧑‍💼 Customers sidebar entry + Dashboard stat card
+- **Backend** — `customers` + `customer_addresses` SQLite tables; `customer_id` migration column on `orders`; admin endpoints `GET/GET/:id/PUT/:id/DELETE/:id /api/customers` (admin-only via JWT); `customerAuthMiddleware` for customer-scoped routes; dashboard stats include `customers.total` + `customers.active`
+
 ### Phase 20 — Product Variants + Wishlist ✅
 - **Product Variants** — admins can define unlimited variant groups per product (e.g. Size, Color) each with multiple options; each option has a label, optional price adjustment (±), SKU suffix, and per-option stock level (-1 = unlimited); variants are managed from the `ProductEditView` sidebar in a dedicated 🎛️ Variants section (appears after saving a new product); save/delete per group with instant feedback; backend `product_variants` + `product_variant_options` SQLite tables with full REST API at `GET /api/variants?product_id=`, `POST /api/variants`, `PUT /api/variants/:id`, `DELETE /api/variants/:id`; variants cascade-delete when the parent product is deleted
 - **Variant picker on public product page** — `ProductView` loads variants via `/api/variants` on mount; renders each group as a row of pill-style buttons; selected option highlighted in accent; sold-out options disabled with strikethrough; price adjustments shown inline on buttons; if variants exist, user must select one per group before adding to cart (validation error shown otherwise); selected variant key + label + price adjustment stored on cart item
@@ -506,6 +519,24 @@ Font: **Poppins** via Google Fonts
 | POST | `/api/variants` | ✓ | Create variant group `{product_id, name, options[]}` |
 | PUT | `/api/variants/:id` | ✓ | Update variant group (full replace of options) |
 | DELETE | `/api/variants/:id` | ✓ | Delete variant group (cascades options) |
+
+### Customer Accounts
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/api/customers/register` | — | Register `{email, password, first_name?, last_name?, phone?}` → `{token, customer}` |
+| POST | `/api/customers/login` | — | Login `{email, password}` → `{token, customer}` |
+| GET  | `/api/customers/me` | customer JWT | Get own profile |
+| PUT  | `/api/customers/me` | customer JWT | Update profile (name, phone, password) |
+| GET  | `/api/customers/me/orders` | customer JWT | Own order history |
+| GET  | `/api/customers/me/orders/:orderNumber` | customer JWT | Single order detail |
+| GET  | `/api/customers/me/addresses` | customer JWT | List saved addresses |
+| POST | `/api/customers/me/addresses` | customer JWT | Add address |
+| PUT  | `/api/customers/me/addresses/:id` | customer JWT | Update address |
+| DELETE | `/api/customers/me/addresses/:id` | customer JWT | Delete address |
+| GET | `/api/customers` | admin | List all customers with order stats |
+| GET | `/api/customers/:id` | admin | Customer detail + addresses + orders |
+| PUT | `/api/customers/:id` | admin | Toggle `active` status |
+| DELETE | `/api/customers/:id` | admin | Delete customer (orders unlinked) |
 
 ### SEO (public)
 | Method | Path | Description |

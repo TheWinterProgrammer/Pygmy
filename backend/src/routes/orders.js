@@ -1,11 +1,25 @@
 // Pygmy CMS — Orders API
 import { Router } from 'express'
+import jwt from 'jsonwebtoken'
 import db from '../db.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { logActivity } from './activity.js'
 import { fireWebhooks } from './webhooks.js'
 import { sendOrderConfirmation, sendOrderStatusUpdate } from '../email.js'
 import { validateCouponLogic } from './coupons.js'
+
+const CUSTOMER_JWT_SECRET = process.env.CUSTOMER_JWT_SECRET || 'pygmy-customer-secret-change-in-production'
+
+function resolveCustomerId(req) {
+  try {
+    const header = req.headers.authorization
+    if (header?.startsWith('Bearer ')) {
+      const payload = jwt.verify(header.slice(7), CUSTOMER_JWT_SECRET)
+      if (payload.role === 'customer') return payload.id
+    }
+  } catch {}
+  return null
+}
 
 const router = Router()
 
@@ -95,13 +109,15 @@ router.post('/', (req, res) => {
   const computedTotal = Math.max(0, computedSubtotal - discountAmount + shippingCostNum)
   const orderNumber = generateOrderNumber()
 
+  const customerId = resolveCustomerId(req)
+
   // Use a transaction: insert order + decrement stock + increment coupon uses
   const placeOrder = db.transaction(() => {
     const result = db.prepare(`
       INSERT INTO orders (order_number, status, customer_name, customer_email, customer_phone,
         shipping_address, items, subtotal, discount_amount, shipping_cost, shipping_zone, shipping_method,
-        shipping_country, shipping_rate_name, total, coupon_code, notes)
-      VALUES (?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        shipping_country, shipping_rate_name, total, coupon_code, notes, customer_id)
+      VALUES (?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       orderNumber,
       customer_name.trim(),
@@ -118,7 +134,8 @@ router.post('/', (req, res) => {
       (shipping_rate_name || '').trim(),
       computedTotal,
       appliedCoupon,
-      (notes || '').trim()
+      (notes || '').trim(),
+      customerId
     )
 
     // Decrement stock for tracked products

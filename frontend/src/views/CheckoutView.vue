@@ -154,15 +154,17 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCartStore } from '../stores/cart.js'
 import { useSiteStore } from '../stores/site.js'
+import { useCustomerStore } from '../stores/customer.js'
 import api from '../api.js'
 
-const cart = useCartStore()
-const site = useSiteStore()
-const router = useRouter()
+const cart     = useCartStore()
+const site     = useSiteStore()
+const customer = useCustomerStore()
+const router   = useRouter()
 
 const submitted = ref(false)
 const placing   = ref(false)
@@ -279,6 +281,16 @@ function fmt(v) {
   }
 }
 
+// Auto-fill from customer account if logged in
+onMounted(() => {
+  if (customer.isLoggedIn && customer.customer) {
+    const c = customer.customer
+    if (!form.customer_name) form.customer_name = `${c.first_name || ''} ${c.last_name || ''}`.trim()
+    if (!form.customer_email) form.customer_email = c.email || ''
+    if (!form.customer_phone) form.customer_phone = c.phone || ''
+  }
+})
+
 async function placeOrder() {
   submitError.value = ''
   if (!validate()) return
@@ -300,7 +312,9 @@ async function placeOrder() {
       shipping_cost: shippingCost.value,
     }
 
-    const { data } = await api.post('/orders', payload)
+    // Pass customer token so order is linked to their account
+    const headers = customer.isLoggedIn ? { Authorization: `Bearer ${customer.token}` } : {}
+    const { data } = await api.post('/orders', payload, { headers })
     cart.clear()
     submitted.value = true
     router.push(`/order/${data.order_number}`)

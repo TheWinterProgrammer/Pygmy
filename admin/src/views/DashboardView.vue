@@ -149,6 +149,17 @@
           </div>
         </div>
       </div>
+
+      <div class="stat-card glass">
+        <div class="stat-icon">🧑‍💼</div>
+        <div class="stat-body">
+          <div class="stat-num">{{ stats.customers?.active ?? 0 }}</div>
+          <div class="stat-label">
+            Customers
+            <RouterLink to="/customers" class="stat-link">→ Customers</RouterLink>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Inventory alerts -->
@@ -218,6 +229,7 @@
       <RouterLink to="/webhooks" class="btn btn-ghost">🔗 Webhooks</RouterLink>
       <RouterLink to="/backup" class="btn btn-ghost">🗄️ Backup</RouterLink>
       <RouterLink to="/orders" class="btn btn-ghost">📦 Orders</RouterLink>
+      <RouterLink to="/customers" class="btn btn-ghost">🧑‍💼 Customers</RouterLink>
       <RouterLink to="/coupons" class="btn btn-ghost">🎟️ Coupons</RouterLink>
     </div>
   </div>

@@ -510,3 +510,42 @@ for (const [key, value] of Object.entries(defaultSettings)) {
 }
 
 export default db
+// ─── Phase 21: Customer Accounts ─────────────────────────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS customers (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    email           TEXT    UNIQUE NOT NULL,
+    password        TEXT    NOT NULL,
+    first_name      TEXT    NOT NULL DEFAULT '',
+    last_name       TEXT    NOT NULL DEFAULT '',
+    phone           TEXT    NOT NULL DEFAULT '',
+    email_verified  INTEGER NOT NULL DEFAULT 0,
+    active          INTEGER NOT NULL DEFAULT 1,
+    created_at      TEXT    NOT NULL DEFAULT (datetime('now')),
+    updated_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS customer_addresses (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id  INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+    label        TEXT    NOT NULL DEFAULT 'Home',
+    first_name   TEXT    NOT NULL DEFAULT '',
+    last_name    TEXT    NOT NULL DEFAULT '',
+    address1     TEXT    NOT NULL DEFAULT '',
+    address2     TEXT    NOT NULL DEFAULT '',
+    city         TEXT    NOT NULL DEFAULT '',
+    state        TEXT    NOT NULL DEFAULT '',
+    zip          TEXT    NOT NULL DEFAULT '',
+    country      TEXT    NOT NULL DEFAULT '',
+    phone        TEXT    NOT NULL DEFAULT '',
+    is_default   INTEGER NOT NULL DEFAULT 0,
+    created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+`)
+
+// Link orders to customer accounts (optional FK — existing guest orders stay as-is)
+const orderColNames = db.prepare("PRAGMA table_info(orders)").all().map(c => c.name)
+if (!orderColNames.includes('customer_id')) {
+  db.exec(`ALTER TABLE orders ADD COLUMN customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL`)
+}
+

@@ -39,6 +39,15 @@
         </svg>
       </RouterLink>
 
+      <!-- Account button -->
+      <RouterLink :to="customerStore.isLoggedIn ? '/account' : '/account/login'" class="nav-wishlist-btn" aria-label="Account" title="My Account">
+        <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+        </svg>
+        <span v-if="customerStore.isLoggedIn" class="wishlist-badge" style="background: var(--accent)">●</span>
+      </RouterLink>
+
       <!-- Wishlist button -->
       <RouterLink to="/wishlist" class="nav-wishlist-btn" aria-label="Wishlist" title="Wishlist">
         <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -86,10 +95,12 @@ import { useRoute } from 'vue-router'
 import { useSiteStore } from '../stores/site.js'
 import { useCartStore } from '../stores/cart.js'
 import { useWishlistStore } from '../stores/wishlist.js'
+import { useCustomerStore } from '../stores/customer.js'
 
 const site     = useSiteStore()
-const cart     = useCartStore()
-const wishlist = useWishlistStore()
+const cart          = useCartStore()
+const wishlist      = useWishlistStore()
+const customerStore = useCustomerStore()
 const route = useRoute()
 const scrolled = ref(false)
 const mobileOpen = ref(false)

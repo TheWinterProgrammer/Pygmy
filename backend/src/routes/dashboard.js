@@ -68,6 +68,10 @@ router.get('/stats', authMiddleware, (req, res) => {
   const totalCoupons  = db.prepare('SELECT COUNT(*) as count FROM coupons').get().count
   const activeCoupons = db.prepare('SELECT COUNT(*) as count FROM coupons WHERE active = 1').get().count
 
+  // Customers
+  const totalCustomers  = db.prepare('SELECT COUNT(*) as count FROM customers').get().count
+  const activeCustomers = db.prepare('SELECT COUNT(*) as count FROM customers WHERE active = 1').get().count
+
   // Low stock products (track_stock=1 AND stock_quantity <= low_stock_threshold AND stock_quantity > 0)
   const lowStockProducts = db.prepare(`
     SELECT id, name, slug, stock_quantity, low_stock_threshold
@@ -106,6 +110,7 @@ router.get('/stats', authMiddleware, (req, res) => {
     media_folders: { total: totalFolders },
     orders: { total: totalOrders, pending: pendingOrders, revenue: orderRevenue },
     coupons: { total: totalCoupons, active: activeCoupons },
+    customers: { total: totalCustomers, active: activeCustomers },
     inventory: { low_stock: lowStockProducts, out_of_stock: outOfStockCount },
     recentPosts,
     recentActivity

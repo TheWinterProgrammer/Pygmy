@@ -47,6 +47,7 @@ const routes = [
       { path: 'notifications',    name: 'Notifications',  component: () => import('../views/NotificationsView.vue') },
       { path: 'api-keys',         name: 'ApiKeys',        component: () => import('../views/ApiKeysView.vue') },
       { path: 'reviews',          name: 'Reviews',        component: () => import('../views/ReviewsView.vue') },
+      { path: 'customers',        name: 'Customers',      component: () => import('../views/CustomersView.vue') },
       { path: 'shipping',         name: 'Shipping',       component: () => import('../views/ShippingView.vue') },
       { path: 'settings',         name: 'Settings',       component: () => import('../views/SettingsView.vue') },
     ]
