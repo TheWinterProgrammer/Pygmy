@@ -333,6 +333,32 @@ export async function sendOrderStatusUpdate(order) {
   })
 }
 
+/**
+ * Send a low-stock or out-of-stock alert to admin.
+ * Fire-and-forget — called from products PUT route.
+ */
+export async function notifyLowStock({ productName, slug, stockQuantity, threshold, isOutOfStock, adminUrl }) {
+  const cfg = getSmtpConfig()
+  if (!cfg) return
+
+  const siteName = cfg.site_name || 'Pygmy CMS'
+  const label    = isOutOfStock ? '🚨 Out of Stock' : '⚠️ Low Stock'
+  const subject  = `${label}: ${productName}`
+
+  const bodyHtml = isOutOfStock
+    ? `<p><strong>${productName}</strong> is now <strong style="color:#c0392b">out of stock</strong>.</p>
+       ${adminUrl ? `<p><a href="${adminUrl}">→ Update stock in admin panel</a></p>` : ''}`
+    : `<p><strong>${productName}</strong> is running low.<br>
+       Current stock: <strong>${stockQuantity}</strong> (threshold: ${threshold})</p>
+       ${adminUrl ? `<p><a href="${adminUrl}">→ Update stock in admin panel</a></p>` : ''}`
+
+  const text = isOutOfStock
+    ? `${productName} is now out of stock.${adminUrl ? '\n' + adminUrl : ''}`
+    : `${productName} is running low. Stock: ${stockQuantity} (threshold: ${threshold}).${adminUrl ? '\n' + adminUrl : ''}`
+
+  await sendMail({ subject, html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:1rem">${bodyHtml}</div>`, text })
+}
+
 export async function sendTestEmail() {
   return sendMail({
     subject: 'Test email from Pygmy CMS',

@@ -14,6 +14,7 @@ import jwt from 'jsonwebtoken'
 import db from '../db.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { logActivity } from './activity.js'
+import { notifyLowStock } from '../email.js'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'pygmy-secret-change-me'
 
@@ -294,6 +295,30 @@ router.put('/:id', authMiddleware, (req, res) => {
 
   const updated = db.prepare('SELECT * FROM products WHERE id = ?').get(existing.id)
   logActivity(req.user?.id, req.user?.name, 'updated product', 'product', updated.id, updated.name)
+
+  // Fire low-stock / out-of-stock alert (async, non-blocking)
+  if (updated.track_stock) {
+    const prevQty = existing.stock_quantity ?? 0
+    const newQty  = updated.stock_quantity ?? 0
+    const thresh  = updated.low_stock_threshold ?? 5
+    const siteSettings = db.prepare(`SELECT value FROM settings WHERE key = 'site_url'`).get()
+    const adminUrl = `${siteSettings?.value || 'http://localhost:5173'}/products/${updated.id}`
+
+    const wasOutOfStock = prevQty <= 0
+    const isOutOfStock  = newQty <= 0 && !updated.allow_backorder
+    const wasLow = prevQty > 0 && prevQty <= thresh
+    const isLow  = newQty > 0 && newQty <= thresh
+
+    // Alert on out-of-stock transition (new)
+    if (isOutOfStock && !wasOutOfStock) {
+      notifyLowStock({ productName: updated.name, slug: updated.slug, stockQuantity: newQty, threshold: thresh, isOutOfStock: true, adminUrl }).catch(() => {})
+    }
+    // Alert on low-stock transition (new)
+    else if (isLow && !wasLow && !wasOutOfStock) {
+      notifyLowStock({ productName: updated.name, slug: updated.slug, stockQuantity: newQty, threshold: thresh, isOutOfStock: false, adminUrl }).catch(() => {})
+    }
+  }
+
   res.json(parseProduct(updated))
 })
 
