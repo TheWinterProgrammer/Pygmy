@@ -10,6 +10,7 @@ import { validateCouponLogic } from './coupons.js'
 import { redeemGiftCard } from './gift_cards.js'
 import { issueDownloadTokensForOrder } from './digital_downloads.js'
 import { recordReferral } from './affiliates.js'
+import { addOrderEvent } from './order_timeline.js'
 
 const CUSTOMER_JWT_SECRET = process.env.CUSTOMER_JWT_SECRET || 'pygmy-customer-secret-change-in-production'
 
@@ -109,7 +110,10 @@ router.post('/', (req, res) => {
   let discountAmount = 0
   let appliedCoupon = ''
   if (coupon_code && coupon_code.trim()) {
-    const couponResult = validateCouponLogic(coupon_code.trim(), computedSubtotal)
+    const couponResult = validateCouponLogic(coupon_code.trim(), computedSubtotal, {
+      email: customer_email,
+      items: validatedItems,
+    })
     if (!couponResult.ok) {
       return res.status(400).json({ error: couponResult.error })
     }
@@ -207,11 +211,16 @@ router.post('/', (req, res) => {
       }
     }
 
-    // Increment coupon used_count
+    // Increment coupon used_count + log usage
     if (appliedCoupon) {
-      db.prepare(`
-        UPDATE coupons SET used_count = used_count + 1 WHERE code = ? COLLATE NOCASE
-      `).run(appliedCoupon)
+      const couponRow = db.prepare("SELECT id FROM coupons WHERE code = ? COLLATE NOCASE").get(appliedCoupon)
+      db.prepare(`UPDATE coupons SET used_count = used_count + 1 WHERE code = ? COLLATE NOCASE`).run(appliedCoupon)
+      if (couponRow) {
+        db.prepare(`
+          INSERT INTO coupon_usage (coupon_id, order_id, order_number, customer_email, discount_amount)
+          VALUES (?, ?, ?, ?, ?)
+        `).run(couponRow.id, newOrderId, orderNumber, customer_email || '', discountAmount)
+      }
     }
 
     // Redeem gift card
@@ -262,6 +271,9 @@ router.post('/', (req, res) => {
   if (affiliate_code) {
     try { recordReferral(affiliate_code, newOrderId, computedTotal) } catch (e) { console.warn('Affiliate referral error:', e.message) }
   }
+
+  // Add initial timeline event
+  addOrderEvent(newOrderId, 'system', `Order #${orderNumber} placed successfully.`, true, 'system')
 
   // Send webhook (fire-and-forget)
   try { fireWebhooks('order.created', { order_number: orderNumber, total: computedTotal }) } catch {}
@@ -439,6 +451,16 @@ router.put('/:id', authMiddleware, (req, res) => {
   const statusChanged = status && status !== order.status
   if (statusChanged) {
     logActivity(req.user, 'update_status', 'order', order.id, `#${order.order_number} → ${status}`)
+    const statusLabels = {
+      pending: 'Order is pending', processing: 'Order is being processed',
+      shipped: 'Order has been shipped', delivered: 'Order has been delivered',
+      completed: 'Order completed', cancelled: 'Order was cancelled', refunded: 'Order was refunded',
+    }
+    addOrderEvent(order.id, 'status_change', statusLabels[status] || `Status changed to ${status}`, true, req.user?.name || 'admin')
+    if (becomingShipped && tracking_number) {
+      const trackMsg = `Tracking: ${tracking_carrier ? tracking_carrier + ' — ' : ''}${tracking_number}${tracking_url ? ` (${tracking_url})` : ''}`
+      addOrderEvent(order.id, 'shipment', trackMsg, true, req.user?.name || 'admin')
+    }
   }
 
   const updated = db.prepare('SELECT * FROM orders WHERE id = ?').get(order.id)

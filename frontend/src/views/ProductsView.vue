@@ -5,6 +5,11 @@
       <p class="subtitle">Browse our collection</p>
     </div>
 
+    <!-- Flash Sale Banner -->
+    <div class="container" style="padding-bottom:0">
+      <FlashSaleBanner />
+    </div>
+
     <!-- Category filters -->
     <div class="filters container" v-if="categories.length">
       <button
@@ -251,6 +256,7 @@ import { useRoute, useRouter } from 'vue-router'
 import api from '../api.js'
 import { useCartStore } from '../stores/cart.js'
 import { useWishlistStore } from '../stores/wishlist.js'
+import FlashSaleBanner from '../components/FlashSaleBanner.vue'
 
 const route    = useRoute()
 const router   = useRouter()

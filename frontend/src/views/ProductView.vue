@@ -17,6 +17,7 @@
 
     <!-- Product -->
     <article v-else class="container product-article">
+      <FlashSaleBanner />
       <div class="product-layout">
         <!-- Images -->
         <div class="product-images">
@@ -116,6 +117,20 @@
             <div class="variant-error" v-if="variantError">{{ variantError }}</div>
           </div>
 
+          <!-- Back-in-Stock Alert Sign-up -->
+          <div class="back-in-stock-form" v-if="product.track_stock && !product.in_stock">
+            <p class="bis-intro">Get notified when this product is back in stock:</p>
+            <div v-if="!bisSuccess" class="bis-row">
+              <input v-model="bisEmail" type="email" placeholder="Your email address" class="bis-input" />
+              <input v-model="bisName" type="text" placeholder="Your name (optional)" class="bis-input" />
+              <button class="btn btn-primary" @click="subscribeBackInStock" :disabled="bisBusy || !bisEmail">
+                {{ bisBusy ? '…' : '🔔 Notify Me' }}
+              </button>
+            </div>
+            <div v-else class="bis-success">✓ {{ bisSuccess }}</div>
+            <div v-if="bisError" class="bis-error">{{ bisError }}</div>
+          </div>
+
           <!-- Add to Cart -->
           <div class="atc-row" v-if="product.price !== null">
             <div class="qty-selector" v-if="product.in_stock || !product.track_stock">
@@ -149,6 +164,29 @@
       <div class="glass description-body" v-if="product.description">
         <h2>Product Details</h2>
         <div class="prose" v-html="product.description"></div>
+      </div>
+
+      <!-- Related Products / Recommendations -->
+      <div class="related-section" v-if="recommendations.length">
+        <h2 class="related-title">You Might Also Like</h2>
+        <div class="related-grid">
+          <RouterLink
+            v-for="rec in recommendations"
+            :key="rec.id"
+            :to="`/shop/${rec.slug}`"
+            class="related-card glass"
+          >
+            <img v-if="rec.cover_image" :src="rec.cover_image" class="related-img" />
+            <div class="related-img-placeholder" v-else>📦</div>
+            <div class="related-info">
+              <div class="related-name">{{ rec.name }}</div>
+              <div class="related-price">
+                <span v-if="rec.sale_price && rec.sale_price < rec.price" class="sale-price">€{{ Number(rec.sale_price).toFixed(2) }}</span>
+                <span :class="rec.sale_price && rec.sale_price < rec.price ? 'original-price strikethrough' : 'regular-price'">€{{ Number(rec.price).toFixed(2) }}</span>
+              </div>
+            </div>
+          </RouterLink>
+        </div>
       </div>
 
       <!-- Reviews Section -->
@@ -248,12 +286,52 @@
           </form>
         </div>
       </div>
+
+      <!-- Q&A Section -->
+      <div class="qa-section">
+        <h2 class="qa-title">❓ Questions &amp; Answers</h2>
+
+        <!-- Published Q&As -->
+        <div class="qa-list" v-if="qaItems.length">
+          <div v-for="qa in qaItems" :key="qa.id" class="qa-card glass" :class="{ 'qa-featured': qa.is_featured }">
+            <div class="qa-question">
+              <span class="qa-q-icon">Q</span>
+              <span>{{ qa.question }}</span>
+            </div>
+            <div class="qa-answer" v-if="qa.answer">
+              <span class="qa-a-icon">A</span>
+              <span>{{ qa.answer }}</span>
+            </div>
+            <div class="qa-meta">Asked by {{ qa.customer_name }} · {{ fmtDate(qa.created_at) }}</div>
+          </div>
+        </div>
+        <div v-else-if="!loadingQa" class="no-qa text-muted">No questions yet. Be the first to ask!</div>
+
+        <!-- Ask a question form -->
+        <div class="ask-section glass" v-if="!qaSubmitted">
+          <h3 style="margin:0 0 1rem">Ask a Question</h3>
+          <div style="display:flex;flex-direction:column;gap:.75rem">
+            <input v-model="qaForm.customer_name" class="input" placeholder="Your name (optional)" />
+            <textarea v-model="qaForm.question" class="input" rows="3" placeholder="Type your question…" style="resize:vertical"></textarea>
+            <div class="field-error" v-if="qaError">{{ qaError }}</div>
+            <button class="btn btn-primary" @click="submitQa" :disabled="qaSubmitting" style="align-self:flex-start">
+              {{ qaSubmitting ? 'Submitting…' : 'Submit Question' }}
+            </button>
+          </div>
+        </div>
+        <div v-else class="qa-thanks glass">
+          ✅ Thank you! Your question has been submitted and will appear once answered.
+          <button class="btn btn-ghost btn-sm" style="margin-left:1rem" @click="qaSubmitted = false">Ask another</button>
+        </div>
+      </div>
+
     </article>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, reactive, onMounted, watch } from 'vue'
+import FlashSaleBanner from '../components/FlashSaleBanner.vue'
 import { useRoute } from 'vue-router'
 import { useHead } from '@vueuse/head'
 import api from '../api.js'
@@ -271,6 +349,33 @@ const isPreview = ref(false)
 const activeImage = ref(null)
 const qty        = ref(1)
 const addedFlash = ref(false)
+
+// Back-in-Stock
+const bisEmail = ref('')
+const bisName = ref('')
+const bisBusy = ref(false)
+const bisSuccess = ref('')
+const bisError = ref('')
+
+async function subscribeBackInStock() {
+  if (!bisEmail.value || !product.value) return
+  bisBusy.value = true
+  bisError.value = ''
+  try {
+    const res = await api.post('/stock-alerts/subscribe', {
+      product_id: product.value.id,
+      email: bisEmail.value,
+      name: bisName.value,
+    })
+    bisSuccess.value = res.data.message || "You'll be notified when back in stock!"
+  } catch (e) {
+    bisError.value = e.response?.data?.error || 'Failed to subscribe.'
+  }
+  bisBusy.value = false
+}
+
+// Recommendations
+const recommendations = ref([])
 
 // Variants
 const variants         = ref([])    // [{ id, name, options: [{ id, label, price_adj, sku_suffix, stock }] }]
@@ -306,6 +411,42 @@ const variantInfo = computed(() => {
 })
 
 // Reviews
+// Q&A
+const qaItems       = ref([])
+const loadingQa     = ref(false)
+const qaSubmitted   = ref(false)
+const qaSubmitting  = ref(false)
+const qaError       = ref('')
+const qaForm        = reactive({ customer_name: '', question: '' })
+
+async function loadQa(productId) {
+  loadingQa.value = true
+  try {
+    const { data } = await api.get('/product-qa', { params: { product_id: productId } })
+    qaItems.value = data.items || []
+  } catch { qaItems.value = [] }
+  loadingQa.value = false
+}
+
+async function submitQa() {
+  qaError.value = ''
+  if (!qaForm.question.trim()) { qaError.value = 'Please enter your question.'; return }
+  qaSubmitting.value = true
+  try {
+    await api.post('/product-qa', { ...qaForm, product_id: product.value?.id })
+    qaSubmitted.value = true
+    qaForm.question = ''
+    qaForm.customer_name = ''
+  } catch (err) {
+    qaError.value = err.response?.data?.error || 'Failed to submit question.'
+  }
+  qaSubmitting.value = false
+}
+
+function fmtDate(d) {
+  return d ? new Date(d).toLocaleDateString() : ''
+}
+
 const reviews         = ref([])
 const reviewStats     = ref({ total: 0, avg_rating: 0 })
 const loadingReviews  = ref(false)
@@ -402,8 +543,13 @@ async function load() {
       entity_slug: data.slug,
       entity_title: data.name
     }).catch(() => {})
-    // Load reviews
+    // Load reviews + Q&A
     loadReviews(data.id)
+    loadQa(data.id)
+    // Load recommendations
+    api.get(`/recommendations/auto?product_id=${data.id}&limit=4`)
+      .then(r => { recommendations.value = r.data || [] })
+      .catch(() => { recommendations.value = [] })
     // Load variants
     try {
       const { data: variantData } = await api.get('/variants', { params: { product_id: data.id } })
@@ -687,7 +833,50 @@ function fmt(n) {
 }
 
 /* ── Reviews ─────────────────────────────────────────────────── */
+/* Back-in-Stock */
+.back-in-stock-form { padding: 16px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; margin: 12px 0; }
+.bis-intro { margin: 0 0 10px; font-size: 14px; color: var(--text-muted); }
+.bis-row { display: flex; flex-direction: column; gap: 8px; }
+.bis-input { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 10px 14px; color: #fff; font-size: 14px; outline: none; }
+.bis-input:focus { border-color: var(--accent); }
+.bis-success { color: #4ade80; font-size: 14px; }
+.bis-error { color: #f87171; font-size: 13px; margin-top: 6px; }
+
+/* Related products */
+.related-section { margin-top: 2.5rem; }
+.related-title { font-size: 1.35rem; font-weight: 700; margin-bottom: 1.25rem; }
+.related-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
+.related-card { text-decoration: none; color: inherit; border-radius: 14px; overflow: hidden; transition: transform 0.2s, box-shadow 0.2s; display: block; }
+.related-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+.related-img { width: 100%; aspect-ratio: 1; object-fit: cover; }
+.related-img-placeholder { width: 100%; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.04); font-size: 2rem; }
+.related-info { padding: 12px; }
+.related-name { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+.related-price { font-size: 13px; }
+.sale-price { color: var(--accent); font-weight: 700; margin-right: 6px; }
+.strikethrough { text-decoration: line-through; color: var(--text-muted); }
+.regular-price { font-weight: 600; }
+
 .reviews-section { margin-top: 2.5rem; }
+
+/* Q&A */
+.qa-section { margin-top: 3rem; }
+.qa-title { font-size: 1.35rem; font-weight: 700; margin-bottom: 1.25rem; }
+.qa-list { display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem; }
+.qa-card { padding: 1.25rem; border-radius: .75rem; }
+.qa-featured { border: 1px solid rgba(var(--accent-raw), .4); }
+.qa-question { display: flex; gap: .75rem; font-weight: 600; margin-bottom: .5rem; }
+.qa-answer { display: flex; gap: .75rem; opacity: .85; margin-bottom: .5rem; }
+.qa-q-icon, .qa-a-icon {
+  width: 1.5rem; height: 1.5rem; border-radius: 50%; display: flex; align-items: center;
+  justify-content: center; font-size: .75rem; font-weight: 700; flex-shrink: 0;
+}
+.qa-q-icon { background: var(--accent); color: #fff; }
+.qa-a-icon { background: rgba(255,255,255,.15); }
+.qa-meta { font-size: .8rem; opacity: .5; margin-top: .25rem; }
+.no-qa { font-size: .9rem; margin-bottom: 2rem; }
+.ask-section { padding: 1.5rem; border-radius: 1rem; margin-top: 1rem; }
+.qa-thanks { padding: 1rem 1.5rem; border-radius: .75rem; border: 1px solid rgba(74,222,128,.3); background: rgba(74,222,128,.05); }
 .reviews-title { font-size: 1.35rem; font-weight: 700; margin-bottom: 1.25rem; }
 
 .reviews-stats {

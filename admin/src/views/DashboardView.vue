@@ -242,6 +242,18 @@
           </div>
         </div>
       </div>
+
+      <!-- Product Q&A -->
+      <div class="stat-card glass" :class="{ 'stat-alert': (stats.product_qa?.pending ?? 0) > 0 }">
+        <div class="stat-icon">❓</div>
+        <div class="stat-body">
+          <div class="stat-num">{{ stats.product_qa?.total ?? 0 }}</div>
+          <div class="stat-label">Product Q&amp;A</div>
+          <span v-if="(stats.product_qa?.pending ?? 0) > 0" style="color:var(--accent);font-weight:600">{{ stats.product_qa.pending }} pending</span>
+          <RouterLink to="/product-qa" class="stat-link">→ Q&amp;A</RouterLink>
+        </div>
+      </div>
+
     </div>
 
     <!-- Inventory alerts -->
@@ -320,6 +332,11 @@
       <RouterLink to="/revenue" class="btn btn-ghost">💰 Revenue Report</RouterLink>
       <RouterLink to="/affiliates" class="btn btn-ghost">🤝 Affiliates</RouterLink>
       <RouterLink to="/activity-log" class="btn btn-ghost">🕐 Activity Log</RouterLink>
+      <RouterLink to="/product-qa" class="btn btn-ghost">❓ Product Q&amp;A</RouterLink>
+      <RouterLink to="/import" class="btn btn-ghost">📥 Import Wizard</RouterLink>
+      <RouterLink to="/flash-sales" class="btn btn-ghost">⚡ Flash Sales</RouterLink>
+      <RouterLink to="/announcement-bars" class="btn btn-ghost">📢 Announcement Bars</RouterLink>
+      <RouterLink to="/popups" class="btn btn-ghost">💬 Pop-ups</RouterLink>
     </div>
   </div>
 </template>

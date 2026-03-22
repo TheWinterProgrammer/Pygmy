@@ -20,8 +20,11 @@ router.get('/count', authMiddleware, (req, res) => {
     `SELECT COUNT(*) as n FROM custom_form_submissions WHERE status = 'unread'`
   ).get().n
 
-  const total = comments + contact + forms
-  res.json({ total, comments, contact, forms })
+  let qa = 0
+  try { qa = db.prepare(`SELECT COUNT(*) as n FROM product_qa WHERE status = 'pending'`).get().n } catch {}
+
+  const total = comments + contact + forms + qa
+  res.json({ total, comments, contact, forms, qa })
 })
 
 // GET /api/notifications — recent items for the dropdown (last 15)

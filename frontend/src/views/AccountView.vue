@@ -234,6 +234,20 @@
               🔍 Track Package
             </a>
           </div>
+
+          <!-- Order Timeline (customer-visible events) -->
+          <div v-if="orderTimeline.length" class="tracking-info">
+            <div class="section-title">📋 Order History</div>
+            <div class="account-timeline">
+              <div v-for="ev in orderTimeline" :key="ev.id" class="at-item">
+                <span class="at-icon">{{ ev.icon }}</span>
+                <div class="at-body">
+                  <div class="at-msg">{{ ev.message }}</div>
+                  <div class="at-time">{{ formatDate(ev.created_at) }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -343,13 +357,21 @@ const activeTab = ref('orders')
 const orders = ref([])
 const ordersLoading = ref(true)
 const selectedOrder = ref(null)
+const orderTimeline = ref([])
 
 async function loadOrders() {
   ordersLoading.value = true
   try { orders.value = await store.fetchOrders() } finally { ordersLoading.value = false }
 }
 
-function openOrder(order) { selectedOrder.value = order }
+async function openOrder(order) {
+  selectedOrder.value = order
+  orderTimeline.value = []
+  try {
+    const res = await api.get(`/order-timeline/${order.order_number}/public`)
+    orderTimeline.value = res.data || []
+  } catch {}
+}
 
 // Addresses
 const addresses = ref([])
@@ -618,4 +640,12 @@ onMounted(async () => {
 .pts-positive { color: #4ade80; }
 .pts-negative { color: #f87171; }
 .muted { color: var(--muted); }
+
+/* Order Timeline */
+.account-timeline { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+.at-item { display: flex; gap: 10px; align-items: flex-start; }
+.at-icon { width: 28px; height: 28px; border-radius: 50%; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; }
+.at-body { flex: 1; }
+.at-msg { font-size: 13px; color: var(--text, #e0e0e0); }
+.at-time { font-size: 11px; color: var(--muted, #888); margin-top: 2px; }
 </style>

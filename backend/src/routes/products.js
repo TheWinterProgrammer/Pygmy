@@ -16,6 +16,7 @@ import db from '../db.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { logActivity } from './activity.js'
 import { notifyLowStock } from '../email.js'
+import { autoNotifyRestock } from './stock_alerts.js'
 
 const csvUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } })
 
@@ -325,6 +326,11 @@ router.put('/:id', authMiddleware, (req, res) => {
     // Alert on low-stock transition (new)
     else if (isLow && !wasLow && !wasOutOfStock) {
       notifyLowStock({ productName: updated.name, slug: updated.slug, stockQuantity: newQty, threshold: thresh, isOutOfStock: false, adminUrl }).catch(() => {})
+    }
+
+    // Trigger back-in-stock alerts if previously out of stock and now has stock
+    if (wasOutOfStock && !isOutOfStock && newQty > 0) {
+      autoNotifyRestock(updated.id).catch(() => {})
     }
   }
 

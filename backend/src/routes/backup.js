@@ -51,6 +51,7 @@ router.get('/export', authMiddleware, (req, res) => {
       coupons:      db.prepare('SELECT * FROM coupons').all(),
       orders:       db.prepare('SELECT * FROM orders').all(),
       bundles:      db.prepare('SELECT * FROM product_bundles').all(),
+      product_qa:   (() => { try { return db.prepare('SELECT * FROM product_qa').all() } catch { return [] } })(),
     }
   }
 

@@ -144,6 +144,13 @@ router.get('/stats', authMiddleware, (req, res) => {
     publishedBundles = db.prepare(`SELECT COUNT(*) as c FROM product_bundles WHERE status='published'`).get()?.c ?? 0
   } catch {}
 
+  // Product Q&A stats
+  let qaTotal = 0, qaPending = 0
+  try {
+    qaTotal   = db.prepare(`SELECT COUNT(*) as c FROM product_qa`).get()?.c ?? 0
+    qaPending = db.prepare(`SELECT COUNT(*) as c FROM product_qa WHERE status='pending'`).get()?.c ?? 0
+  } catch {}
+
   res.json({
     pages: { total: pages, published: publishedPages },
     posts: { total: posts, published: publishedPosts, scheduled: scheduledPosts },
@@ -171,6 +178,7 @@ router.get('/stats', authMiddleware, (req, res) => {
     subscriptions: { active: activeSubs, trialing: trialingSubs, mrr: Math.round(subMrr * 100) / 100 },
     affiliates: { total: totalAffiliates, pending_commissions: Math.round(pendingCommissions * 100) / 100 },
     bundles: { total: totalBundles, published: publishedBundles },
+    product_qa: { total: qaTotal, pending: qaPending },
     recentPosts,
     recentActivity
   })

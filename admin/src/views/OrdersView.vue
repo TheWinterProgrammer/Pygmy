@@ -192,6 +192,11 @@
             <button class="btn btn-ghost btn-sm" style="margin-top:.5rem;" @click="saveNotes" :disabled="saving">Save notes</button>
           </div>
 
+          <!-- Order Timeline -->
+          <div class="section-card glass" style="margin-bottom:1rem;">
+            <OrderTimeline :order-id="selected?.id" />
+          </div>
+
           <!-- Meta -->
           <div class="text-muted" style="font-size:.8rem;">
             Placed: {{ fmtDateLong(selected.created_at) }} · Updated: {{ fmtDate(selected.updated_at) }}
@@ -229,6 +234,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '../stores/auth.js'
+import OrderTimeline from '../components/OrderTimeline.vue'
 
 const auth = useAuthStore()
 

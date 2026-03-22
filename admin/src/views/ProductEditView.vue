@@ -12,6 +12,7 @@
       <h1>{{ isNew ? 'New Product' : 'Edit Product' }}</h1>
       <div class="header-actions">
         <RouterLink to="/products" class="btn btn-ghost">← Back</RouterLink>
+        <RouterLink v-if="!isNew" :to="`/product-qa?product_id=${route.params.id}`" class="btn btn-ghost" title="View Q&A for this product">❓ Q&A</RouterLink>
         <button v-if="!isNew && form.slug" class="btn btn-ghost" @click="openPreview" title="Preview in public store">👁 Preview</button>
         <button class="btn btn-ghost" @click="save('draft')" :disabled="saving">Save Draft</button>
         <button class="btn btn-primary" @click="save('published')" :disabled="saving">
@@ -92,6 +93,12 @@
         <DigitalFilesSection
           :product-id="isNew ? null : parseInt(route.params.id)"
           v-model:is-digital="form.is_digital"
+        />
+
+        <!-- Product Recommendations -->
+        <ProductRecommendations
+          v-if="!isNew"
+          :product-id="parseInt(route.params.id)"
         />
 
         <!-- SEO -->
@@ -231,6 +238,7 @@ import MediaPickerModal from '../components/MediaPickerModal.vue'
 import LockBanner from '../components/LockBanner.vue'
 import DigitalFilesSection from '../components/DigitalFilesSection.vue'
 import { useContentLock } from '../composables/useContentLock.js'
+import ProductRecommendations from '../components/ProductRecommendations.vue'
 
 const route  = useRoute()
 const router = useRouter()

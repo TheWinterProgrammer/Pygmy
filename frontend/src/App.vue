@@ -10,11 +10,13 @@
 
   <!-- Normal site -->
   <div v-else-if="site.loaded">
+    <AnnouncementBar />
     <SiteNav />
     <RouterView />
     <SiteFooter />
     <CartDrawer />
     <CookieBanner v-if="site.settings?.cookie_consent_enabled === '1'" :settings="site.settings" />
+    <SitePopup />
   </div>
 
   <!-- Loading screen -->
@@ -30,6 +32,8 @@ import SiteNav from './components/SiteNav.vue'
 import SiteFooter from './components/SiteFooter.vue'
 import CartDrawer from './components/CartDrawer.vue'
 import CookieBanner from './components/CookieBanner.vue'
+import AnnouncementBar from './components/AnnouncementBar.vue'
+import SitePopup from './components/SitePopup.vue'
 import { useAffiliate } from './composables/useAffiliate.js'
 
 const site = useSiteStore()

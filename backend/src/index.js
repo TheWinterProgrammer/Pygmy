@@ -50,6 +50,16 @@ import subscriptionsRoutes from './routes/subscriptions.js'
 import affiliatesRoutes, { recordReferral } from './routes/affiliates.js'
 import currencyRoutes from './routes/currency.js'
 import bundlesRoutes from './routes/bundles.js'
+import productQaRoutes from './routes/product_qa.js'
+import importRoutes from './routes/import.js'
+import stockAlertsRoutes from './routes/stock_alerts.js'
+import recommendationsRoutes from './routes/recommendations.js'
+import orderTimelineRoutes from './routes/order_timeline.js'
+import returnsRoutes from './routes/returns.js'
+import emailTemplatesRoutes from './routes/email_templates.js'
+import flashSalesRoutes from './routes/flash_sales.js'
+import announcementBarRoutes from './routes/announcement_bar.js'
+import popupsRoutes from './routes/popups.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -197,6 +207,16 @@ app.use('/api/subscriptions', subscriptionsRoutes)
 app.use('/api/affiliates', affiliatesRoutes)
 app.use('/api/currency', currencyRoutes)
 app.use('/api/bundles', bundlesRoutes)
+app.use('/api/product-qa', productQaRoutes)
+app.use('/api/import', importRoutes)
+app.use('/api/stock-alerts', stockAlertsRoutes)
+app.use('/api/recommendations', recommendationsRoutes)
+app.use('/api/order-timeline', orderTimelineRoutes)
+app.use('/api/returns', returnsRoutes)
+app.use('/api/email-templates', emailTemplatesRoutes)
+app.use('/api/flash-sales', flashSalesRoutes)
+app.use('/api/announcement-bars', announcementBarRoutes)
+app.use('/api/popups', popupsRoutes)
 
 // ─── SEO (public) ─────────────────────────────────────────────────────────────
 app.use('/', seoRoutes)

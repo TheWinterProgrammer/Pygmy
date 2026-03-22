@@ -883,3 +883,343 @@ const phase29Settings = {
 for (const [key, value] of Object.entries(phase29Settings)) {
   insertSetting.run(key, value)
 }
+
+// ─── Phase 30: Product Q&A + Import Wizard ────────────────────────────────────
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS product_qa (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id  INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    question    TEXT NOT NULL DEFAULT '',
+    answer      TEXT NOT NULL DEFAULT '',
+    customer_name TEXT NOT NULL DEFAULT 'Anonymous',
+    customer_email TEXT NOT NULL DEFAULT '',
+    status      TEXT NOT NULL DEFAULT 'pending',  -- pending | published | spam
+    is_featured INTEGER NOT NULL DEFAULT 0,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_product_qa_product ON product_qa(product_id);
+  CREATE INDEX IF NOT EXISTS idx_product_qa_status ON product_qa(status);
+`)
+
+// ─── Phase 30: Advanced Coupons + Back-in-Stock + Recommendations + Order Timeline ───
+
+db.exec(`
+  -- Advanced coupon extensions
+  CREATE TABLE IF NOT EXISTS coupon_usage (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    coupon_id   INTEGER NOT NULL REFERENCES coupons(id) ON DELETE CASCADE,
+    order_id    INTEGER REFERENCES orders(id) ON DELETE SET NULL,
+    order_number TEXT NOT NULL DEFAULT '',
+    customer_email TEXT NOT NULL DEFAULT '',
+    discount_amount REAL NOT NULL DEFAULT 0,
+    used_at     TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_coupon_usage_coupon ON coupon_usage(coupon_id);
+  CREATE INDEX IF NOT EXISTS idx_coupon_usage_email ON coupon_usage(customer_email);
+
+  -- Back-in-stock alert subscriptions
+  CREATE TABLE IF NOT EXISTS stock_alerts (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id  INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    email       TEXT NOT NULL,
+    name        TEXT NOT NULL DEFAULT '',
+    notified    INTEGER NOT NULL DEFAULT 0,
+    notified_at TEXT,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_stock_alerts_unique ON stock_alerts(product_id, email);
+  CREATE INDEX IF NOT EXISTS idx_stock_alerts_product ON stock_alerts(product_id);
+
+  -- Product recommendations
+  CREATE TABLE IF NOT EXISTS product_recommendations (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id  INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    recommended_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    type        TEXT NOT NULL DEFAULT 'related',  -- 'related' | 'upsell' | 'crosssell' | 'bought_together'
+    sort_order  INTEGER NOT NULL DEFAULT 0,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_recommendations_unique ON product_recommendations(product_id, recommended_id, type);
+  CREATE INDEX IF NOT EXISTS idx_recommendations_product ON product_recommendations(product_id);
+
+  -- Order timeline events
+  CREATE TABLE IF NOT EXISTS order_timeline (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id    INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    event_type  TEXT NOT NULL DEFAULT 'note',  -- 'note' | 'status_change' | 'payment' | 'shipment' | 'refund' | 'system'
+    message     TEXT NOT NULL DEFAULT '',
+    is_customer_visible INTEGER NOT NULL DEFAULT 0,
+    created_by  TEXT NOT NULL DEFAULT 'system',  -- 'system' | admin user name
+    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_order_timeline_order ON order_timeline(order_id);
+`)
+
+// Phase 30 advanced coupon migrations
+const existingCouponCols = db.pragma('table_info(coupons)').map(c => c.name)
+if (!existingCouponCols.includes('max_uses_per_customer')) {
+  db.exec(`ALTER TABLE coupons ADD COLUMN max_uses_per_customer INTEGER NOT NULL DEFAULT 0`)
+}
+if (!existingCouponCols.includes('product_ids')) {
+  // JSON array of product IDs this coupon applies to (empty = all products)
+  db.exec(`ALTER TABLE coupons ADD COLUMN product_ids TEXT NOT NULL DEFAULT '[]'`)
+}
+if (!existingCouponCols.includes('category_ids')) {
+  // JSON array of category IDs (empty = all categories)
+  db.exec(`ALTER TABLE coupons ADD COLUMN category_ids TEXT NOT NULL DEFAULT '[]'`)
+}
+if (!existingCouponCols.includes('bogo_buy_qty')) {
+  // BOGO: buy X quantity
+  db.exec(`ALTER TABLE coupons ADD COLUMN bogo_buy_qty INTEGER NOT NULL DEFAULT 0`)
+}
+if (!existingCouponCols.includes('bogo_get_qty')) {
+  // BOGO: get Y quantity free/discounted
+  db.exec(`ALTER TABLE coupons ADD COLUMN bogo_get_qty INTEGER NOT NULL DEFAULT 0`)
+}
+if (!existingCouponCols.includes('bogo_product_id')) {
+  // BOGO: specific product to apply free qty to (0 = cheapest)
+  db.exec(`ALTER TABLE coupons ADD COLUMN bogo_product_id INTEGER NOT NULL DEFAULT 0`)
+}
+// Add free_shipping to type (already TEXT, just documenting)
+
+// ─── Phase 31: Returns & Refunds + Email Templates ─────────────────────────
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS order_returns (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id        INTEGER REFERENCES orders(id) ON DELETE SET NULL,
+    order_number    TEXT NOT NULL DEFAULT '',
+    customer_name   TEXT NOT NULL DEFAULT '',
+    customer_email  TEXT NOT NULL DEFAULT '',
+    reason          TEXT NOT NULL DEFAULT '',
+    notes           TEXT NOT NULL DEFAULT '',
+    admin_notes     TEXT NOT NULL DEFAULT '',
+    status          TEXT NOT NULL DEFAULT 'pending', -- pending | approved | rejected | refunded | closed
+    refund_amount   REAL NOT NULL DEFAULT 0,
+    items           TEXT NOT NULL DEFAULT '[]',     -- JSON array of {product_id, name, quantity, unit_price}
+    refund_method   TEXT NOT NULL DEFAULT 'original', -- original | store_credit | manual
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_returns_order ON order_returns(order_id);
+  CREATE INDEX IF NOT EXISTS idx_returns_status ON order_returns(status);
+  CREATE INDEX IF NOT EXISTS idx_returns_email ON order_returns(customer_email);
+
+  CREATE TABLE IF NOT EXISTS email_templates (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT NOT NULL DEFAULT '',
+    slug        TEXT NOT NULL UNIQUE,
+    subject     TEXT NOT NULL DEFAULT '',
+    html_body   TEXT NOT NULL DEFAULT '',
+    text_body   TEXT NOT NULL DEFAULT '',
+    variables   TEXT NOT NULL DEFAULT '[]',  -- JSON array of {key, description}
+    is_system   INTEGER NOT NULL DEFAULT 0,  -- 1 = built-in, cannot delete
+    active      INTEGER NOT NULL DEFAULT 1,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`)
+
+// Seed default email templates (idempotent)
+const seedTemplate = (slug, name, subject, html_body, text_body, variables_arr) => {
+  const existing = db.prepare('SELECT id FROM email_templates WHERE slug = ?').get(slug)
+  if (!existing) {
+    db.prepare(`
+      INSERT INTO email_templates (slug, name, subject, html_body, text_body, variables, is_system)
+      VALUES (?, ?, ?, ?, ?, ?, 1)
+    `).run(slug, name, subject, html_body, text_body, JSON.stringify(variables_arr))
+  }
+}
+
+seedTemplate(
+  'order_confirmation',
+  'Order Confirmation',
+  'Your order has been received — #{{order_number}}',
+  `<h2>Hi {{customer_name}},</h2>
+<p>Thanks for your order! We've received it and will be in touch shortly.</p>
+<p><strong>Order number:</strong> {{order_number}}</p>
+{{items_table}}
+{{totals_section}}
+{{shipping_section}}
+{{downloads_section}}`,
+  `Hi {{customer_name}},\n\nThanks for your order!\nOrder: {{order_number}}\n\n{{items_text}}\nTotal: {{total}}`,
+  [
+    {key:'customer_name', description:'Customer full name'},
+    {key:'order_number', description:'Order number (e.g. ORD-260322-0001)'},
+    {key:'items_table', description:'HTML table of ordered items'},
+    {key:'items_text', description:'Plain text list of items'},
+    {key:'totals_section', description:'Subtotal, discount, total block'},
+    {key:'shipping_section', description:'Shipping address block'},
+    {key:'downloads_section', description:'Digital download links (if any)'},
+    {key:'total', description:'Order grand total with currency symbol'},
+  ]
+)
+
+seedTemplate(
+  'order_status_update',
+  'Order Status Update',
+  'Order #{{order_number}} status update',
+  `<h2>Hi {{customer_name}},</h2>
+<p>{{status_message}}</p>
+<p><strong>Order number:</strong> {{order_number}}<br>
+   <strong>New status:</strong> {{status_label}}</p>
+{{items_table}}
+{{order_notes}}`,
+  `Hi {{customer_name}},\n\n{{status_message}}\n\nOrder: {{order_number}}\nStatus: {{status_label}}\nTotal: {{total}}`,
+  [
+    {key:'customer_name', description:'Customer full name'},
+    {key:'order_number', description:'Order number'},
+    {key:'status_message', description:'Human-readable status description'},
+    {key:'status_label', description:'Status label (e.g. Shipped)'},
+    {key:'items_table', description:'HTML table of order items'},
+    {key:'order_notes', description:'Admin notes (if any)'},
+    {key:'total', description:'Order grand total'},
+  ]
+)
+
+seedTemplate(
+  'shipment_notification',
+  'Shipment Notification',
+  'Your order {{order_number}} has been shipped! 📦',
+  `<h2>Hi {{customer_name}},</h2>
+<p>Great news! Your order is on its way. 🚀</p>
+<p><strong>Order number:</strong> {{order_number}}</p>
+{{tracking_section}}
+{{items_table}}
+{{shipping_address}}`,
+  `Hi {{customer_name}},\n\nYour order is on its way!\nOrder: {{order_number}}\n{{tracking_text}}\nShipping to:\n{{shipping_address}}`,
+  [
+    {key:'customer_name', description:'Customer full name'},
+    {key:'order_number', description:'Order number'},
+    {key:'tracking_section', description:'Tracking info HTML block'},
+    {key:'tracking_text', description:'Tracking info plain text'},
+    {key:'items_table', description:'HTML table of order items'},
+    {key:'shipping_address', description:'Shipping address'},
+  ]
+)
+
+seedTemplate(
+  'return_received',
+  'Return Request Received',
+  'Return request received for order #{{order_number}}',
+  `<h2>Hi {{customer_name}},</h2>
+<p>We've received your return request for order <strong>{{order_number}}</strong>.</p>
+<p><strong>Return ID:</strong> {{return_id}}<br>
+   <strong>Reason:</strong> {{reason}}</p>
+<p>We'll review your request and get back to you within 2–3 business days.</p>`,
+  `Hi {{customer_name}},\n\nReturn request received for order {{order_number}}.\nReturn ID: {{return_id}}\nReason: {{reason}}\n\nWe'll be in touch within 2–3 business days.`,
+  [
+    {key:'customer_name', description:'Customer full name'},
+    {key:'order_number', description:'Original order number'},
+    {key:'return_id', description:'Return request ID'},
+    {key:'reason', description:'Return reason provided by customer'},
+  ]
+)
+
+seedTemplate(
+  'return_approved',
+  'Return Approved',
+  'Your return for order #{{order_number}} has been approved ✅',
+  `<h2>Hi {{customer_name}},</h2>
+<p>Your return request has been <strong>approved</strong>!</p>
+<p><strong>Order:</strong> {{order_number}}<br>
+   <strong>Refund amount:</strong> {{refund_amount}}<br>
+   <strong>Refund method:</strong> {{refund_method}}</p>
+<p>{{admin_notes}}</p>
+<p>Please allow 3–5 business days for your refund to appear.</p>`,
+  `Hi {{customer_name}},\n\nYour return has been approved!\nOrder: {{order_number}}\nRefund: {{refund_amount}} via {{refund_method}}\n\n{{admin_notes}}\n\nPlease allow 3–5 business days for the refund to process.`,
+  [
+    {key:'customer_name', description:'Customer full name'},
+    {key:'order_number', description:'Original order number'},
+    {key:'refund_amount', description:'Refund amount with currency symbol'},
+    {key:'refund_method', description:'Refund method (original/store credit/manual)'},
+    {key:'admin_notes', description:'Message from admin to customer'},
+  ]
+)
+
+seedTemplate(
+  'return_rejected',
+  'Return Rejected',
+  'Update on your return request for order #{{order_number}}',
+  `<h2>Hi {{customer_name}},</h2>
+<p>We're sorry, but your return request for order <strong>{{order_number}}</strong> could not be approved.</p>
+{{admin_notes}}
+<p>If you have questions, please <a href="{{contact_url}}">contact us</a>.</p>`,
+  `Hi {{customer_name}},\n\nYour return request for order {{order_number}} could not be approved.\n\n{{admin_notes}}\n\nContact us if you have questions.`,
+  [
+    {key:'customer_name', description:'Customer full name'},
+    {key:'order_number', description:'Original order number'},
+    {key:'admin_notes', description:'Reason for rejection'},
+    {key:'contact_url', description:'Link to contact page'},
+  ]
+)
+
+// ── Phase 30: Flash Sales ─────────────────────────────────────────────────────
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS flash_sales (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    slug TEXT UNIQUE NOT NULL,
+    description TEXT,
+    discount_type TEXT NOT NULL DEFAULT 'percent',  -- percent | fixed | free_shipping
+    discount_value REAL NOT NULL DEFAULT 0,
+    applies_to TEXT NOT NULL DEFAULT 'all',          -- all | category | products
+    applies_to_ids TEXT DEFAULT '[]',                -- JSON array of category names or product ids
+    min_purchase REAL DEFAULT 0,
+    max_uses INTEGER DEFAULT 0,
+    uses_count INTEGER DEFAULT 0,
+    starts_at TEXT,
+    ends_at TEXT,
+    active INTEGER NOT NULL DEFAULT 1,
+    show_countdown INTEGER NOT NULL DEFAULT 1,
+    badge_label TEXT DEFAULT 'Flash Sale',
+    created_at TEXT DEFAULT (datetime('now'))
+  )
+`).run()
+
+// ── Phase 30: Announcement Bar ────────────────────────────────────────────────
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS announcement_bars (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    message TEXT NOT NULL,
+    link_url TEXT,
+    link_label TEXT,
+    bg_color TEXT DEFAULT '#c0392b',
+    text_color TEXT DEFAULT '#ffffff',
+    dismissable INTEGER NOT NULL DEFAULT 1,
+    active INTEGER NOT NULL DEFAULT 0,
+    starts_at TEXT,
+    ends_at TEXT,
+    position TEXT DEFAULT 'top',  -- top | bottom
+    created_at TEXT DEFAULT (datetime('now'))
+  )
+`).run()
+
+// ── Phase 30: Pop-up Builder ──────────────────────────────────────────────────
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS popups (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT 'newsletter', -- newsletter | promo | announcement | custom
+    title TEXT,
+    body TEXT,
+    cta_label TEXT,
+    cta_url TEXT,
+    image_url TEXT,
+    trigger TEXT NOT NULL DEFAULT 'timed',  -- timed | exit_intent | scroll
+    trigger_delay INTEGER DEFAULT 5,         -- seconds (timed) or % scrolled (scroll)
+    show_once INTEGER NOT NULL DEFAULT 1,    -- 1 = only once per browser
+    cookie_days INTEGER DEFAULT 30,          -- days before reshowing
+    show_on TEXT DEFAULT 'all',              -- all | home | blog | shop | product | custom
+    show_on_paths TEXT DEFAULT '[]',         -- JSON array of path patterns for custom
+    bg_color TEXT DEFAULT 'rgba(0,0,0,0.85)',
+    active INTEGER NOT NULL DEFAULT 0,
+    display_count INTEGER DEFAULT 0,
+    conversion_count INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+  )
+`).run()
