@@ -207,6 +207,17 @@
           </div>
         </div>
       </div>
+      <div class="stat-card glass" v-if="(stats.subscriptions?.active ?? 0) > 0 || (stats.subscriptions?.mrr ?? 0) > 0">
+        <div class="stat-icon">💳</div>
+        <div class="stat-body">
+          <div class="stat-num">{{ stats.subscriptions?.active ?? 0 }}</div>
+          <div class="stat-label">
+            Active Members
+            <span v-if="stats.subscriptions?.mrr > 0" style="color:var(--accent);font-weight:600"> · €{{ (stats.subscriptions.mrr).toFixed(2) }}/mo MRR</span>
+            <RouterLink to="/subscriptions" class="stat-link">→ Subscriptions</RouterLink>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Inventory alerts -->
@@ -281,6 +292,8 @@
       <RouterLink to="/coupons" class="btn btn-ghost">🎟️ Coupons</RouterLink>
       <RouterLink to="/abandoned-carts" class="btn btn-ghost">🛒 Abandoned Carts</RouterLink>
       <RouterLink to="/gift-cards" class="btn btn-ghost">🎁 Gift Cards</RouterLink>
+      <RouterLink to="/subscriptions" class="btn btn-ghost">💳 Subscriptions</RouterLink>
+      <RouterLink to="/revenue" class="btn btn-ghost">💰 Revenue Report</RouterLink>
       <RouterLink to="/activity-log" class="btn btn-ghost">🕐 Activity Log</RouterLink>
     </div>
   </div>

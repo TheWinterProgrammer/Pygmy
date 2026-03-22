@@ -44,6 +44,9 @@ import pageBlocksRoutes from './routes/page_blocks.js'
 import taxRatesRoutes from './routes/tax_rates.js'
 import loyaltyRoutes from './routes/loyalty.js'
 import giftCardsRoutes from './routes/gift_cards.js'
+import digitalDownloadsRoutes from './routes/digital_downloads.js'
+import { issueDownloadTokensForOrder } from './routes/digital_downloads.js'
+import subscriptionsRoutes from './routes/subscriptions.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -186,6 +189,8 @@ app.use('/api/page-blocks', pageBlocksRoutes)
 app.use('/api/tax-rates', taxRatesRoutes)
 app.use('/api/loyalty', loyaltyRoutes)
 app.use('/api/gift-cards', giftCardsRoutes)
+app.use('/api/digital-downloads', digitalDownloadsRoutes)
+app.use('/api/subscriptions', subscriptionsRoutes)
 
 // ─── SEO (public) ─────────────────────────────────────────────────────────────
 app.use('/', seoRoutes)

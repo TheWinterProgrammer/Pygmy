@@ -9,6 +9,26 @@ import { fireWebhooks } from './webhooks.js'
 
 const router = Router()
 const JWT_SECRET = process.env.JWT_SECRET || 'pygmy-secret-change-me'
+const CUSTOMER_JWT_SECRET = process.env.CUSTOMER_JWT_SECRET || 'pygmy-customer-secret-change-in-production'
+
+function customerHasAccess(req, accessLevel) {
+  if (accessLevel === 'public') return true
+  const header = req.headers.authorization
+  if (!header?.startsWith('Bearer ')) return false
+  try {
+    const payload = jwt.verify(header.slice(7), CUSTOMER_JWT_SECRET)
+    if (payload.role !== 'customer') return false
+    if (accessLevel === 'members') {
+      const sub = db.prepare(`
+        SELECT id FROM member_subscriptions
+        WHERE customer_id=? AND status IN ('active','trialing')
+        LIMIT 1
+      `).get(payload.id)
+      return !!sub
+    }
+    return false
+  } catch { return false }
+}
 
 function slugify(str) {
   return str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
@@ -66,6 +86,16 @@ router.get('/:slug', (req, res) => {
   const statusFilter = isAdmin ? "status IN ('published','draft','scheduled')" : "status='published'"
   const page = db.prepare(`SELECT * FROM pages WHERE slug = ? AND ${statusFilter}`).get(req.params.slug)
   if (!page) return res.status(404).json({ error: 'Page not found' })
+
+  // Member-only content gating
+  const accessLevel = page.access_level || 'public'
+  if (!isAdmin && accessLevel !== 'public') {
+    if (!customerHasAccess(req, accessLevel)) {
+      const { content: _omit, ...teaser } = page
+      return res.json({ ...teaser, content: '', _gated: true, access_level: accessLevel })
+    }
+  }
+
   res.json({ ...page, _preview: isAdmin && page.status !== 'published' })
 })
 
@@ -85,8 +115,8 @@ router.post('/', authMiddleware, (req, res) => {
   else if (finalStatus === 'scheduled') finalPublishAt = publish_at || null
 
   const stmt = db.prepare(`
-    INSERT INTO pages (title, slug, content, meta_title, meta_desc, status, sort_order, publish_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO pages (title, slug, content, meta_title, meta_desc, status, sort_order, publish_at, access_level)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
   const info = stmt.run(
     title, finalSlug,
@@ -94,7 +124,8 @@ router.post('/', authMiddleware, (req, res) => {
     meta_title || null, meta_desc || null,
     finalStatus,
     sort_order || 0,
-    finalPublishAt
+    finalPublishAt,
+    req.body.access_level || 'public'
   )
   const page = db.prepare('SELECT * FROM pages WHERE id = ?').get(info.lastInsertRowid)
   logActivity(req.user?.id, req.user?.name, 'created page', 'page', page.id, page.title)
@@ -121,7 +152,7 @@ router.put('/:id', authMiddleware, (req, res) => {
   if (newStatus === 'draft') newPublishAt = null
 
   db.prepare(`
-    UPDATE pages SET title=?, slug=?, content=?, meta_title=?, meta_desc=?, status=?, sort_order=?, publish_at=?, updated_at=datetime('now')
+    UPDATE pages SET title=?, slug=?, content=?, meta_title=?, meta_desc=?, status=?, sort_order=?, publish_at=?, access_level=?, updated_at=datetime('now')
     WHERE id=?
   `).run(
     title ?? page.title,
@@ -132,6 +163,7 @@ router.put('/:id', authMiddleware, (req, res) => {
     newStatus,
     sort_order ?? page.sort_order,
     newPublishAt,
+    req.body.access_level ?? page.access_level ?? 'public',
     page.id
   )
 

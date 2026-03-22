@@ -118,10 +118,14 @@ router.get('/me/orders', customerAuthMiddleware, (req, res) => {
     ORDER BY created_at DESC
   `).all(req.customer.id)
 
-  const parsed = orders.map(o => ({
-    ...o,
-    items: JSON.parse(o.items || '[]')
-  }))
+  const parsed = orders.map(o => {
+    const downloadCount = db.prepare('SELECT COUNT(*) as c FROM download_tokens WHERE order_id = ?').get(o.id)?.c || 0
+    return {
+      ...o,
+      items: JSON.parse(o.items || '[]'),
+      has_digital: downloadCount > 0,
+    }
+  })
   res.json(parsed)
 })
 

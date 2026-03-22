@@ -88,6 +88,12 @@
           </div>
         </div>
 
+        <!-- Digital Downloads -->
+        <DigitalFilesSection
+          :product-id="isNew ? null : parseInt(route.params.id)"
+          v-model:is-digital="form.is_digital"
+        />
+
         <!-- SEO -->
         <div class="glass section">
           <h3 style="margin-bottom:1rem">SEO</h3>
@@ -223,6 +229,7 @@ import { useToastStore } from '../stores/toast.js'
 import RichEditor from '../components/RichEditor.vue'
 import MediaPickerModal from '../components/MediaPickerModal.vue'
 import LockBanner from '../components/LockBanner.vue'
+import DigitalFilesSection from '../components/DigitalFilesSection.vue'
 import { useContentLock } from '../composables/useContentLock.js'
 
 const route  = useRoute()
@@ -325,6 +332,7 @@ const form = ref({
   publish_at: '',
   track_stock: false, stock_quantity: 0,
   allow_backorder: false, low_stock_threshold: 5,
+  is_digital: false,
 })
 
 onMounted(async () => {
@@ -356,6 +364,7 @@ onMounted(async () => {
         stock_quantity: product.stock_quantity ?? 0,
         allow_backorder: Boolean(product.allow_backorder),
         low_stock_threshold: product.low_stock_threshold ?? 5,
+        is_digital: Boolean(product.is_digital),
       }
       tagsInput.value = (product.tags || []).join(', ')
     } catch {
@@ -422,6 +431,7 @@ async function save(status) {
       stock_quantity: parseInt(form.value.stock_quantity) || 0,
       allow_backorder: form.value.allow_backorder,
       low_stock_threshold: parseInt(form.value.low_stock_threshold) || 5,
+      is_digital: form.value.is_digital ? 1 : 0,
     }
     if (isNew.value) {
       const { data } = await api.post('/products', payload)

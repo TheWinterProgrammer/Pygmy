@@ -8,6 +8,7 @@ import { fireWebhooks } from './webhooks.js'
 import { sendOrderConfirmation, sendOrderStatusUpdate, sendShipmentNotification } from '../email.js'
 import { validateCouponLogic } from './coupons.js'
 import { redeemGiftCard } from './gift_cards.js'
+import { issueDownloadTokensForOrder } from './digital_downloads.js'
 
 const CUSTOMER_JWT_SECRET = process.env.CUSTOMER_JWT_SECRET || 'pygmy-customer-secret-change-in-production'
 
@@ -251,11 +252,15 @@ router.post('/', (req, res) => {
   const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(newId)
 
 
+  // Issue download tokens for any digital products in the order (fire-and-forget)
+  let downloadTokens = []
+  try { downloadTokens = issueDownloadTokensForOrder(order) } catch (e) { console.warn('Digital download token issuance failed:', e.message) }
+
   // Send webhook (fire-and-forget)
   try { fireWebhooks('order.created', { order_number: orderNumber, total: computedTotal }) } catch {}
 
   // Send order confirmation email (fire-and-forget)
-  sendOrderConfirmation({ ...order, items: validatedItems }).catch(() => {})
+  sendOrderConfirmation({ ...order, items: validatedItems, downloadTokens }).catch(() => {})
 
   res.status(201).json({
     id: order.id,
@@ -270,6 +275,7 @@ router.post('/', (req, res) => {
     total: order.total,
     coupon_code: order.coupon_code,
     status: order.status,
+    has_digital: downloadTokens.length > 0,
   })
 })
 
@@ -361,6 +367,10 @@ router.get('/:id', authMiddleware, (req, res) => {
 router.get('/confirm/:orderNumber', (req, res) => {
   const order = db.prepare('SELECT * FROM orders WHERE order_number = ?').get(req.params.orderNumber)
   if (!order) return res.status(404).json({ error: 'Order not found' })
+
+  // Check if any digital download tokens exist for this order
+  const downloadCount = db.prepare('SELECT COUNT(*) as count FROM download_tokens WHERE order_id = ?').get(order.id)?.count || 0
+
   // Return limited public data (no customer email for privacy)
   res.json({
     id: order.id,
@@ -376,6 +386,7 @@ router.get('/confirm/:orderNumber', (req, res) => {
     coupon_code: order.coupon_code,
     total: order.total,
     created_at: order.created_at,
+    has_digital: downloadCount > 0,
   })
 })
 

@@ -116,7 +116,10 @@ const navItems = [
   { to: '/api-keys',      icon: '🔑',  label: 'API Keys' },
   { to: '/tax-rates',     icon: '🧾',  label: 'Tax Rates' },
   { to: '/gift-cards',    icon: '🎁',  label: 'Gift Cards' },
+  { to: '/downloads',     icon: '📥',  label: 'Downloads' },
   { to: '/homepage',      icon: '🏠',  label: 'Homepage' },
+  { to: '/subscriptions', icon: '💳',  label: 'Subscriptions' },
+  { to: '/revenue',       icon: '💰',  label: 'Revenue' },
   { to: '/activity-log',  icon: '🕐',  label: 'Activity Log' },
   { to: '/settings',      icon: '⚙️',  label: 'Settings' },
 ]

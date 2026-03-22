@@ -311,6 +311,31 @@
         </div>
       </div>
 
+      <!-- Memberships -->
+      <div class="glass section">
+        <h2 style="margin-bottom:1.25rem;">💳 Memberships</h2>
+        <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.25rem;">
+          Enable subscription plans and member-only content gating.
+        </p>
+        <label class="toggle-label" style="margin-bottom:1.25rem">
+          <input type="checkbox" v-model="membershipsEnabled" />
+          <span>Enable Memberships</span>
+        </label>
+        <div v-if="membershipsEnabled">
+          <div class="form-group" style="margin-bottom:1rem">
+            <label>Pricing Page Title</label>
+            <input v-model="form.members_page_title" class="input" placeholder="Become a Member" />
+          </div>
+          <div class="form-group">
+            <label>Pricing Page Intro Text</label>
+            <textarea v-model="form.members_page_intro" class="input" rows="2" placeholder="Get exclusive access to premium content." />
+          </div>
+          <p style="font-size:0.83rem;color:var(--text-muted);margin-top:.75rem">
+            Manage plans and members from the <RouterLink to="/subscriptions" style="color:var(--accent)">💳 Subscriptions</RouterLink> panel.
+          </p>
+        </div>
+      </div>
+
       <!-- Maintenance Mode -->
       <div class="glass section">
         <h2 style="margin-bottom:1.25rem;">🚧 Maintenance Mode</h2>
@@ -507,6 +532,9 @@ const form = ref({
   loyalty_min_redeem: '100',
   loyalty_expiry_days: '0',
   gift_cards_enabled: '0',
+  memberships_enabled: '0',
+  members_page_title: 'Become a Member',
+  members_page_intro: 'Get exclusive access to premium content.',
 })
 
 // Checkbox helpers (settings stored as '1'/'0')
@@ -550,6 +578,11 @@ const loyaltyEnabled = computed({
 const giftCardsEnabled = computed({
   get: () => form.value.gift_cards_enabled === '1',
   set: v => { form.value.gift_cards_enabled = v ? '1' : '0' }
+})
+
+const membershipsEnabled = computed({
+  get: () => form.value.memberships_enabled === '1',
+  set: v => { form.value.memberships_enabled = v ? '1' : '0' }
 })
 
 // ─── 2FA state ────────────────────────────────────────────────────────────────

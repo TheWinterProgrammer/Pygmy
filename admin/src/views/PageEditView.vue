@@ -94,7 +94,16 @@
         </div>
 
         <div class="glass section">
-          <h3 style="margin-bottom:1rem;">SEO</h3>
+          <h3 style="margin-bottom:1rem;">Access Control</h3>
+          <div class="form-group">
+            <label>Visibility</label>
+            <select v-model="form.access_level" class="input">
+              <option value="public">🌐 Public — anyone can view</option>
+              <option value="members">💳 Members only — requires active subscription</option>
+            </select>
+          </div>
+
+          <h3 style="margin-bottom:1rem;margin-top:1.5rem;">SEO</h3>
           <div class="form-group">
             <label>Meta Title</label>
             <input v-model="form.meta_title" class="input" placeholder="Page title for search engines" />
@@ -162,7 +171,8 @@ const form = ref({
   sort_order: 0,
   publish_at: '',
   meta_title: '',
-  meta_desc: ''
+  meta_desc: '',
+  access_level: 'public'
 })
 
 const autoSave = useAutoSave('page', computed(() => isNew.value ? 'new' : route.params.id), form)

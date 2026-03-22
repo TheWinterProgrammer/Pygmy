@@ -201,6 +201,17 @@
             <div class="section-title">Shipping to</div>
             <p>{{ selectedOrder.shipping_address }}</p>
           </div>
+          <!-- Digital Downloads -->
+          <div v-if="selectedOrder.has_digital" class="tracking-info">
+            <div class="section-title">📥 Downloads</div>
+            <p style="font-size:.85rem;color:var(--text-muted);margin:0 0 .75rem;">This order includes digital files.</p>
+            <RouterLink
+              :to="`/order/downloads?order=${selectedOrder.order_number}`"
+              class="btn btn-primary"
+              style="display:inline-flex;align-items:center;gap:.4rem;"
+            >📥 Access Downloads</RouterLink>
+          </div>
+
           <!-- Tracking info -->
           <div v-if="selectedOrder.tracking_number || selectedOrder.tracking_url" class="tracking-info">
             <div class="section-title">📦 Tracking</div>

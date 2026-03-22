@@ -8,6 +8,28 @@ import { saveRevision } from './revisions.js'
 import { fireWebhooks } from './webhooks.js'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'pygmy-secret-change-me'
+const CUSTOMER_JWT_SECRET = process.env.CUSTOMER_JWT_SECRET || 'pygmy-customer-secret-change-in-production'
+
+// Check if a customer token grants access to a given access_level
+function customerHasAccess(req, accessLevel) {
+  if (accessLevel === 'public') return true
+  const header = req.headers.authorization
+  if (!header?.startsWith('Bearer ')) return false
+  try {
+    const payload = jwt.verify(header.slice(7), CUSTOMER_JWT_SECRET)
+    if (payload.role !== 'customer') return false
+    if (accessLevel === 'members') {
+      // Any logged-in customer with an active subscription
+      const sub = db.prepare(`
+        SELECT id FROM member_subscriptions
+        WHERE customer_id=? AND status IN ('active','trialing')
+        LIMIT 1
+      `).get(payload.id)
+      return !!sub
+    }
+    return false
+  } catch { return false }
+}
 
 function hasValidAuth(req) {
   const authHeader = req.headers['authorization'] || ''
@@ -173,6 +195,17 @@ router.get('/:slug', (req, res) => {
     WHERE p.slug = ? AND ${statusFilter}
   `).get(req.params.slug)
   if (!post) return res.status(404).json({ error: 'Post not found' })
+
+  // Member-only content gating
+  const accessLevel = post.access_level || 'public'
+  if (!isAdmin && accessLevel !== 'public') {
+    if (!customerHasAccess(req, accessLevel)) {
+      // Return teaser (no content) with gated flag
+      const { content: _omit, ...teaser } = parsePost(post)
+      return res.json({ ...teaser, content: '', _gated: true, access_level: accessLevel })
+    }
+  }
+
   res.json({ ...parsePost(post), _preview: isAdmin && post.status !== 'published' })
 })
 
@@ -191,8 +224,8 @@ router.post('/', authMiddleware, (req, res) => {
   else if (finalStatus === 'scheduled') finalPublished = published_at || null
 
   const info = db.prepare(`
-    INSERT INTO posts (title, slug, excerpt, content, cover_image, category_id, tags, status, published_at, meta_title, meta_desc)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO posts (title, slug, excerpt, content, cover_image, category_id, tags, status, published_at, meta_title, meta_desc, access_level)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     title, finalSlug,
     excerpt || null, content || '',
@@ -200,7 +233,8 @@ router.post('/', authMiddleware, (req, res) => {
     category_id || null,
     JSON.stringify(Array.isArray(tags) ? tags : []),
     finalStatus, finalPublished,
-    meta_title || null, meta_desc || null
+    meta_title || null, meta_desc || null,
+    req.body.access_level || 'public'
   )
 
   const post = db.prepare('SELECT * FROM posts WHERE id = ?').get(info.lastInsertRowid)
@@ -230,7 +264,7 @@ router.put('/:id', authMiddleware, (req, res) => {
 
   db.prepare(`
     UPDATE posts SET title=?, slug=?, excerpt=?, content=?, cover_image=?, category_id=?,
-    tags=?, status=?, published_at=?, meta_title=?, meta_desc=?, updated_at=datetime('now')
+    tags=?, status=?, published_at=?, meta_title=?, meta_desc=?, access_level=?, updated_at=datetime('now')
     WHERE id=?
   `).run(
     title ?? post.title,
@@ -243,6 +277,7 @@ router.put('/:id', authMiddleware, (req, res) => {
     newStatus, newPublished,
     meta_title ?? post.meta_title,
     meta_desc ?? post.meta_desc,
+    req.body.access_level ?? post.access_level ?? 'public',
     post.id
   )
 

@@ -11,10 +11,13 @@
 
 import express from 'express'
 import jwt from 'jsonwebtoken'
+import multer from 'multer'
 import db from '../db.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { logActivity } from './activity.js'
 import { notifyLowStock } from '../email.js'
+
+const csvUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } })
 
 const JWT_SECRET = process.env.JWT_SECRET || 'pygmy-secret-change-me'
 
@@ -48,6 +51,7 @@ function parseProduct(row) {
     allow_backorder: Boolean(row.allow_backorder),
     stock_quantity: row.stock_quantity ?? 0,
     low_stock_threshold: row.low_stock_threshold ?? 5,
+    is_digital: Boolean(row.is_digital),
     in_stock: !row.track_stock || row.stock_quantity > 0 || Boolean(row.allow_backorder),
     low_stock: Boolean(row.track_stock) && (row.stock_quantity ?? 0) <= (row.low_stock_threshold ?? 5) && (row.stock_quantity ?? 0) > 0,
   }
@@ -195,6 +199,7 @@ router.post('/', authMiddleware, (req, res) => {
     publish_at = null,
     track_stock = false, stock_quantity = 0,
     allow_backorder = false, low_stock_threshold = 5,
+    is_digital = false,
   } = req.body
 
   if (!name?.trim()) return res.status(400).json({ error: 'name required' })
@@ -213,8 +218,8 @@ router.post('/', authMiddleware, (req, res) => {
     INSERT INTO products
       (name, slug, excerpt, description, price, sale_price, sku, cover_image, gallery,
        category_id, tags, status, featured, meta_title, meta_desc, publish_at,
-       track_stock, stock_quantity, allow_backorder, low_stock_threshold)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+       track_stock, stock_quantity, allow_backorder, low_stock_threshold, is_digital)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `).run(
     name.trim(), slug, excerpt, description,
     price, sale_price, sku, cover_image,
@@ -225,6 +230,7 @@ router.post('/', authMiddleware, (req, res) => {
     parseInt(stock_quantity) || 0,
     allow_backorder ? 1 : 0,
     parseInt(low_stock_threshold) || 5,
+    is_digital ? 1 : 0,
   )
 
   const product = db.prepare('SELECT * FROM products WHERE id = ?').get(info.lastInsertRowid)
@@ -244,6 +250,7 @@ router.put('/:id', authMiddleware, (req, res) => {
     category_id, tags, status, featured,
     meta_title, meta_desc, publish_at,
     track_stock, stock_quantity, allow_backorder, low_stock_threshold,
+    is_digital,
   } = req.body
 
   // only regenerate slug if name changed and no slug conflict
@@ -267,6 +274,7 @@ router.put('/:id', authMiddleware, (req, res) => {
       tags = ?, status = ?, featured = ?,
       meta_title = ?, meta_desc = ?, publish_at = ?,
       track_stock = ?, stock_quantity = ?, allow_backorder = ?, low_stock_threshold = ?,
+      is_digital = ?,
       updated_at = datetime('now')
     WHERE id = ?
   `).run(
@@ -290,6 +298,7 @@ router.put('/:id', authMiddleware, (req, res) => {
     stock_quantity !== undefined ? (parseInt(stock_quantity) || 0) : existing.stock_quantity,
     allow_backorder !== undefined ? (allow_backorder ? 1 : 0) : existing.allow_backorder,
     low_stock_threshold !== undefined ? (parseInt(low_stock_threshold) || 5) : existing.low_stock_threshold,
+    is_digital !== undefined ? (is_digital ? 1 : 0) : existing.is_digital,
     existing.id
   )
 
@@ -374,6 +383,156 @@ router.post('/bulk', authMiddleware, (req, res) => {
   })
   doInTransaction()
   res.json({ affected })
+})
+
+// ─── CSV Export ──────────────────────────────────────────────────────────────
+// GET /api/products/export/csv
+router.get('/export/csv', authMiddleware, (req, res) => {
+  const products = db.prepare('SELECT * FROM products ORDER BY id ASC').all()
+
+  const escape = v => {
+    if (v == null) return ''
+    const s = String(v)
+    return (s.includes(',') || s.includes('"') || s.includes('\n'))
+      ? `"${s.replace(/"/g, '""')}"` : s
+  }
+
+  const headers = [
+    'id','name','slug','excerpt','price','sale_price','sku',
+    'status','featured','track_stock','stock_quantity','low_stock_threshold',
+    'allow_backorders','weight','cover_image','gallery_images',
+    'meta_title','meta_desc','tags','created_at'
+  ]
+
+  const rows = products.map(p => headers.map(h => escape(p[h])).join(','))
+  const csv = [headers.join(','), ...rows].join('\n')
+
+  const date = new Date().toISOString().slice(0, 10)
+  res.setHeader('Content-Type', 'text/csv')
+  res.setHeader('Content-Disposition', `attachment; filename="products-${date}.csv"`)
+  res.send(csv)
+})
+
+// ─── CSV Import ──────────────────────────────────────────────────────────────
+// POST /api/products/import/csv
+// Accepts multipart form with a `file` field containing a CSV.
+// Required columns: name, price
+// Optional: slug, excerpt, sku, status, featured, sale_price, meta_title, meta_desc, tags, cover_image
+router.post('/import/csv', authMiddleware, csvUpload.single('file'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No CSV file uploaded' })
+
+  const mode = req.body.mode || 'merge' // merge | replace
+
+  let text
+  try {
+    text = req.file.buffer.toString('utf-8')
+  } catch {
+    return res.status(400).json({ error: 'Could not read file as UTF-8 text' })
+  }
+
+  // Parse CSV manually (handles quoted fields with commas/newlines)
+  function parseCSV(raw) {
+    const lines = []
+    let cur = '', inQ = false, row = []
+    for (let i = 0; i < raw.length; i++) {
+      const ch = raw[i]
+      if (ch === '"') {
+        if (inQ && raw[i + 1] === '"') { cur += '"'; i++ }
+        else { inQ = !inQ }
+      } else if (ch === ',' && !inQ) {
+        row.push(cur); cur = ''
+      } else if ((ch === '\n' || ch === '\r') && !inQ) {
+        if (ch === '\r' && raw[i + 1] === '\n') i++
+        row.push(cur); cur = ''
+        if (row.some(v => v !== '')) lines.push(row)
+        row = []
+      } else {
+        cur += ch
+      }
+    }
+    if (cur || row.length) { row.push(cur); if (row.some(v => v !== '')) lines.push(row) }
+    return lines
+  }
+
+  const rows = parseCSV(text)
+  if (rows.length < 2) return res.status(400).json({ error: 'CSV must have a header row and at least one data row' })
+
+  const headers = rows[0].map(h => h.trim().toLowerCase())
+  const get = (row, col) => {
+    const idx = headers.indexOf(col)
+    return idx >= 0 ? (row[idx] || '').trim() : ''
+  }
+
+  const report = { created: 0, updated: 0, skipped: 0, errors: [] }
+
+  if (mode === 'replace') {
+    db.prepare('DELETE FROM products').run()
+  }
+
+  const slugify = (str) => str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i]
+    try {
+      const name = get(row, 'name')
+      if (!name) { report.skipped++; continue }
+
+      const price = parseFloat(get(row, 'price')) || 0
+      const salePrice = parseFloat(get(row, 'sale_price')) || null
+      const slug = get(row, 'slug') || slugify(name)
+      const status = ['published', 'draft'].includes(get(row, 'status')) ? get(row, 'status') : 'draft'
+      const featured = get(row, 'featured') === '1' || get(row, 'featured') === 'true' ? 1 : 0
+      const trackStock = get(row, 'track_stock') === '1' || get(row, 'track_stock') === 'true' ? 1 : 0
+      const stockQty = parseInt(get(row, 'stock_quantity')) || 0
+      const lowThreshold = parseInt(get(row, 'low_stock_threshold')) || 5
+      const allowBackorders = get(row, 'allow_backorders') === '1' ? 1 : 0
+      const weight = parseFloat(get(row, 'weight')) || null
+      const sku = get(row, 'sku') || null
+      const excerpt = get(row, 'excerpt') || null
+      const coverImage = get(row, 'cover_image') || null
+      const galleryImages = get(row, 'gallery_images') || '[]'
+      const metaTitle = get(row, 'meta_title') || null
+      const metaDesc = get(row, 'meta_desc') || null
+      const tags = get(row, 'tags') || null
+
+      // Check if product with this slug already exists
+      const existing = db.prepare('SELECT id FROM products WHERE slug = ?').get(slug)
+      if (existing) {
+        db.prepare(`
+          UPDATE products SET
+            name = ?, excerpt = ?, price = ?, sale_price = ?, sku = ?,
+            status = ?, featured = ?, track_stock = ?, stock_quantity = ?,
+            low_stock_threshold = ?, allow_backorders = ?, weight = ?,
+            cover_image = ?, gallery_images = ?, meta_title = ?, meta_desc = ?,
+            tags = ?, updated_at = datetime('now')
+          WHERE id = ?
+        `).run(
+          name, excerpt, price, salePrice, sku, status, featured,
+          trackStock, stockQty, lowThreshold, allowBackorders, weight,
+          coverImage, galleryImages, metaTitle, metaDesc, tags, existing.id
+        )
+        report.updated++
+      } else {
+        db.prepare(`
+          INSERT INTO products
+            (name, slug, excerpt, price, sale_price, sku, status, featured,
+             track_stock, stock_quantity, low_stock_threshold, allow_backorders,
+             weight, cover_image, gallery_images, meta_title, meta_desc, tags)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        `).run(
+          name, slug, excerpt, price, salePrice, sku, status, featured,
+          trackStock, stockQty, lowThreshold, allowBackorders, weight,
+          coverImage, galleryImages, metaTitle, metaDesc, tags
+        )
+        report.created++
+      }
+    } catch (e) {
+      report.errors.push(`Row ${i + 1}: ${e.message}`)
+    }
+  }
+
+  logActivity(req.user, 'import_csv', 'product', null, `Imported ${report.created} new, ${report.updated} updated`)
+  res.json({ ok: true, mode, report })
 })
 
 export default router

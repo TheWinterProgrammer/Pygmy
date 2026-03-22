@@ -2,7 +2,24 @@
   <div>
     <div class="page-header">
       <h1>Products</h1>
-      <RouterLink to="/products/new" class="btn btn-primary">+ New Product</RouterLink>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+        <button class="btn btn-ghost btn-sm" @click="exportCsv" title="Download all products as CSV">⬇️ Export CSV</button>
+        <label class="btn btn-ghost btn-sm" title="Import products from CSV file" style="cursor:pointer;">
+          ⬆️ Import CSV
+          <input type="file" accept=".csv" style="display:none;" @change="importCsv" ref="csvFileInput" />
+        </label>
+        <RouterLink to="/products/new" class="btn btn-primary">+ New Product</RouterLink>
+      </div>
+    </div>
+
+    <!-- Import result banner -->
+    <div v-if="importResult" class="import-banner glass" :class="importResult.ok ? 'banner-ok' : 'banner-err'">
+      <div v-if="importResult.ok">
+        ✅ Import complete — {{ importResult.report.created }} created, {{ importResult.report.updated }} updated, {{ importResult.report.skipped }} skipped
+        <span v-if="importResult.report.errors?.length"> · ⚠️ {{ importResult.report.errors.length }} errors</span>
+      </div>
+      <div v-else>❌ Import failed: {{ importResult.error }}</div>
+      <button class="btn-close-sm" @click="importResult = null">✕</button>
     </div>
 
     <!-- Filters row -->

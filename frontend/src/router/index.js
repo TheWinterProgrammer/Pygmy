@@ -51,8 +51,16 @@ const routes = [
     component: () => import('../views/OrderLookupView.vue')
   },
   {
+    path: '/order/downloads',
+    component: () => import('../views/OrderDownloadsView.vue')
+  },
+  {
     path: '/order/:orderNumber',
     component: () => import('../views/OrderConfirmView.vue')
+  },
+  {
+    path: '/membership',
+    component: () => import('../views/MembershipView.vue')
   },
   {
     path: '/account/login',

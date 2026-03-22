@@ -42,8 +42,19 @@
         <p class="post-excerpt" v-if="post.excerpt">{{ post.excerpt }}</p>
       </header>
 
+      <!-- Member-gated paywall -->
+      <div v-if="post._gated" class="glass paywall-card">
+        <div class="paywall-icon">🔒</div>
+        <h2 class="paywall-title">Members Only</h2>
+        <p class="paywall-text">This content is available exclusively to members. Subscribe to unlock full access.</p>
+        <div class="paywall-actions">
+          <RouterLink to="/membership" class="btn btn-accent">View Plans →</RouterLink>
+          <RouterLink to="/account/login" class="btn btn-ghost">Sign In</RouterLink>
+        </div>
+      </div>
+
       <!-- Body -->
-      <div class="glass post-body">
+      <div v-else class="glass post-body">
         <div class="prose" v-html="post.content"></div>
       </div>
 
@@ -419,6 +430,18 @@ function formatDate(iso) {
   padding: 2.5rem;
   margin-bottom: 2rem;
 }
+
+.paywall-card {
+  padding: 3rem 2rem;
+  border-radius: 1.5rem;
+  text-align: center;
+  margin-bottom: 2rem;
+  border: 1px solid var(--accent);
+}
+.paywall-icon { font-size: 2.5rem; margin-bottom: 1rem; }
+.paywall-title { font-size: 1.5rem; margin: 0 0 .75rem; }
+.paywall-text { color: var(--text-muted); margin-bottom: 1.5rem; max-width: 400px; margin-left: auto; margin-right: auto; }
+.paywall-actions { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
 
 .reading-time {
   font-size: 0.78rem;

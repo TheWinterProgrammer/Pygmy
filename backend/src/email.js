@@ -218,6 +218,29 @@ export async function sendOrderConfirmation(order) {
     ? `\nDiscount (${order.coupon_code}): -${sym}${Number(order.discount_amount).toFixed(2)}`
     : ''
 
+  // ─── Digital download section ──────────────────────────────────────────────
+  const downloadTokens = order.downloadTokens || []
+  const downloadsHtml = downloadTokens.length > 0 ? `
+    <div style="margin:1.5rem 0; padding:1.25rem; background:rgba(255,255,255,0.05); border-radius:10px; border:1px solid rgba(255,255,255,0.12);">
+      <p style="margin:0 0 .75rem; font-weight:700; color:#e2e2e8;">📥 Your Downloads</p>
+      <p style="margin:0 0 1rem; font-size:.85rem; color:#888;">Your digital files are ready to download:</p>
+      ${downloadTokens.map(t => `
+        <div style="margin-bottom:.75rem; padding:.625rem .875rem; background:rgba(255,255,255,0.04); border-radius:8px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:.5rem;">
+          <span style="font-size:.88rem; color:#ccc;">📄 ${t.label}</span>
+          <a href="{{SITE_URL}}/api/digital-downloads/${t.token}"
+             style="display:inline-block; padding:.35rem .9rem; background:hsl(355,70%,30%); color:#fff; border-radius:6px; text-decoration:none; font-size:.82rem; font-weight:600;">
+            ⬇️ Download
+          </a>
+        </div>
+      `).join('')}
+      ${downloadTokens.some(t => t.expires_at) ? `<p style="font-size:.78rem; color:#666; margin:.75rem 0 0;">⏰ These links expire. Download your files soon.</p>` : ''}
+    </div>
+  ` : ''
+
+  const downloadsText = downloadTokens.length > 0
+    ? `\n\n📥 Your Downloads:\n${downloadTokens.map(t => `  ${t.label}: {{SITE_URL}}/api/digital-downloads/${t.token}`).join('\n')}`
+    : ''
+
   // ─── Customer confirmation ─────────────────────────────────────────────────
   const custSubject = (cfg.order_confirmation_subject || 'Your order has been received — #{order_number}')
     .replace('#{order_number}', order.order_number)
@@ -233,9 +256,10 @@ export async function sendOrderConfirmation(order) {
       <div class="totals-row total"><span>Total</span><span>${sym}${Number(order.total).toFixed(2)}</span></div>
     </div>
     ${order.shipping_address ? `<p><strong>Shipping to:</strong><br>${order.shipping_address.replace(/\n/g, '<br>')}</p>` : ''}
+    ${downloadsHtml}
   `
 
-  const custBodyText = `Hi ${order.customer_name},\n\nThanks for your order!\n\nOrder: ${order.order_number}\n\n${itemsText}${discountText}\nTotal: ${sym}${Number(order.total).toFixed(2)}`
+  const custBodyText = `Hi ${order.customer_name},\n\nThanks for your order!\n\nOrder: ${order.order_number}\n\n${itemsText}${discountText}\nTotal: ${sym}${Number(order.total).toFixed(2)}${downloadsText}`
 
   await sendMailTo({
     to: order.customer_email,

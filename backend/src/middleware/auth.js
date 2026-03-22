@@ -4,6 +4,7 @@ import crypto from 'crypto'
 import db from '../db.js'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'pygmy-dev-secret-change-in-production'
+const CUSTOMER_JWT_SECRET = process.env.CUSTOMER_JWT_SECRET || 'pygmy-customer-secret-change-in-production'
 
 function hashApiKey(raw) {
   return crypto.createHash('sha256').update(raw).digest('hex')
@@ -78,4 +79,32 @@ export function adminOnly(req, res, next) {
 
 export function signToken(payload) {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' })
+}
+
+/** Authenticate customer JWT (separate secret from admin JWT). */
+export function customerAuthMiddleware(req, res, next) {
+  const header = req.headers.authorization
+  if (!header?.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'No token provided' })
+  }
+  try {
+    const payload = jwt.verify(header.slice(7), CUSTOMER_JWT_SECRET)
+    if (payload.role !== 'customer') throw new Error('Not a customer token')
+    req.customer = payload
+    next()
+  } catch {
+    return res.status(401).json({ error: 'Invalid or expired token' })
+  }
+}
+
+/** Optional customer auth — attaches req.customer if valid token present, but doesn't block. */
+export function optionalCustomerAuth(req, res, next) {
+  const header = req.headers.authorization
+  if (header?.startsWith('Bearer ')) {
+    try {
+      const payload = jwt.verify(header.slice(7), CUSTOMER_JWT_SECRET)
+      if (payload.role === 'customer') req.customer = payload
+    } catch {}
+  }
+  next()
 }

@@ -47,6 +47,16 @@
           Placed on {{ fmtDate(order.created_at) }}
         </div>
 
+        <!-- Digital downloads notice -->
+        <div class="downloads-notice" v-if="order.has_digital">
+          <div class="dl-icon">📥</div>
+          <div class="dl-text">
+            <div class="dl-title">Your downloads are ready!</div>
+            <div class="dl-sub">Download links have been sent to your email. You can also access them anytime below.</div>
+          </div>
+          <RouterLink :to="`/order/downloads?order=${order.order_number}`" class="btn btn-primary btn-sm">View Downloads →</RouterLink>
+        </div>
+
         <div class="confirm-actions">
           <RouterLink to="/shop" class="btn btn-primary">Continue Shopping</RouterLink>
           <RouterLink to="/account" class="btn btn-ghost">👤 My Account</RouterLink>
@@ -179,6 +189,23 @@ h1 { font-size: 2rem; font-weight: 800; margin: 0 0 .5rem; }
   font-size: .82rem;
   margin-bottom: 1.75rem;
 }
+
+/* Downloads notice */
+.downloads-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  background: rgba(var(--accent-rgb, 213,60,60), 0.08);
+  border: 1px solid rgba(var(--accent-rgb, 213,60,60), 0.25);
+  border-radius: 0.75rem;
+  padding: 1rem 1.125rem;
+  margin: 1.25rem 0;
+  text-align: left;
+}
+.dl-icon { font-size: 1.75rem; flex-shrink: 0; }
+.dl-text { flex: 1; min-width: 0; }
+.dl-title { font-size: 0.92rem; font-weight: 700; margin-bottom: 0.25rem; }
+.dl-sub { font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; }
 
 .confirm-actions {
   display: flex;

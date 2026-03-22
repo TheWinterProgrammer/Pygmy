@@ -50,6 +50,8 @@ backend/
       webhooks.js   ← CRUD /api/webhooks + test delivery + fireWebhooks() helper
       api_keys.js   ← CRUD /api/api-keys + rotate; SHA-256 hashed storage
       locks.js      ← content locking GET/POST/DELETE /api/locks
+      digital_downloads.js ← digital files + secure download tokens + order-link lookup
+      subscriptions.js     ← subscription plans CRUD, member management, revenue reports
 
 admin/              ← wp-admin equivalent (port 5173)
   views/
@@ -73,6 +75,9 @@ admin/              ← wp-admin equivalent (port 5173)
     AbandonedCartsView.vue ← abandoned cart recovery (stats, filter, bulk email, detail modal)
     EventsView.vue      ← events list (filter by status/upcoming/past)
     EventEditView.vue   ← event editor (TipTap, media picker, dates, location, SEO)
+    DownloadsView.vue   ← digital downloads overview (products + file management + tokens)
+    SubscriptionsView.vue ← subscription plans + member management + MRR stats
+    RevenueView.vue     ← revenue analytics (daily chart, top products, order stats, CSV)
     SettingsView.vue
 
 frontend/           ← public website (port 5174)
@@ -82,13 +87,15 @@ frontend/           ← public website (port 5174)
   views/
     HomeView.vue    ← hero + recent posts grid
     BlogView.vue    ← paginated blog listing + category/tag filters
-    PostView.vue    ← full post with SEO meta tags
+    PostView.vue    ← full post with SEO meta tags + paywall for members-only content
     PageView.vue    ← dynamic CMS pages
     ProductsView.vue ← /shop listing with filters + pagination
     ProductView.vue  ← /shop/:slug detail with gallery + pricing
     SearchView.vue  ← full-text search (posts + pages + products + events)
     EventsView.vue  ← /events listing with Upcoming/Past/All tabs
     EventView.vue   ← /events/:slug detail with date, location, ticket, SEO
+    MembershipView.vue ← /membership pricing page (plans grid, current status, FAQ)
+    OrderDownloadsView.vue ← /order/downloads self-serve file access (order # + email)
 ```
 
 ## Features
@@ -114,6 +121,12 @@ frontend/           ← public website (port 5174)
 - Post detail with cover image, tags, SEO meta + OG tags
 - Dynamic CMS page renderer
 - Loading skeletons + 404 states
+
+### Phase 27 — Digital Downloads + Subscription Memberships + Revenue Reports + Product CSV Import/Export ✅
+- **Digital Downloads** — products can be marked as `is_digital`; admins upload downloadable files per product (up to 500 MB each) from a new **Digital Files** section in `ProductEditView`; each file has a label, download limit (0 = unlimited), and expiry days (0 = never); `digital_files` + `download_tokens` SQLite tables; when an order containing digital products is placed, `issueDownloadTokensForOrder()` auto-generates secure per-file tokens scoped to the order/email; token links sent in the order confirmation email with a download section; **`GET /api/digital-downloads/:token`** serves the file (verifies expiry, checks download limit, streams file with Content-Disposition); **`POST /api/digital-downloads/order-links`** public endpoint lets customers retrieve their file links by order number + email; admin **DownloadsView.vue** lists all digital products with file counts, expandable file management per product, and token history; **OrderDownloadsView** (`/order/downloads`) public self-serve page — enter order number + email to access all files with expiry/limit indicators; **OrderConfirmView** shows a styled download notice when `has_digital=true`; **AccountView** order detail modal links to downloads; download links in confirmation email include a `{{SITE_URL}}` placeholder resolved at runtime
+- **Subscription Memberships** — `subscription_plans` + `member_subscriptions` SQLite tables; full plans CRUD (`GET/POST/PUT/DELETE /api/subscriptions/plans`) with name, slug, description, price, interval (month/year), trial days, feature list (JSON array), active toggle, sort order; member management (`GET /api/subscriptions/members`, `POST /api/subscriptions/members` grant, `PUT /api/subscriptions/members/:id`, `DELETE /api/subscriptions/members/:id`); customer endpoints `GET /api/subscriptions/me`, `POST /api/subscriptions/cancel`, `POST /api/subscriptions/reactivate`; `GET /api/subscriptions/stats` returns active, trialing, cancelled counts + MRR; **content gating** — `access_level` column added to `posts` and `pages` (`public` | `members`); admin post/page editors gain an **Access Control** section with a dropdown; backend checks customer JWT for an active/trialing `member_subscriptions` row before serving gated content — returns `{ _gated: true, content: '' }` teaser on failure; **PostView** shows a glass paywall card with "View Plans" CTA when `_gated`; **plan_id** migration column added to `customers` table; admin **SubscriptionsView.vue** — plans grid (price, interval, feature list, member count, active badge), add/edit plan modal, members table (search, status filter, sortable), grant subscription modal (search customer by email, assign plan, set trial days/notes), member detail modal with cancel/reactivate and period dates, MRR stat strip; **Settings → 💳 Memberships** section (enable toggle, pricing page title + intro text); **Dashboard** stat card for active members + MRR (shown when non-zero); **MembershipView** (`/membership`) public pricing page — hero, plans grid with trial badge + features checklist, current plan display for logged-in members with cancel/reactivate, FAQ section
+- **Revenue Reports** — `GET /api/subscriptions/revenue?days=N` returns: daily revenue time series (filled for zero-revenue days), top products by revenue, top customers by revenue, order status breakdown with counts + revenue, summary (total/today/week/month/avg order value/refunded), tax revenue, shipping revenue; `GET /api/subscriptions/revenue/export?days=N` streams CSV; admin **RevenueView.vue** — period selector (7/30/60/90/365 days), summary stat cards (total revenue, orders, avg order value, refunded), filled bar chart (daily totals), top products table, top customers table, order status breakdown, ⬇️ Export CSV button; link from Dashboard quick-actions
+- **Product CSV Import/Export** — `GET /api/products/export/csv` generates a properly escaped CSV of all products (20 columns including stock, variants, SEO fields); `POST /api/products/import/csv` (multipart) parses CSV with a manual quoted-field parser, supports `mode=merge` (upsert by slug, default) or `mode=replace` (truncate first); reports `{ created, updated, skipped, errors[] }`; **ProductsView** header gains **⬇️ Export CSV** and **⬆️ Import CSV** buttons (import uses a hidden file input); import result banner shows outcome with error count
 
 ### Phase 25 — Tax/VAT Manager + Loyalty Points System ✅
 - **Tax/VAT Manager** — full tax calculation system: `tax_rates` table with country (ISO-3166 or `*` wildcard), state, rate%, inclusive/exclusive mode, priority, and active toggle; `POST /api/tax-rates/calculate` computes tax at checkout (exclusive = added on top; inclusive = extracted from price); tax rows added to orders table (`tax_amount`, `tax_rate_name`); invoice HTML updated with tax line + Tax Registration Number in header; admin **TaxRatesView.vue** with stats strip, sortable table with flag emojis + country codes, active toggle, and full add/edit modal with 25-country dropdown; Tax Rates sidebar entry + route added; Settings page gains 🧾 Tax/VAT section (enable, inclusive mode, registration number); `POST /api/orders` accepts and validates `tax_amount` + `tax_rate_name` from frontend; frontend `CheckoutView.vue` auto-calculates tax when shipping country is selected and shows a "VAT (X%): €X.XX" line in the order summary; tax included in order total
@@ -606,3 +619,40 @@ Font: **Poppins** via Google Fonts
 | GET  | `/api/loyalty/admin/customers` | ✓ | Customers with points balances |
 | POST | `/api/loyalty/admin/adjust` | ✓ | Manual adjustment `{customer_id, points, note}` |
 | GET  | `/api/loyalty/admin/transactions/:customer_id` | ✓ | Last 10 transactions for a customer |
+
+### Digital Downloads (Phase 27)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET    | `/api/digital-downloads/files?product_id=` | ✓ | List files for a product |
+| POST   | `/api/digital-downloads/files` | ✓ | Upload file (multipart, `product_id`, `label`, `download_limit?`, `expires_days?`) |
+| PUT    | `/api/digital-downloads/files/:id` | ✓ | Update file metadata |
+| DELETE | `/api/digital-downloads/files/:id` | ✓ | Delete file + disk entry |
+| GET    | `/api/digital-downloads/tokens?product_id=` | ✓ | List download tokens |
+| GET    | `/api/digital-downloads/admin/overview` | ✓ | Stats: digital products, files, active tokens, total downloads |
+| POST   | `/api/digital-downloads/issue` | ✓ | Manually issue tokens `{order_id, customer_email}` |
+| POST   | `/api/digital-downloads/order-links` | — | Get file links by `{order_number, email}` |
+| GET    | `/api/digital-downloads/:token` | — | Stream download file (verifies expiry + limit) |
+
+### Product CSV (Phase 27)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET  | `/api/products/export/csv` | ✓ | Export all products as CSV |
+| POST | `/api/products/import/csv` | ✓ | Import products from CSV (multipart `file`; `mode=merge\|replace`) |
+
+### Subscriptions & Memberships (Phase 27)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET  | `/api/subscriptions/plans` | — / ✓ | List plans (public shows active only; auth shows all) |
+| POST | `/api/subscriptions/plans` | ✓ | Create plan |
+| PUT  | `/api/subscriptions/plans/:id` | ✓ | Update plan |
+| DELETE | `/api/subscriptions/plans/:id` | ✓ | Delete plan (blocked if active members) |
+| GET  | `/api/subscriptions/members` | ✓ | List members (`?q=`, `?status=`, `?plan_id=`, `?limit=`, `?offset=`) |
+| POST | `/api/subscriptions/members` | ✓ | Grant subscription `{customer_id, plan_id, trial_days?, notes?}` |
+| PUT  | `/api/subscriptions/members/:id` | ✓ | Update member `{status, cancel_at_end, notes, current_period_end}` |
+| DELETE | `/api/subscriptions/members/:id` | ✓ | Delete member subscription |
+| GET  | `/api/subscriptions/stats` | ✓ | Active, trialing, cancelled counts + MRR |
+| GET  | `/api/subscriptions/me` | customer JWT | Own subscription info |
+| POST | `/api/subscriptions/cancel` | customer JWT | Schedule cancellation at period end |
+| POST | `/api/subscriptions/reactivate` | customer JWT | Remove cancel-at-end flag |
+| GET  | `/api/subscriptions/revenue?days=N` | ✓ | Revenue report (daily series, top products/customers, summary) |
+| GET  | `/api/subscriptions/revenue/export?days=N` | ✓ | Revenue report as CSV |

@@ -54,7 +54,10 @@ const routes = [
       { path: 'homepage',          name: 'Homepage',       component: () => import('../views/HomepageBuilderView.vue') },
       { path: 'tax-rates',        name: 'TaxRates',       component: () => import('../views/TaxRatesView.vue') },
       { path: 'gift-cards',       name: 'GiftCards',      component: () => import('../views/GiftCardsView.vue') },
+      { path: 'downloads',        name: 'Downloads',      component: () => import('../views/DownloadsView.vue') },
       { path: 'activity-log',     name: 'ActivityLog',    component: () => import('../views/ActivityLogView.vue') },
+      { path: 'subscriptions',    name: 'Subscriptions',  component: () => import('../views/SubscriptionsView.vue') },
+      { path: 'revenue',          name: 'Revenue',        component: () => import('../views/RevenueView.vue') },
       { path: 'settings',         name: 'Settings',       component: () => import('../views/SettingsView.vue') },
     ]
   },

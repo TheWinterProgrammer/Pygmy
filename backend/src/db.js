@@ -637,7 +637,48 @@ for (const [key, value] of Object.entries(gcSettings)) {
   insertSetting.run(key, value)
 }
 
-// ─── Phase 27: Order Fulfillment Tracking ─────────────────────────────────────
+// ─── Phase 27: Digital Downloads ─────────────────────────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS digital_files (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id      INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    label           TEXT    NOT NULL DEFAULT 'Download',
+    filename        TEXT    NOT NULL,
+    original_name   TEXT    NOT NULL DEFAULT '',
+    file_size       INTEGER NOT NULL DEFAULT 0,
+    mime_type       TEXT    NOT NULL DEFAULT 'application/octet-stream',
+    download_limit  INTEGER NOT NULL DEFAULT 0,   -- 0 = unlimited
+    expires_days    INTEGER NOT NULL DEFAULT 0,   -- 0 = never expire
+    sort_order      INTEGER NOT NULL DEFAULT 0,
+    created_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_digital_files_product ON digital_files(product_id);
+
+  CREATE TABLE IF NOT EXISTS download_tokens (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id        INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    file_id         INTEGER NOT NULL REFERENCES digital_files(id) ON DELETE CASCADE,
+    customer_email  TEXT    NOT NULL DEFAULT '',
+    token           TEXT    UNIQUE NOT NULL,
+    expires_at      TEXT,
+    download_count  INTEGER NOT NULL DEFAULT 0,
+    download_limit  INTEGER NOT NULL DEFAULT 0,
+    created_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_download_tokens_token ON download_tokens(token);
+  CREATE INDEX IF NOT EXISTS idx_download_tokens_order ON download_tokens(order_id);
+  CREATE INDEX IF NOT EXISTS idx_download_tokens_email ON download_tokens(customer_email);
+`)
+
+// Migration: is_digital flag on products
+{
+  const pCols = db.pragma('table_info(products)').map(c => c.name)
+  if (!pCols.includes('is_digital')) {
+    try { db.exec("ALTER TABLE products ADD COLUMN is_digital INTEGER NOT NULL DEFAULT 0") } catch {}
+  }
+}
+
+// ── Phase 27: Order Fulfillment Tracking (was labeled Phase 27, now Phase 28 ordering)
 {
   const cols = db.pragma('table_info(orders)').map(c => c.name)
   if (!cols.includes('tracking_number')) {
@@ -658,6 +699,72 @@ for (const [key, value] of Object.entries(gcSettings)) {
   if (!cols.includes('customer_id')) {
     try { db.exec("ALTER TABLE orders ADD COLUMN customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL") } catch {}
   }
+}
+
+// ─── Phase 27: Subscription Plans + Member Gating ────────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS subscription_plans (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name            TEXT    NOT NULL DEFAULT '',
+    slug            TEXT    UNIQUE NOT NULL DEFAULT '',
+    description     TEXT    NOT NULL DEFAULT '',
+    price           REAL    NOT NULL DEFAULT 0,
+    interval        TEXT    NOT NULL DEFAULT 'month',   -- month | year
+    trial_days      INTEGER NOT NULL DEFAULT 0,
+    features        TEXT    NOT NULL DEFAULT '[]',      -- JSON array of strings
+    active          INTEGER NOT NULL DEFAULT 1,
+    sort_order      INTEGER NOT NULL DEFAULT 0,
+    created_at      TEXT    NOT NULL DEFAULT (datetime('now')),
+    updated_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS member_subscriptions (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id     INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+    plan_id         INTEGER NOT NULL REFERENCES subscription_plans(id) ON DELETE RESTRICT,
+    status          TEXT    NOT NULL DEFAULT 'active',   -- active | cancelled | expired | trialing | past_due
+    current_period_start  TEXT,
+    current_period_end    TEXT,
+    trial_ends_at   TEXT,
+    cancelled_at    TEXT,
+    cancel_at_end   INTEGER NOT NULL DEFAULT 0,
+    renewal_order_id INTEGER REFERENCES orders(id) ON DELETE SET NULL,
+    notes           TEXT    NOT NULL DEFAULT '',
+    created_at      TEXT    NOT NULL DEFAULT (datetime('now')),
+    updated_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_member_subs_customer ON member_subscriptions(customer_id);
+  CREATE INDEX IF NOT EXISTS idx_member_subs_status   ON member_subscriptions(status);
+`)
+
+// Migration: access_level on posts + pages
+{
+  const postCols = db.pragma('table_info(posts)').map(c => c.name)
+  if (!postCols.includes('access_level')) {
+    try { db.exec("ALTER TABLE posts ADD COLUMN access_level TEXT NOT NULL DEFAULT 'public'") } catch {}
+  }
+  const pageCols = db.pragma('table_info(pages)').map(c => c.name)
+  if (!pageCols.includes('access_level')) {
+    try { db.exec("ALTER TABLE pages ADD COLUMN access_level TEXT NOT NULL DEFAULT 'public'") } catch {}
+  }
+}
+
+// Migration: plan_id on customers (active plan reference)
+{
+  const custCols = db.pragma('table_info(customers)').map(c => c.name)
+  if (!custCols.includes('plan_id')) {
+    try { db.exec("ALTER TABLE customers ADD COLUMN plan_id INTEGER REFERENCES subscription_plans(id) ON DELETE SET NULL") } catch {}
+  }
+}
+
+// Default settings for memberships
+const memberSettings = {
+  memberships_enabled: '0',
+  members_page_title: 'Become a Member',
+  members_page_intro: 'Get exclusive access to premium content.',
+}
+for (const [key, value] of Object.entries(memberSettings)) {
+  insertSetting.run(key, value)
 }
 
 export default db

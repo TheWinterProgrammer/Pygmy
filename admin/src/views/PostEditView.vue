@@ -121,6 +121,20 @@
         </div>
 
         <div class="glass section">
+          <h3 style="margin-bottom:1rem;">Access Control</h3>
+          <div class="form-group">
+            <label>Visibility</label>
+            <select v-model="form.access_level" class="input">
+              <option value="public">🌐 Public — anyone can read</option>
+              <option value="members">💳 Members only — requires active subscription</option>
+            </select>
+            <p v-if="form.access_level === 'members'" class="hint" style="margin-top:.4rem;color:var(--accent)">
+              ⚠️ Only customers with an active subscription can view this post's content.
+            </p>
+          </div>
+        </div>
+
+        <div class="glass section">
           <h3 style="margin-bottom:1rem;">SEO</h3>
           <div class="form-group">
             <label>Meta Title</label>
@@ -187,7 +201,8 @@ const form = ref({
   title: '', slug: '', excerpt: '', content: '',
   cover_image: '', category_id: null,
   tags: [], status: 'draft',
-  meta_title: '', meta_desc: ''
+  meta_title: '', meta_desc: '',
+  access_level: 'public'
 })
 
 const autoSave = useAutoSave('post', computed(() => isNew.value ? 'new' : route.params.id), form)

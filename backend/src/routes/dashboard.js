@@ -117,6 +117,17 @@ router.get('/stats', authMiddleware, (req, res) => {
     SELECT * FROM activity_log ORDER BY created_at DESC LIMIT 10
   `).all()
 
+  // Subscription/Membership stats
+  let activeSubs = 0, trialingSubs = 0, subMrr = 0
+  try {
+    activeSubs = db.prepare(`SELECT COUNT(*) as c FROM member_subscriptions WHERE status='active'`).get()?.c ?? 0
+    trialingSubs = db.prepare(`SELECT COUNT(*) as c FROM member_subscriptions WHERE status='trialing'`).get()?.c ?? 0
+    subMrr = db.prepare(`
+      SELECT COALESCE(SUM(CASE WHEN sp.interval='month' THEN sp.price WHEN sp.interval='year' THEN sp.price/12 ELSE 0 END),0) as mrr
+      FROM member_subscriptions s JOIN subscription_plans sp ON s.plan_id=sp.id WHERE s.status='active'
+    `).get()?.mrr ?? 0
+  } catch {}
+
   res.json({
     pages: { total: pages, published: publishedPages },
     posts: { total: posts, published: publishedPosts, scheduled: scheduledPosts },
@@ -141,6 +152,7 @@ router.get('/stats', authMiddleware, (req, res) => {
     tax_rates: { active: activeTaxRates },
     loyalty: { enabled: loyaltyEnabled, total_points: totalLoyaltyPoints },
     gift_cards: { active: activeGiftCards, balance: giftCardBalance },
+    subscriptions: { active: activeSubs, trialing: trialingSubs, mrr: Math.round(subMrr * 100) / 100 },
     recentPosts,
     recentActivity
   })
