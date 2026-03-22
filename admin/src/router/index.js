@@ -58,6 +58,8 @@ const routes = [
       { path: 'activity-log',     name: 'ActivityLog',    component: () => import('../views/ActivityLogView.vue') },
       { path: 'subscriptions',    name: 'Subscriptions',  component: () => import('../views/SubscriptionsView.vue') },
       { path: 'revenue',          name: 'Revenue',        component: () => import('../views/RevenueView.vue') },
+      { path: 'affiliates',       name: 'Affiliates',     component: () => import('../views/AffiliatesView.vue') },
+      { path: 'inventory',        name: 'Inventory',      component: () => import('../views/InventoryView.vue') },
       { path: 'settings',         name: 'Settings',       component: () => import('../views/SettingsView.vue') },
     ]
   },

@@ -218,6 +218,18 @@
           </div>
         </div>
       </div>
+
+      <div class="stat-card glass" v-if="(stats.affiliates?.total ?? 0) > 0">
+        <div class="stat-icon">🤝</div>
+        <div class="stat-body">
+          <div class="stat-num">{{ stats.affiliates?.total ?? 0 }}</div>
+          <div class="stat-label">
+            Active Affiliates
+            <span v-if="stats.affiliates?.pending_commissions > 0" style="color:var(--accent);font-weight:600"> · €{{ (stats.affiliates.pending_commissions).toFixed(2) }} pending</span>
+            <RouterLink to="/affiliates" class="stat-link">→ Affiliates</RouterLink>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Inventory alerts -->
@@ -294,6 +306,7 @@
       <RouterLink to="/gift-cards" class="btn btn-ghost">🎁 Gift Cards</RouterLink>
       <RouterLink to="/subscriptions" class="btn btn-ghost">💳 Subscriptions</RouterLink>
       <RouterLink to="/revenue" class="btn btn-ghost">💰 Revenue Report</RouterLink>
+      <RouterLink to="/affiliates" class="btn btn-ghost">🤝 Affiliates</RouterLink>
       <RouterLink to="/activity-log" class="btn btn-ghost">🕐 Activity Log</RouterLink>
     </div>
   </div>

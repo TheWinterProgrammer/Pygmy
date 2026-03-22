@@ -128,6 +128,15 @@ router.get('/stats', authMiddleware, (req, res) => {
     `).get()?.mrr ?? 0
   } catch {}
 
+  // Affiliate stats
+  let totalAffiliates = 0, pendingCommissions = 0
+  try {
+    totalAffiliates = db.prepare(`SELECT COUNT(*) as c FROM affiliates WHERE status='active'`).get()?.c ?? 0
+    pendingCommissions = db.prepare(
+      `SELECT COALESCE(SUM(commission_amount),0) as t FROM affiliate_referrals WHERE status='pending'`
+    ).get()?.t ?? 0
+  } catch {}
+
   res.json({
     pages: { total: pages, published: publishedPages },
     posts: { total: posts, published: publishedPosts, scheduled: scheduledPosts },
@@ -153,6 +162,7 @@ router.get('/stats', authMiddleware, (req, res) => {
     loyalty: { enabled: loyaltyEnabled, total_points: totalLoyaltyPoints },
     gift_cards: { active: activeGiftCards, balance: giftCardBalance },
     subscriptions: { active: activeSubs, trialing: trialingSubs, mrr: Math.round(subMrr * 100) / 100 },
+    affiliates: { total: totalAffiliates, pending_commissions: Math.round(pendingCommissions * 100) / 100 },
     recentPosts,
     recentActivity
   })

@@ -212,6 +212,9 @@ import { useCartStore } from '../stores/cart.js'
 import { useSiteStore } from '../stores/site.js'
 import { useCustomerStore } from '../stores/customer.js'
 import api from '../api.js'
+import { useAffiliate } from '../composables/useAffiliate.js'
+
+const { getActiveCode, clearReferral } = useAffiliate()
 
 const cart     = useCartStore()
 const site     = useSiteStore()
@@ -473,6 +476,7 @@ async function placeOrder() {
       tax_rate_name: taxRateName.value,
       redeem_points: loyaltyApplied.value ? (parseInt(loyaltyPointsInput.value) || 0) : 0,
       gift_card_code: appliedGiftCard.value?.code || '',
+      affiliate_code: getActiveCode() || '',
     }
 
     // Pass customer token so order is linked to their account
@@ -480,6 +484,7 @@ async function placeOrder() {
     const { data } = await api.post('/orders', payload, { headers })
     cart.markRecovered()
     cart.clear()
+    clearReferral() // clear affiliate referral after successful order
     submitted.value = true
     router.push(`/order/${data.order_number}`)
   } catch (err) {

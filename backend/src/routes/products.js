@@ -535,6 +535,46 @@ router.post('/import/csv', authMiddleware, csvUpload.single('file'), (req, res) 
   res.json({ ok: true, mode, report })
 })
 
+// ─── Bulk inventory update ────────────────────────────────────────────────────
+// POST /api/products/inventory/bulk
+// Body: { updates: [{ id, stock_quantity, track_stock?, low_stock_threshold? }] }
+router.post('/inventory/bulk', authMiddleware, (req, res) => {
+  const { updates } = req.body
+  if (!Array.isArray(updates) || updates.length === 0) {
+    return res.status(400).json({ error: 'updates array required' })
+  }
+
+  const results = []
+  const updateStock = db.prepare(`
+    UPDATE products SET
+      stock_quantity = COALESCE(?, stock_quantity),
+      track_stock = COALESCE(?, track_stock),
+      low_stock_threshold = COALESCE(?, low_stock_threshold),
+      updated_at = datetime('now')
+    WHERE id = ?
+  `)
+
+  const txn = db.transaction(() => {
+    for (const u of updates) {
+      if (!u.id) continue
+      const existing = db.prepare('SELECT id, name, stock_quantity FROM products WHERE id = ?').get(u.id)
+      if (!existing) { results.push({ id: u.id, ok: false, error: 'Not found' }); continue }
+
+      updateStock.run(
+        u.stock_quantity !== undefined ? parseInt(u.stock_quantity) : null,
+        u.track_stock !== undefined ? (u.track_stock ? 1 : 0) : null,
+        u.low_stock_threshold !== undefined ? parseInt(u.low_stock_threshold) : null,
+        u.id,
+      )
+      results.push({ id: u.id, ok: true, name: existing.name })
+    }
+  })
+  txn()
+
+  logActivity(req.user?.id, req.user?.name, 'bulk_stock_update', 'product', null, `Updated stock for ${results.filter(r => r.ok).length} products`)
+  res.json({ ok: true, results })
+})
+
 export default router
 
 // ─── Duplicate product ────────────────────────────────────────────────────────

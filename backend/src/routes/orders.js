@@ -9,6 +9,7 @@ import { sendOrderConfirmation, sendOrderStatusUpdate, sendShipmentNotification 
 import { validateCouponLogic } from './coupons.js'
 import { redeemGiftCard } from './gift_cards.js'
 import { issueDownloadTokensForOrder } from './digital_downloads.js'
+import { recordReferral } from './affiliates.js'
 
 const CUSTOMER_JWT_SECRET = process.env.CUSTOMER_JWT_SECRET || 'pygmy-customer-secret-change-in-production'
 
@@ -55,6 +56,7 @@ router.post('/', (req, res) => {
     shipping_country = '', shipping_rate_name = '',
     tax_amount = 0, tax_rate_name = '',
     redeem_points = 0,
+    affiliate_code = '',
   } = req.body
 
   if (!customer_name || !customer_email) {
@@ -255,6 +257,11 @@ router.post('/', (req, res) => {
   // Issue download tokens for any digital products in the order (fire-and-forget)
   let downloadTokens = []
   try { downloadTokens = issueDownloadTokensForOrder(order) } catch (e) { console.warn('Digital download token issuance failed:', e.message) }
+
+  // Record affiliate referral (fire-and-forget)
+  if (affiliate_code) {
+    try { recordReferral(affiliate_code, newOrderId, computedTotal) } catch (e) { console.warn('Affiliate referral error:', e.message) }
+  }
 
   // Send webhook (fire-and-forget)
   try { fireWebhooks('order.created', { order_number: orderNumber, total: computedTotal }) } catch {}

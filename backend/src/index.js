@@ -47,6 +47,7 @@ import giftCardsRoutes from './routes/gift_cards.js'
 import digitalDownloadsRoutes from './routes/digital_downloads.js'
 import { issueDownloadTokensForOrder } from './routes/digital_downloads.js'
 import subscriptionsRoutes from './routes/subscriptions.js'
+import affiliatesRoutes, { recordReferral } from './routes/affiliates.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -191,6 +192,7 @@ app.use('/api/loyalty', loyaltyRoutes)
 app.use('/api/gift-cards', giftCardsRoutes)
 app.use('/api/digital-downloads', digitalDownloadsRoutes)
 app.use('/api/subscriptions', subscriptionsRoutes)
+app.use('/api/affiliates', affiliatesRoutes)
 
 // ─── SEO (public) ─────────────────────────────────────────────────────────────
 app.use('/', seoRoutes)

@@ -120,6 +120,8 @@ const navItems = [
   { to: '/homepage',      icon: '🏠',  label: 'Homepage' },
   { to: '/subscriptions', icon: '💳',  label: 'Subscriptions' },
   { to: '/revenue',       icon: '💰',  label: 'Revenue' },
+  { to: '/affiliates',    icon: '🤝',  label: 'Affiliates' },
+  { to: '/inventory',     icon: '🏭',  label: 'Bulk Inventory' },
   { to: '/activity-log',  icon: '🕐',  label: 'Activity Log' },
   { to: '/settings',      icon: '⚙️',  label: 'Settings' },
 ]

@@ -305,10 +305,47 @@
           <span>Enable Gift Cards at checkout</span>
         </label>
         <div v-if="giftCardsEnabled">
+          <div class="form-group" style="margin-bottom:.75rem">
+            <label>Purchasable Denominations (JSON array)</label>
+            <input v-model="form.gift_card_denominations" class="input" placeholder='[25, 50, 100]' />
+            <small style="color:var(--text-muted);font-size:.78rem">Shown on the public gift card purchase page. Example: [10, 25, 50, 100]</small>
+          </div>
           <p style="font-size:0.83rem;color:var(--text-muted)">
             Manage and issue gift cards from the <RouterLink to="/gift-cards" style="color:var(--accent)">🎁 Gift Cards</RouterLink> panel.
           </p>
         </div>
+      </div>
+
+      <!-- Email Branding -->
+      <div class="glass section">
+        <h2 style="margin-bottom:1.25rem;">📧 Email Branding</h2>
+        <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:1.25rem;">
+          Customize how your transactional emails look (order confirmations, status updates, etc.)
+        </p>
+        <div class="form-group" style="margin-bottom:1rem">
+          <label>Header Accent Color</label>
+          <div style="display:flex;gap:.5rem;align-items:center">
+            <input v-model="form.email_accent_color" class="input" placeholder="hsl(355, 70%, 30%)" style="flex:1" />
+            <input type="color" :value="emailAccentHex" @input="onEmailAccentColorInput($event)" style="width:38px;height:38px;border:none;background:none;padding:0;cursor:pointer;border-radius:6px" title="Pick a color" />
+          </div>
+          <small style="color:var(--text-muted);font-size:.78rem">Used as the email header background. Supports hex (#ff0000), hsl(), rgb() or named CSS colors.</small>
+        </div>
+        <div class="form-group" style="margin-bottom:1rem">
+          <label>Logo URL (optional)</label>
+          <input v-model="form.email_logo_url" class="input" placeholder="https://example.com/logo.png" />
+          <small style="color:var(--text-muted);font-size:.78rem">Shown at the top of the email header. Leave blank to use text only.</small>
+        </div>
+        <div class="form-group" style="margin-bottom:1rem">
+          <label>Footer Text</label>
+          <input v-model="form.email_footer_text" class="input" :placeholder="`© ${new Date().getFullYear()} ${form.site_name || 'Pygmy'}`" />
+          <small style="color:var(--text-muted);font-size:.78rem">Custom text for the bottom of each email. Leave blank for default.</small>
+        </div>
+        <div class="form-group" style="margin-bottom:1rem">
+          <label>Custom CSS (advanced)</label>
+          <textarea v-model="form.email_custom_css" class="input" rows="3" placeholder="/* add extra styles */" style="font-family:monospace;font-size:.82rem" />
+          <small style="color:var(--text-muted);font-size:.78rem">Injected into the email &lt;style&gt; block. Use sparingly — email clients are picky.</small>
+        </div>
+        <button class="btn btn-ghost" @click="previewEmail" style="margin-top:.25rem">👁️ Preview Email Template</button>
       </div>
 
       <!-- Memberships -->
@@ -333,6 +370,73 @@
           <p style="font-size:0.83rem;color:var(--text-muted);margin-top:.75rem">
             Manage plans and members from the <RouterLink to="/subscriptions" style="color:var(--accent)">💳 Subscriptions</RouterLink> panel.
           </p>
+        </div>
+      </div>
+
+      <!-- Affiliate Program -->
+      <div class="glass section">
+        <h2 style="margin-bottom:1.25rem;">🤝 Affiliate Program</h2>
+        <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.25rem;">
+          Enable referral tracking. Share <code>/?ref=CODE</code> links with affiliates; commissions are auto-tracked on orders.
+          Manage affiliates and payouts in the <a href="/affiliates" style="color:var(--accent)">Affiliates panel</a>.
+        </p>
+        <label class="toggle-label" style="margin-bottom:1.25rem">
+          <input type="checkbox" v-model="affiliateEnabled" />
+          <span>Enable Affiliate Program</span>
+        </label>
+        <div v-if="affiliateEnabled" class="form-group">
+          <label>Referral Cookie Duration (days)</label>
+          <input v-model="form.affiliate_cookie_days" class="input" type="number" min="1" max="365" style="max-width:120px" />
+          <small style="color:var(--muted);font-size:0.78rem;display:block;margin-top:0.25rem">
+            How long after clicking a referral link the commission will be attributed (default: 30 days).
+          </small>
+        </div>
+      </div>
+
+      <!-- GDPR / Cookie Consent -->
+      <div class="glass section">
+        <h2 style="margin-bottom:1.25rem;">🍪 Cookie Consent (GDPR)</h2>
+        <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.25rem;">
+          Display a cookie consent banner on the public site. Visitors can accept, reject, or manage their preferences.
+        </p>
+        <label class="toggle-label" style="margin-bottom:1.25rem">
+          <input type="checkbox" v-model="cookieConsentEnabled" />
+          <span>Show Cookie Consent Banner</span>
+        </label>
+        <div v-if="cookieConsentEnabled">
+          <div class="form-group">
+            <label>Banner Message</label>
+            <textarea v-model="form.cookie_consent_message" class="input textarea" rows="2"
+              placeholder="We use cookies to improve your experience…" />
+          </div>
+          <div class="form-group">
+            <label>Privacy Policy URL</label>
+            <input v-model="form.cookie_consent_policy_url" class="input" placeholder="/privacy-policy" />
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem">
+            <div class="form-group">
+              <label>Accept Button Text</label>
+              <input v-model="form.cookie_consent_accept_label" class="input" placeholder="Accept All" />
+            </div>
+            <div class="form-group">
+              <label>Reject Button Text</label>
+              <input v-model="form.cookie_consent_reject_label" class="input" placeholder="Reject Non-Essential" />
+            </div>
+            <div class="form-group">
+              <label>Manage Button Text</label>
+              <input v-model="form.cookie_consent_manage_label" class="input" placeholder="Manage Preferences" />
+            </div>
+          </div>
+          <div style="display:flex;gap:2rem;margin-top:0.5rem">
+            <label class="toggle-label">
+              <input type="checkbox" v-model="cookieAnalyticsDefault" />
+              <span>Analytics cookies opt-in by default</span>
+            </label>
+            <label class="toggle-label">
+              <input type="checkbox" v-model="cookieMarketingDefault" />
+              <span>Marketing cookies opt-in by default</span>
+            </label>
+          </div>
         </div>
       </div>
 
@@ -532,9 +636,26 @@ const form = ref({
   loyalty_min_redeem: '100',
   loyalty_expiry_days: '0',
   gift_cards_enabled: '0',
+  gift_card_denominations: '[25, 50, 100]',
   memberships_enabled: '0',
   members_page_title: 'Become a Member',
   members_page_intro: 'Get exclusive access to premium content.',
+  email_accent_color: 'hsl(355, 70%, 30%)',
+  email_logo_url: '',
+  email_footer_text: '',
+  email_custom_css: '',
+  // Affiliate
+  affiliate_enabled: '0',
+  affiliate_cookie_days: '30',
+  // Cookie consent
+  cookie_consent_enabled: '1',
+  cookie_consent_message: 'We use cookies to improve your experience. By continuing to use this site, you accept our use of cookies.',
+  cookie_consent_accept_label: 'Accept All',
+  cookie_consent_reject_label: 'Reject Non-Essential',
+  cookie_consent_manage_label: 'Manage Preferences',
+  cookie_consent_policy_url: '/privacy-policy',
+  cookie_analytics_default: '0',
+  cookie_marketing_default: '0',
 })
 
 // Checkbox helpers (settings stored as '1'/'0')
@@ -584,6 +705,42 @@ const membershipsEnabled = computed({
   get: () => form.value.memberships_enabled === '1',
   set: v => { form.value.memberships_enabled = v ? '1' : '0' }
 })
+
+const affiliateEnabled = computed({
+  get: () => form.value.affiliate_enabled === '1',
+  set: v => { form.value.affiliate_enabled = v ? '1' : '0' }
+})
+
+const cookieConsentEnabled = computed({
+  get: () => form.value.cookie_consent_enabled === '1',
+  set: v => { form.value.cookie_consent_enabled = v ? '1' : '0' }
+})
+
+const cookieAnalyticsDefault = computed({
+  get: () => form.value.cookie_analytics_default === '1',
+  set: v => { form.value.cookie_analytics_default = v ? '1' : '0' }
+})
+
+const cookieMarketingDefault = computed({
+  get: () => form.value.cookie_marketing_default === '1',
+  set: v => { form.value.cookie_marketing_default = v ? '1' : '0' }
+})
+
+// ─── Email branding helpers ───────────────────────────────────────────────────
+const emailAccentHex = computed(() => {
+  // Try to parse stored value to something a color input can use (it needs #rrggbb)
+  const raw = form.value.email_accent_color || '#b32838'
+  if (raw.startsWith('#') && raw.length === 7) return raw
+  return '#b32838' // fallback — color picker just shows a hint color
+})
+
+function onEmailAccentColorInput(event) {
+  form.value.email_accent_color = event.target.value
+}
+
+function previewEmail() {
+  window.open(`${import.meta.env.VITE_API_URL || 'http://localhost:3200'}/api/settings/email-preview`, '_blank')
+}
 
 // ─── 2FA state ────────────────────────────────────────────────────────────────
 const tfa = ref({ enabled: false, loading: false, qr: null, token: '', error: '' })

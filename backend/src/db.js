@@ -767,4 +767,73 @@ for (const [key, value] of Object.entries(memberSettings)) {
   insertSetting.run(key, value)
 }
 
+// ─── Phase 28: Email branding + Gift card denominations ───────────────────────
+const phase28Settings = {
+  gift_card_denominations: '[25, 50, 100]',
+  email_accent_color: 'hsl(355, 70%, 30%)',
+  email_footer_text: '',
+  email_logo_url: '',
+  email_custom_css: '',
+}
+for (const [key, value] of Object.entries(phase28Settings)) {
+  insertSetting.run(key, value)
+}
+
+// ─── Phase 28: Affiliate / Referral Program ───────────────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS affiliates (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name            TEXT    NOT NULL DEFAULT '',
+    email           TEXT    NOT NULL DEFAULT '',
+    code            TEXT    UNIQUE NOT NULL,
+    commission_rate REAL    NOT NULL DEFAULT 10,     -- percent
+    status          TEXT    NOT NULL DEFAULT 'active', -- active | inactive | suspended
+    notes           TEXT    NOT NULL DEFAULT '',
+    created_at      TEXT    NOT NULL DEFAULT (datetime('now')),
+    updated_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS affiliate_referrals (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    affiliate_id      INTEGER NOT NULL REFERENCES affiliates(id) ON DELETE CASCADE,
+    order_id          INTEGER REFERENCES orders(id) ON DELETE SET NULL,
+    order_amount      REAL    NOT NULL DEFAULT 0,
+    commission_amount REAL    NOT NULL DEFAULT 0,
+    status            TEXT    NOT NULL DEFAULT 'pending',  -- pending | approved | rejected
+    created_at        TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS affiliate_payouts (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    affiliate_id    INTEGER NOT NULL REFERENCES affiliates(id) ON DELETE CASCADE,
+    amount          REAL    NOT NULL DEFAULT 0,
+    method          TEXT    NOT NULL DEFAULT 'manual',  -- manual | paypal | bank
+    notes           TEXT    NOT NULL DEFAULT '',
+    status          TEXT    NOT NULL DEFAULT 'paid',    -- paid | pending
+    created_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_affiliates_code ON affiliates(code);
+  CREATE INDEX IF NOT EXISTS idx_affiliate_referrals_aff ON affiliate_referrals(affiliate_id);
+`)
+
+// Phase 28 default settings
+const phase28bSettings = {
+  // Affiliate Program
+  affiliate_enabled: '0',
+  affiliate_cookie_days: '30',
+  // GDPR / Cookie Consent
+  cookie_consent_enabled: '1',
+  cookie_consent_message: 'We use cookies to improve your experience. By continuing to use this site, you accept our use of cookies.',
+  cookie_consent_accept_label: 'Accept All',
+  cookie_consent_reject_label: 'Reject Non-Essential',
+  cookie_consent_manage_label: 'Manage Preferences',
+  cookie_consent_policy_url: '/privacy-policy',
+  cookie_analytics_default: '0',
+  cookie_marketing_default: '0',
+}
+for (const [key, value] of Object.entries(phase28bSettings)) {
+  insertSetting.run(key, value)
+}
+
 export default db

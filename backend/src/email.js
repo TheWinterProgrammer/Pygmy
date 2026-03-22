@@ -114,9 +114,38 @@ export async function sendMailTo({ to, subject, html, text }) {
 }
 
 /**
+ * Load email branding settings (accent color, logo, footer text, custom CSS).
+ * Cached per invocation for perf; settings change rarely.
+ */
+function getEmailBranding() {
+  const rows = db.prepare(`
+    SELECT key, value FROM settings
+    WHERE key IN ('email_accent_color','email_footer_text','email_logo_url','email_custom_css','site_name','site_url')
+  `).all()
+  const s = {}
+  rows.forEach(r => (s[r.key] = r.value))
+  return {
+    accentColor: s.email_accent_color || 'hsl(355, 70%, 30%)',
+    footerText: s.email_footer_text || '',
+    logoUrl: s.email_logo_url || '',
+    customCss: s.email_custom_css || '',
+    siteName: s.site_name || 'Pygmy',
+    siteUrl: s.site_url || '',
+  }
+}
+
+/**
  * Shared order email HTML wrapper — dark glass-inspired branded template.
+ * Uses customizable accent color, logo, footer text from Settings.
  */
 function orderEmailHtml({ siteName, heading, bodyHtml, footerNote = '' }) {
+  const branding = getEmailBranding()
+  const accent = branding.accentColor
+  const footerContent = footerNote || branding.footerText || `© ${new Date().getFullYear()} ${siteName}`
+  const logoHtml = branding.logoUrl
+    ? `<img src="${branding.logoUrl}" alt="${siteName}" style="max-height:40px;max-width:160px;margin-bottom:.5rem;display:block;" />`
+    : ''
+
   return `
 <!DOCTYPE html>
 <html>
@@ -126,7 +155,7 @@ function orderEmailHtml({ siteName, heading, bodyHtml, footerNote = '' }) {
   <style>
     body { margin:0; padding:0; background:#1a1a1e; font-family: 'Segoe UI', Arial, sans-serif; color:#e2e2e8; }
     .wrap { max-width:600px; margin:2rem auto; background:#22232a; border-radius:16px; overflow:hidden; border:1px solid rgba(255,255,255,0.08); }
-    .header { background:hsl(355,70%,30%); padding:1.5rem 2rem; }
+    .header { background:${accent}; padding:1.5rem 2rem; }
     .header h1 { margin:0; font-size:1.3rem; color:#fff; font-weight:700; letter-spacing:.03em; }
     .header .site-name { font-size:.85rem; color:rgba(255,255,255,.7); margin-top:.2rem; }
     .body { padding:2rem; }
@@ -142,16 +171,18 @@ function orderEmailHtml({ siteName, heading, bodyHtml, footerNote = '' }) {
     .badge { display:inline-block; padding:.25em .65em; border-radius:999px; font-size:.78rem; font-weight:600; background:hsl(355,70%,22%); color:hsl(355,70%,70%); }
     .footer { padding:1.25rem 2rem; border-top:1px solid rgba(255,255,255,.06); font-size:.78rem; color:#555; text-align:center; }
     a { color:hsl(355,70%,58%); }
+    ${branding.customCss}
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="header">
+      ${logoHtml}
       <h1>${heading}</h1>
       <div class="site-name">${siteName}</div>
     </div>
     <div class="body">${bodyHtml}</div>
-    <div class="footer">${footerNote || `© ${new Date().getFullYear()} ${siteName}`}</div>
+    <div class="footer">${footerContent}</div>
   </div>
 </body>
 </html>

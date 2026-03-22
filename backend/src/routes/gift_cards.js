@@ -241,3 +241,110 @@ export function redeemGiftCard(code, orderTotal, orderId) {
 }
 
 export default router
+
+// ── Public: purchase a gift card (customer-facing) ────────────────────────────
+// POST /api/gift-cards/purchase
+// Creates a gift card in 'pending_payment' status; after payment confirmation (manual or webhook),
+// admin can activate it. For a real store you'd integrate a payment processor.
+// For Pygmy (no payment processor), we create it active and treat it as a manual flow.
+router.post('/purchase', (req, res) => {
+  const {
+    value,
+    recipient_name = '',
+    recipient_email = '',
+    sender_name = '',
+    message = '',
+    purchaser_email = '',
+  } = req.body
+
+  if (!value || isNaN(value) || Number(value) <= 0) {
+    return res.status(400).json({ error: 'value must be a positive number' })
+  }
+  if (!purchaser_email || !purchaser_email.includes('@')) {
+    return res.status(400).json({ error: 'purchaser_email is required' })
+  }
+
+  // Check gift cards are enabled
+  const gcEnabled = db.prepare("SELECT value FROM settings WHERE key='gift_cards_enabled'").get()?.value
+  if (gcEnabled !== '1') return res.status(403).json({ error: 'Gift cards are not available' })
+
+  const code = generateCode()
+  const settings = db.prepare('SELECT key, value FROM settings').all()
+  const s = Object.fromEntries(settings.map(r => [r.key, r.value]))
+
+  db.prepare(`
+    INSERT INTO gift_cards (code, initial_value, balance, currency, recipient_name, recipient_email, sender_name, message, status, created_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', NULL)
+  `).run(
+    code,
+    Number(value),
+    Number(value),
+    s.shop_currency || 'EUR',
+    recipient_name.trim(),
+    recipient_email.trim(),
+    sender_name.trim(),
+    message.trim(),
+  )
+
+  // Log transaction
+  db.prepare(`
+    INSERT INTO gift_card_transactions (gift_card_id, type, amount, balance_after, note)
+    VALUES (last_insert_rowid(), 'issue', ?, ?, ?)
+  `).run(Number(value), Number(value), `Purchased by ${purchaser_email}`)
+
+  const sym = s.shop_currency_symbol || '€'
+  const siteName = s.site_name || 'Pygmy'
+
+  // If SMTP configured + recipient email provided, attempt to send gift card email
+  // (fire-and-forget, import done inline to avoid circular dep)
+  import('../email.js').then(({ sendMailTo }) => {
+    const recipientHtml = `
+      <p>You've received a <strong>${sym}${Number(value).toFixed(2)}</strong> gift card from <strong>${sender_name || 'someone special'}</strong>!</p>
+      ${message ? `<blockquote style="border-left:3px solid rgba(255,255,255,.2);padding-left:1em;margin:1em 0;color:#b0b0c0;font-style:italic">"${message}"</blockquote>` : ''}
+      <div style="margin:1.5rem 0;padding:1.25rem;background:rgba(255,255,255,.06);border-radius:10px;text-align:center;">
+        <div style="font-size:.82rem;color:#888;margin-bottom:.4rem">Your gift card code:</div>
+        <div style="font-size:1.6rem;font-weight:800;letter-spacing:.1em;color:#e2e2e8;">${code}</div>
+        <div style="font-size:.82rem;color:hsl(355,70%,60%);margin-top:.4rem">Balance: ${sym}${Number(value).toFixed(2)}</div>
+      </div>
+      <p style="font-size:.85rem;color:#888">Enter this code at checkout to redeem your gift card.</p>
+    `
+    const purchaserHtml = `
+      <p>Your gift card purchase was successful!</p>
+      <p>A <strong>${sym}${Number(value).toFixed(2)}</strong> gift card with code <strong>${code}</strong> has been ${recipient_email ? `sent to ${recipient_email}` : 'created'}.</p>
+      <p style="font-size:.85rem;color:#888">Keep this email as a backup in case the recipient doesn't receive theirs.</p>
+    `
+
+    const wrapSimple = (body) => `<!DOCTYPE html><html><head><style>body{margin:0;padding:0;background:#1a1a1e;font-family:sans-serif;color:#e2e2e8}.w{max-width:580px;margin:2rem auto;background:#22232a;border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,.08)}.h{background:hsl(355,70%,28%);padding:1.25rem 1.75rem}.h h1{margin:0;font-size:1.2rem;color:#fff}.b{padding:1.75rem}.f{padding:1rem 1.75rem;border-top:1px solid rgba(255,255,255,.07);font-size:.75rem;color:#555;text-align:center}</style></head><body><div class="w"><div class="h"><h1>🎁 ${siteName} Gift Card</h1></div><div class="b">${body}</div><div class="f">© ${new Date().getFullYear()} ${siteName}</div></div></body></html>`
+
+    if (recipient_email) {
+      sendMailTo({ to: recipient_email, subject: `🎁 You've received a gift card from ${siteName}!`, html: wrapSimple(recipientHtml), text: `Gift card code: ${code}\nBalance: ${sym}${Number(value).toFixed(2)}` }).catch(() => {})
+    }
+    if (purchaser_email && purchaser_email !== recipient_email) {
+      sendMailTo({ to: purchaser_email, subject: `🎁 Your ${siteName} gift card purchase`, html: wrapSimple(purchaserHtml), text: `Your gift card code: ${code}\nBalance: ${sym}${Number(value).toFixed(2)}` }).catch(() => {})
+    }
+  }).catch(() => {})
+
+  res.status(201).json({ code, value: Number(value), currency: s.shop_currency || 'EUR', currency_symbol: sym })
+})
+
+// ── Public: get purchasable denominations ─────────────────────────────────────
+// GET /api/gift-cards/denominations
+router.get('/denominations', (req, res) => {
+  const gcEnabled = db.prepare("SELECT value FROM settings WHERE key='gift_cards_enabled'").get()?.value
+  if (gcEnabled !== '1') return res.json({ enabled: false, denominations: [] })
+
+  const denoms = db.prepare("SELECT value FROM settings WHERE key='gift_card_denominations'").get()?.value
+  const sym = db.prepare("SELECT value FROM settings WHERE key='shop_currency_symbol'").get()?.value || '€'
+  const currency = db.prepare("SELECT value FROM settings WHERE key='shop_currency'").get()?.value || 'EUR'
+
+  let denomList = [25, 50, 100]
+  if (denoms) {
+    try {
+      denomList = JSON.parse(denoms)
+    } catch {
+      denomList = denoms.split(',').map(v => parseFloat(v.trim())).filter(n => !isNaN(n) && n > 0)
+    }
+  }
+
+  res.json({ enabled: true, denominations: denomList, currency, currency_symbol: sym })
+})

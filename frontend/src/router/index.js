@@ -59,6 +59,10 @@ const routes = [
     component: () => import('../views/OrderConfirmView.vue')
   },
   {
+    path: '/gift-cards',
+    component: () => import('../views/GiftCardsView.vue')
+  },
+  {
     path: '/membership',
     component: () => import('../views/MembershipView.vue')
   },

@@ -14,6 +14,7 @@
     <RouterView />
     <SiteFooter />
     <CartDrawer />
+    <CookieBanner v-if="site.settings?.cookie_consent_enabled === '1'" :settings="site.settings" />
   </div>
 
   <!-- Loading screen -->
@@ -28,9 +29,16 @@ import { useSiteStore } from './stores/site.js'
 import SiteNav from './components/SiteNav.vue'
 import SiteFooter from './components/SiteFooter.vue'
 import CartDrawer from './components/CartDrawer.vue'
+import CookieBanner from './components/CookieBanner.vue'
+import { useAffiliate } from './composables/useAffiliate.js'
 
 const site = useSiteStore()
-onMounted(() => site.load())
+const { captureReferral } = useAffiliate()
+
+onMounted(async () => {
+  await site.load()
+  captureReferral()
+})
 </script>
 
 <style>
