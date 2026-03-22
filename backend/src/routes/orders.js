@@ -5,8 +5,9 @@ import db from '../db.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { logActivity } from './activity.js'
 import { fireWebhooks } from './webhooks.js'
-import { sendOrderConfirmation, sendOrderStatusUpdate } from '../email.js'
+import { sendOrderConfirmation, sendOrderStatusUpdate, sendShipmentNotification } from '../email.js'
 import { validateCouponLogic } from './coupons.js'
+import { redeemGiftCard } from './gift_cards.js'
 
 const CUSTOMER_JWT_SECRET = process.env.CUSTOMER_JWT_SECRET || 'pygmy-customer-secret-change-in-production'
 
@@ -48,6 +49,7 @@ router.post('/', (req, res) => {
     customer_name, customer_email, customer_phone,
     shipping_address, items, subtotal, total, notes,
     coupon_code = '',
+    gift_card_code = '',
     shipping_cost = 0, shipping_zone = '', shipping_method = '',
     shipping_country = '', shipping_rate_name = '',
     tax_amount = 0, tax_rate_name = '',
@@ -138,9 +140,21 @@ router.post('/', (req, res) => {
     redeemPointsNum = 0
   }
 
+  // Pre-validate gift card (don't redeem yet, redeem inside transaction)
+  let giftCardDiscount = 0
+  let appliedGiftCard = ''
+  if (gift_card_code && gift_card_code.trim() && getSetting('gift_cards_enabled') === '1') {
+    const gc = db.prepare("SELECT * FROM gift_cards WHERE code = ? AND status = 'active'").get(gift_card_code.trim().toUpperCase())
+    if (!gc || gc.balance <= 0) {
+      return res.status(400).json({ error: 'Invalid or empty gift card' })
+    }
+    giftCardDiscount = Math.min(gc.balance, computedSubtotal - discountAmount)
+    appliedGiftCard = gc.code
+  }
+
   // Tax inclusive means tax is already in subtotal, so don't add it again
   const taxInclusive = getSetting('tax_inclusive') === '1'
-  const computedTotal = Math.max(0, computedSubtotal - discountAmount - loyaltyDiscount + shippingCostNum + (taxInclusive ? 0 : taxAmountNum))
+  const computedTotal = Math.max(0, computedSubtotal - discountAmount - loyaltyDiscount - giftCardDiscount + shippingCostNum + (taxInclusive ? 0 : taxAmountNum))
   const orderNumber = generateOrderNumber()
 
   // Use a transaction: insert order + decrement stock + increment coupon uses + loyalty
@@ -148,8 +162,9 @@ router.post('/', (req, res) => {
     const result = db.prepare(`
       INSERT INTO orders (order_number, status, customer_name, customer_email, customer_phone,
         shipping_address, items, subtotal, discount_amount, shipping_cost, shipping_zone, shipping_method,
-        shipping_country, shipping_rate_name, total, coupon_code, notes, customer_id, tax_amount, tax_rate_name)
-      VALUES (?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        shipping_country, shipping_rate_name, total, coupon_code, notes, customer_id, tax_amount, tax_rate_name,
+        gift_card_code, gift_card_discount)
+      VALUES (?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       orderNumber,
       customer_name.trim(),
@@ -169,7 +184,9 @@ router.post('/', (req, res) => {
       (notes || '').trim(),
       customerId,
       taxAmountNum,
-      taxRateNameStr
+      taxRateNameStr,
+      appliedGiftCard,
+      giftCardDiscount
     )
 
     const newOrderId = result.lastInsertRowid
@@ -192,6 +209,11 @@ router.post('/', (req, res) => {
       db.prepare(`
         UPDATE coupons SET used_count = used_count + 1 WHERE code = ? COLLATE NOCASE
       `).run(appliedCoupon)
+    }
+
+    // Redeem gift card
+    if (appliedGiftCard && giftCardDiscount > 0) {
+      redeemGiftCard(appliedGiftCard, giftCardDiscount, newOrderId)
     }
 
     // Loyalty: earn points
@@ -316,6 +338,11 @@ router.post('/lookup', (req, res) => {
     total: order.total,
     notes: order.notes,
     shipping_address: order.shipping_address,
+    // Tracking info (public — customer looked up their own order)
+    tracking_number:  order.tracking_number || '',
+    tracking_carrier: order.tracking_carrier || '',
+    tracking_url:     order.tracking_url || '',
+    shipped_at:       order.shipped_at || null,
     created_at: order.created_at,
     updated_at: order.updated_at,
   })
@@ -358,18 +385,38 @@ router.put('/:id', authMiddleware, (req, res) => {
   const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id)
   if (!order) return res.status(404).json({ error: 'Order not found' })
 
-  const { status, notes } = req.body
+  const {
+    status, notes,
+    tracking_number, tracking_carrier, tracking_url, fulfillment_notes,
+  } = req.body
   if (status && !ORDER_STATUSES.includes(status)) {
     return res.status(400).json({ error: `Invalid status. Must be one of: ${ORDER_STATUSES.join(', ')}` })
   }
 
+  // Auto-set shipped_at when transitioning to 'shipped'
+  const becomingShipped = status === 'shipped' && order.status !== 'shipped'
+  const shippedAt = becomingShipped ? "datetime('now')" : 'shipped_at'
+
   db.prepare(`
     UPDATE orders SET
-      status = COALESCE(?, status),
-      notes  = COALESCE(?, notes),
-      updated_at = datetime('now')
+      status             = COALESCE(?, status),
+      notes              = COALESCE(?, notes),
+      tracking_number    = COALESCE(?, tracking_number),
+      tracking_carrier   = COALESCE(?, tracking_carrier),
+      tracking_url       = COALESCE(?, tracking_url),
+      fulfillment_notes  = COALESCE(?, fulfillment_notes),
+      shipped_at         = ${becomingShipped ? "datetime('now')" : 'shipped_at'},
+      updated_at         = datetime('now')
     WHERE id = ?
-  `).run(status || null, notes ?? null, order.id)
+  `).run(
+    status || null,
+    notes ?? null,
+    tracking_number ?? null,
+    tracking_carrier ?? null,
+    tracking_url ?? null,
+    fulfillment_notes ?? null,
+    order.id
+  )
 
   const statusChanged = status && status !== order.status
   if (statusChanged) {
@@ -381,7 +428,15 @@ router.put('/:id', authMiddleware, (req, res) => {
   // Send status update email to customer (fire-and-forget)
   if (statusChanged) {
     fireWebhooks('order.status_changed', { order_number: updated.order_number, status: updated.status }).catch?.(() => {})
-    sendOrderStatusUpdate({ ...updated, items: JSON.parse(updated.items || '[]') }).catch(() => {})
+    if (becomingShipped && (tracking_number || tracking_url)) {
+      // Send dedicated shipment email with tracking info
+      sendShipmentNotification({
+        ...updated,
+        items: JSON.parse(updated.items || '[]'),
+      }).catch(() => {})
+    } else {
+      sendOrderStatusUpdate({ ...updated, items: JSON.parse(updated.items || '[]') }).catch(() => {})
+    }
   }
 
   res.json({ ...updated, items: JSON.parse(updated.items || '[]') })
@@ -572,6 +627,129 @@ router.get('/:id/invoice', authMiddleware, (req, res) => {
   </table>
 
   <div class="footer">Thank you for your order. If you have any questions, please contact us.</div>
+</div>
+</body>
+</html>`
+
+  res.setHeader('Content-Type', 'text/html')
+  res.send(html)
+})
+
+// ─── Admin: Packing Slip (print-ready) ───────────────────────────────────────
+// GET /api/orders/:id/packing-slip
+router.get('/:id/packing-slip', authMiddleware, (req, res) => {
+  const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id)
+  if (!order) return res.status(404).json({ error: 'Order not found' })
+
+  const siteName = db.prepare("SELECT value FROM settings WHERE key = 'site_name'").get()?.value || 'Pygmy CMS'
+  const items = JSON.parse(order.items || '[]')
+
+  const itemRows = items.map(i => `
+    <tr>
+      <td>
+        <strong>${i.name || i.product_id}</strong>
+        ${i.sku ? `<div style="font-size:11px;color:#777;">SKU: ${i.sku}</div>` : ''}
+        ${i.variant_label ? `<div style="font-size:11px;color:#777;">${i.variant_label}</div>` : ''}
+      </td>
+      <td style="text-align:center;font-size:1.1em;font-weight:700;">${i.quantity}</td>
+      <td style="text-align:center;">☐</td>
+    </tr>
+  `).join('')
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Packing Slip — ${order.order_number}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #111; background: #fff; font-size: 13px; }
+    .page { max-width: 580px; margin: 0 auto; padding: 2rem 1.5rem; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #111; padding-bottom: 1rem; margin-bottom: 1.5rem; }
+    .header h1 { font-size: 1.6rem; font-weight: 800; }
+    .header .sub { font-size: 11px; color: #777; }
+    .order-meta { margin-bottom: 1.5rem; display: flex; gap: 2rem; }
+    .meta-box h4 { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: #888; margin-bottom: .3rem; }
+    .meta-box p { font-size: 12px; line-height: 1.7; }
+    .packing-note { margin-bottom: 1.25rem; padding: .6rem .8rem; background: #f9f9f9; border-left: 3px solid #ddd; font-size: 12px; color: #555; }
+    table { width: 100%; border-collapse: collapse; }
+    thead th { background: #111; color: #fff; padding: .45rem .75rem; font-size: 11px; font-weight: 600; text-align: left; }
+    thead th:nth-child(2), thead th:nth-child(3) { text-align: center; }
+    tbody td { padding: .55rem .75rem; border-bottom: 1px solid #eee; font-size: 12px; vertical-align: top; }
+    .footer { margin-top: 2rem; font-size: 10px; color: #bbb; text-align: center; }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .no-print { display: none; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+  <div class="no-print" style="margin-bottom:1rem; display:flex; gap:.5rem;">
+    <button onclick="window.print()" style="padding:.4rem 1rem;background:#111;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">🖨️ Print</button>
+    <button onclick="window.close()" style="padding:.4rem 1rem;background:#eee;color:#333;border:none;border-radius:4px;cursor:pointer;font-size:13px;">✕ Close</button>
+  </div>
+  <div class="header">
+    <div>
+      <h1>Packing Slip</h1>
+      <div class="sub">PICK &amp; PACK DOCUMENT — DO NOT INCLUDE IN SHIPMENT</div>
+    </div>
+    <div style="text-align:right; font-size:12px; color:#555; line-height:1.8;">
+      <strong style="font-size:14px;">${order.order_number}</strong><br>
+      ${new Date(order.created_at).toLocaleDateString('en-GB', { year:'numeric', month:'long', day:'numeric' })}<br>
+      <strong>${siteName}</strong>
+    </div>
+  </div>
+
+  <div class="order-meta">
+    <div class="meta-box">
+      <h4>Ship To</h4>
+      <p>
+        <strong>${order.customer_name}</strong><br>
+        ${order.customer_email}<br>
+        ${order.customer_phone ? order.customer_phone + '<br>' : ''}
+        ${order.shipping_address ? order.shipping_address.replace(/\n/g, '<br>') : 'No address provided'}
+      </p>
+    </div>
+    ${order.tracking_number ? `
+    <div class="meta-box">
+      <h4>Tracking</h4>
+      <p>
+        ${order.tracking_carrier ? `<strong>${order.tracking_carrier}</strong><br>` : ''}
+        ${order.tracking_number}
+      </p>
+    </div>` : ''}
+    ${order.notes ? `
+    <div class="meta-box">
+      <h4>Customer Notes</h4>
+      <p>${order.notes.replace(/\n/g, '<br>')}</p>
+    </div>` : ''}
+  </div>
+
+  ${order.fulfillment_notes ? `<div class="packing-note">📋 Fulfillment note: ${order.fulfillment_notes}</div>` : ''}
+
+  <table>
+    <thead>
+      <tr>
+        <th>Product</th>
+        <th style="text-align:center;">Qty</th>
+        <th style="text-align:center;">Packed ✓</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${itemRows}
+    </tbody>
+  </table>
+
+  <div style="margin-top:1.5rem; padding:.75rem 0; border-top:2px solid #111; display:flex; justify-content:space-between; align-items:center;">
+    <div style="font-size:12px; color:#555;">Total items: <strong>${items.reduce((s, i) => s + (i.quantity || 1), 0)}</strong></div>
+    <div style="font-size:12px;">
+      <strong>Quality check:</strong>
+      <span style="margin-left:.5rem; display:inline-block; width:80px; border-bottom:1px solid #aaa;">&nbsp;</span>
+    </div>
+  </div>
+
+  <div class="footer">Printed ${new Date().toLocaleDateString()} — ${siteName}</div>
 </div>
 </body>
 </html>`

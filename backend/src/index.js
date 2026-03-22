@@ -43,6 +43,7 @@ import abandonedCartsRoutes from './routes/abandoned_carts.js'
 import pageBlocksRoutes from './routes/page_blocks.js'
 import taxRatesRoutes from './routes/tax_rates.js'
 import loyaltyRoutes from './routes/loyalty.js'
+import giftCardsRoutes from './routes/gift_cards.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -184,6 +185,7 @@ app.use('/api/abandoned-carts', abandonedCartsRoutes)
 app.use('/api/page-blocks', pageBlocksRoutes)
 app.use('/api/tax-rates', taxRatesRoutes)
 app.use('/api/loyalty', loyaltyRoutes)
+app.use('/api/gift-cards', giftCardsRoutes)
 
 // ─── SEO (public) ─────────────────────────────────────────────────────────────
 app.use('/', seoRoutes)

@@ -129,6 +129,11 @@
               <span>🎟️ Coupon ({{ selected.coupon_code }})</span>
               <span>−{{ fmtCurrency(selected.discount_amount) }}</span>
             </div>
+            <div v-if="selected.gift_card_code" class="order-subtotal-row"
+                 style="display:flex;justify-content:space-between;font-size:.88rem;padding:.3rem 0;color:hsl(140,60%,60%);">
+              <span>🎁 Gift Card ({{ selected.gift_card_code }})</span>
+              <span>−{{ fmtCurrency(selected.gift_card_discount) }}</span>
+            </div>
             <div v-if="selected.shipping_cost > 0" class="order-subtotal-row"
                  style="display:flex;justify-content:space-between;font-size:.88rem;padding:.3rem 0;color:var(--text-muted);">
               <span>🚚 Shipping{{ selected.shipping_rate_name ? ` (${selected.shipping_rate_name})` : '' }}{{ selected.shipping_country ? ` — ${selected.shipping_country}` : '' }}</span>
@@ -145,21 +150,58 @@
             </div>
           </div>
 
+          <!-- Fulfillment / Tracking -->
+          <div class="section-card glass" style="margin-bottom:1rem;">
+            <h3 style="margin:0 0 .75rem;font-size:.95rem;color:var(--accent);">📦 Fulfillment & Tracking</h3>
+            <div class="form-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;">
+              <div>
+                <label class="label" style="display:block;font-size:.78rem;color:var(--text-muted);margin-bottom:.25rem;">Carrier</label>
+                <input class="input" type="text" v-model="editTrackingCarrier" placeholder="e.g. DHL, FedEx, UPS" style="width:100%;box-sizing:border-box;" />
+              </div>
+              <div>
+                <label class="label" style="display:block;font-size:.78rem;color:var(--text-muted);margin-bottom:.25rem;">Tracking Number</label>
+                <input class="input" type="text" v-model="editTrackingNumber" placeholder="1Z999AA1012345678" style="width:100%;box-sizing:border-box;" />
+              </div>
+            </div>
+            <div style="margin-top:.6rem;">
+              <label class="label" style="display:block;font-size:.78rem;color:var(--text-muted);margin-bottom:.25rem;">Tracking URL <span style="opacity:.6">(optional)</span></label>
+              <input class="input" type="url" v-model="editTrackingUrl" placeholder="https://track.carrier.com/..." style="width:100%;box-sizing:border-box;" />
+            </div>
+            <div style="margin-top:.6rem;">
+              <label class="label" style="display:block;font-size:.78rem;color:var(--text-muted);margin-bottom:.25rem;">Fulfillment Notes <span style="opacity:.6">(sent to customer)</span></label>
+              <input class="input" type="text" v-model="editFulfillmentNotes" placeholder="e.g. Left at front door, requires signature…" style="width:100%;box-sizing:border-box;" />
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:.75rem;flex-wrap:wrap;gap:.5rem;">
+              <div v-if="selected.shipped_at" style="font-size:.78rem;color:var(--text-muted);">
+                📅 Shipped: {{ fmtDateLong(selected.shipped_at) }}
+              </div>
+              <div v-else style="font-size:.78rem;color:var(--text-muted);">Not yet shipped</div>
+              <button class="btn btn-primary btn-sm" @click="saveFulfillment" :disabled="saving">
+                {{ saving ? 'Saving…' : '💾 Save Fulfillment' }}
+              </button>
+            </div>
+            <p v-if="selected.tracking_number || selected.tracking_url" style="font-size:.78rem;margin-top:.4rem;color:hsl(140,55%,55%);">
+              ✓ Tracking info on file. Customer will receive shipment email when status → Shipped.
+            </p>
+          </div>
+
           <!-- Notes -->
           <div class="section-card glass" style="margin-bottom:1rem;">
-            <h3 style="margin:0 0 .5rem;font-size:.95rem;color:var(--accent);">📝 Notes</h3>
-            <textarea class="input" rows="3" v-model="editNotes" placeholder="Internal notes…" style="width:100%;box-sizing:border-box;"></textarea>
+            <h3 style="margin:0 0 .5rem;font-size:.95rem;color:var(--accent);">📝 Internal Notes</h3>
+            <textarea class="input" rows="3" v-model="editNotes" placeholder="Internal notes (not sent to customer)…" style="width:100%;box-sizing:border-box;"></textarea>
             <button class="btn btn-ghost btn-sm" style="margin-top:.5rem;" @click="saveNotes" :disabled="saving">Save notes</button>
           </div>
 
           <!-- Meta -->
           <div class="text-muted" style="font-size:.8rem;">
-            Placed: {{ fmtDateLong(selected.created_at) }} · Last updated: {{ fmtDate(selected.updated_at) }}
+            Placed: {{ fmtDateLong(selected.created_at) }} · Updated: {{ fmtDate(selected.updated_at) }}
+            <span v-if="selected.shipped_at"> · Shipped: {{ fmtDate(selected.shipped_at) }}</span>
           </div>
         </div>
         <div class="modal-footer">
           <button class="btn btn-ghost" @click="selected = null">Close</button>
           <button class="btn btn-ghost" @click="printInvoice(selected)" title="Open print-ready invoice">🖨️ Invoice</button>
+          <button class="btn btn-ghost" @click="printPackingSlip(selected)" title="Open packing slip">📋 Packing Slip</button>
           <button class="btn btn-danger" @click="confirmDelete(selected)">Delete order</button>
         </div>
       </div>
@@ -197,9 +239,13 @@ const saving     = ref(false)
 const deleting   = ref(false)
 const q          = ref('')
 const filterStatus = ref('')
-const selected   = ref(null)
-const editStatus = ref('')
-const editNotes  = ref('')
+const selected           = ref(null)
+const editStatus         = ref('')
+const editNotes          = ref('')
+const editTrackingNumber = ref('')
+const editTrackingCarrier= ref('')
+const editTrackingUrl    = ref('')
+const editFulfillmentNotes = ref('')
 const deleteTarget = ref(null)
 
 const STATUSES = [
@@ -275,8 +321,12 @@ function debouncedLoad() {
 
 function openOrder(order) {
   selected.value = order
-  editStatus.value = order.status
-  editNotes.value  = order.notes || ''
+  editStatus.value           = order.status
+  editNotes.value            = order.notes || ''
+  editTrackingNumber.value   = order.tracking_number || ''
+  editTrackingCarrier.value  = order.tracking_carrier || ''
+  editTrackingUrl.value      = order.tracking_url || ''
+  editFulfillmentNotes.value = order.fulfillment_notes || ''
 }
 
 async function saveStatus() {
@@ -314,8 +364,38 @@ async function saveNotes() {
   }
 }
 
+async function saveFulfillment() {
+  if (!selected.value) return
+  saving.value = true
+  try {
+    const updated = await apiFetch(`/orders/${selected.value.id}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        tracking_number:   editTrackingNumber.value,
+        tracking_carrier:  editTrackingCarrier.value,
+        tracking_url:      editTrackingUrl.value,
+        fulfillment_notes: editFulfillmentNotes.value,
+      })
+    })
+    Object.assign(selected.value, updated)
+    // Refresh local tracking refs
+    editTrackingNumber.value   = updated.tracking_number || ''
+    editTrackingCarrier.value  = updated.tracking_carrier || ''
+    editTrackingUrl.value      = updated.tracking_url || ''
+    editFulfillmentNotes.value = updated.fulfillment_notes || ''
+  } catch (e) {
+    alert(e.message)
+  } finally {
+    saving.value = false
+  }
+}
+
 function printInvoice(order) {
   window.open(`http://localhost:3200/api/orders/${order.id}/invoice`, '_blank')
+}
+
+function printPackingSlip(order) {
+  window.open(`http://localhost:3200/api/orders/${order.id}/packing-slip`, '_blank')
 }
 
 function confirmDelete(order) {

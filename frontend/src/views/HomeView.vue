@@ -50,6 +50,41 @@
     </div>
   </section>
 
+  <!-- ───── Featured Products ───── -->
+  <section class="featured-products-section container" v-if="featuredProducts.length">
+    <h2 class="section-title">Featured Products</h2>
+    <div class="featured-grid">
+      <RouterLink
+        v-for="product in featuredProducts"
+        :key="product.id"
+        :to="`/shop/${product.slug}`"
+        class="product-card glass"
+      >
+        <div class="product-img" v-if="product.cover_image">
+          <img :src="product.cover_image" :alt="product.name" loading="lazy" />
+          <span class="product-badge-sale" v-if="product.sale_price">Sale</span>
+        </div>
+        <div class="product-img product-img-placeholder" v-else><span>🛍️</span></div>
+        <div class="product-body">
+          <div class="product-category text-muted" v-if="product.category_name">{{ product.category_name }}</div>
+          <h3 class="product-name">{{ product.name }}</h3>
+          <p class="product-excerpt text-muted" v-if="product.excerpt">{{ product.excerpt }}</p>
+          <div class="product-price">
+            <span v-if="product.sale_price" class="price-sale">
+              {{ site.settings.shop_currency_symbol || '€' }}{{ Number(product.sale_price).toFixed(2) }}
+            </span>
+            <span :class="product.sale_price ? 'price-original-strike' : 'price-main'">
+              {{ site.settings.shop_currency_symbol || '€' }}{{ Number(product.price).toFixed(2) }}
+            </span>
+          </div>
+        </div>
+      </RouterLink>
+    </div>
+    <div class="view-all">
+      <RouterLink to="/shop" class="btn btn-outline">View all products</RouterLink>
+    </div>
+  </section>
+
   <!-- ───── Upcoming Events ───── -->
   <section class="events-section container" v-if="upcomingEvents.length">
     <h2 class="section-title">Upcoming Events</h2>
@@ -97,6 +132,7 @@ const total = ref(0)
 const loaded = ref(false)
 const scrolled = ref(false)
 const upcomingEvents = ref([])
+const featuredProducts = ref([])
 
 const heroBg = computed(() => {
   const url = site.settings.hero_bg_url
@@ -113,6 +149,10 @@ onMounted(async () => {
     const { data } = await api.get('/posts?limit=6')
     posts.value = data.posts
     total.value = data.total
+  } catch {}
+  try {
+    const { data } = await api.get('/products?featured=1&limit=4')
+    featuredProducts.value = data.products || []
   } catch {}
   try {
     const { data } = await api.get('/events/upcoming?limit=3')
@@ -328,6 +368,49 @@ function formatDay(d) {
 .view-all { text-align: center; }
 
 /* ─── Events widget ─── */
+.featured-products-section { padding: 3rem 1.5rem 2rem; }
+.featured-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+.product-card {
+  border-radius: 1rem;
+  overflow: hidden;
+  text-decoration: none;
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  transition: transform .2s, box-shadow .2s;
+}
+.product-card:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(0,0,0,.35); }
+.product-img {
+  aspect-ratio: 4/3;
+  overflow: hidden;
+  background: hsl(228,4%,13%);
+  position: relative;
+}
+.product-img img { width: 100%; height: 100%; object-fit: cover; }
+.product-img-placeholder {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 2.5rem;
+}
+.product-badge-sale {
+  position: absolute; top: .5rem; right: .5rem;
+  background: var(--accent); color: #fff;
+  font-size: .7rem; font-weight: 700; text-transform: uppercase;
+  padding: .15rem .5rem; border-radius: 999px;
+}
+.product-body { padding: 1rem 1.1rem 1.25rem; flex: 1; display: flex; flex-direction: column; }
+.product-category { font-size: .73rem; text-transform: uppercase; letter-spacing: .05em; margin-bottom: .3rem; }
+.product-name { font-size: 1rem; font-weight: 600; margin-bottom: .4rem; line-height: 1.3; }
+.product-excerpt { font-size: .83rem; line-height: 1.5; flex: 1; margin-bottom: .6rem;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.product-price { display: flex; align-items: center; gap: .5rem; margin-top: auto; }
+.price-main { font-size: 1.05rem; font-weight: 700; color: var(--accent); }
+.price-sale { font-size: 1.05rem; font-weight: 700; color: var(--accent); }
+.price-original-strike { font-size: .85rem; color: var(--text-muted); text-decoration: line-through; }
 .events-section { padding: 4rem 1.5rem 2rem; }
 .events-row { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem; }
 .event-card {

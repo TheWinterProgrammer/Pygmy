@@ -92,6 +92,7 @@ const navItems = [
   { to: '/pages',      icon: '📄', label: 'Pages' },
   { to: '/posts',      icon: '✍️',  label: 'Posts' },
   { to: '/orders',     icon: '📦',  label: 'Orders' },
+  { to: '/fulfillment', icon: '🚢', label: 'Fulfillment' },
   { to: '/coupons',    icon: '🎟️',  label: 'Coupons' },
   { to: '/shipping',   icon: '🚚',  label: 'Shipping' },
   { to: '/reviews',    icon: '⭐',  label: 'Reviews' },
@@ -114,6 +115,9 @@ const navItems = [
   { to: '/backup',        icon: '🗄️',  label: 'Backup' },
   { to: '/api-keys',      icon: '🔑',  label: 'API Keys' },
   { to: '/tax-rates',     icon: '🧾',  label: 'Tax Rates' },
+  { to: '/gift-cards',    icon: '🎁',  label: 'Gift Cards' },
+  { to: '/homepage',      icon: '🏠',  label: 'Homepage' },
+  { to: '/activity-log',  icon: '🕐',  label: 'Activity Log' },
   { to: '/settings',      icon: '⚙️',  label: 'Settings' },
 ]
 

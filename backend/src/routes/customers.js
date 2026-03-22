@@ -109,8 +109,10 @@ router.put('/me', customerAuthMiddleware, async (req, res) => {
 // GET /api/customers/me/orders
 router.get('/me/orders', customerAuthMiddleware, (req, res) => {
   const orders = db.prepare(`
-    SELECT id, order_number, status, total, items, created_at,
-           shipping_country, shipping_rate_name, shipping_cost, coupon_code, discount_amount
+    SELECT id, order_number, status, total, items, created_at, subtotal,
+           shipping_address, shipping_country, shipping_rate_name, shipping_cost,
+           coupon_code, discount_amount,
+           tracking_number, tracking_carrier, tracking_url, shipped_at
     FROM orders
     WHERE customer_id = ?
     ORDER BY created_at DESC

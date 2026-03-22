@@ -586,63 +586,78 @@ db.exec(`
   }
 }
 
-export default db
-// ─── Phase 21: Customer Accounts ─────────────────────────────────────────────
+// ─── Phase 26: Gift Cards ─────────────────────────────────────────────────────
 db.exec(`
-  CREATE TABLE IF NOT EXISTS customers (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    email           TEXT    UNIQUE NOT NULL,
-    password        TEXT    NOT NULL,
-    first_name      TEXT    NOT NULL DEFAULT '',
-    last_name       TEXT    NOT NULL DEFAULT '',
-    phone           TEXT    NOT NULL DEFAULT '',
-    email_verified  INTEGER NOT NULL DEFAULT 0,
-    active          INTEGER NOT NULL DEFAULT 1,
-    created_at      TEXT    NOT NULL DEFAULT (datetime('now')),
-    updated_at      TEXT    NOT NULL DEFAULT (datetime('now'))
-  );
-
-  CREATE TABLE IF NOT EXISTS customer_addresses (
+  CREATE TABLE IF NOT EXISTS gift_cards (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    customer_id  INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
-    label        TEXT    NOT NULL DEFAULT 'Home',
-    first_name   TEXT    NOT NULL DEFAULT '',
-    last_name    TEXT    NOT NULL DEFAULT '',
-    address1     TEXT    NOT NULL DEFAULT '',
-    address2     TEXT    NOT NULL DEFAULT '',
-    city         TEXT    NOT NULL DEFAULT '',
-    state        TEXT    NOT NULL DEFAULT '',
-    zip          TEXT    NOT NULL DEFAULT '',
-    country      TEXT    NOT NULL DEFAULT '',
-    phone        TEXT    NOT NULL DEFAULT '',
-    is_default   INTEGER NOT NULL DEFAULT 0,
+    code         TEXT    NOT NULL UNIQUE,
+    initial_value REAL   NOT NULL DEFAULT 0,
+    balance      REAL    NOT NULL DEFAULT 0,
+    currency     TEXT    NOT NULL DEFAULT 'EUR',
+    recipient_name  TEXT NOT NULL DEFAULT '',
+    recipient_email TEXT NOT NULL DEFAULT '',
+    sender_name  TEXT    NOT NULL DEFAULT '',
+    message      TEXT    NOT NULL DEFAULT '',
+    status       TEXT    NOT NULL DEFAULT 'active',
+    expires_at   TEXT,
+    created_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at   TEXT    NOT NULL DEFAULT (datetime('now')),
+    updated_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_gift_cards_code ON gift_cards(code);
+  CREATE INDEX IF NOT EXISTS idx_gift_cards_email ON gift_cards(recipient_email);
+
+  CREATE TABLE IF NOT EXISTS gift_card_transactions (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    gift_card_id INTEGER NOT NULL REFERENCES gift_cards(id) ON DELETE CASCADE,
+    order_id     INTEGER REFERENCES orders(id) ON DELETE SET NULL,
+    type         TEXT    NOT NULL DEFAULT 'redeem',
+    amount       REAL    NOT NULL DEFAULT 0,
+    balance_after REAL   NOT NULL DEFAULT 0,
+    note         TEXT    NOT NULL DEFAULT '',
     created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
   );
+  CREATE INDEX IF NOT EXISTS idx_gc_tx_card ON gift_card_transactions(gift_card_id);
 `)
 
-// Link orders to customer accounts (optional FK — existing guest orders stay as-is)
-const orderColNames = db.prepare("PRAGMA table_info(orders)").all().map(c => c.name)
-if (!orderColNames.includes('customer_id')) {
-  db.exec(`ALTER TABLE orders ADD COLUMN customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL`)
+// Migration: gift_card columns on orders
+const ordersColsP26 = db.pragma('table_info(orders)').map(c => c.name)
+if (!ordersColsP26.includes('gift_card_code')) {
+  try { db.exec("ALTER TABLE orders ADD COLUMN gift_card_code TEXT NOT NULL DEFAULT ''") } catch {}
+}
+if (!ordersColsP26.includes('gift_card_discount')) {
+  try { db.exec("ALTER TABLE orders ADD COLUMN gift_card_discount REAL NOT NULL DEFAULT 0") } catch {}
 }
 
+// Default settings for gift cards
+const gcSettings = {
+  gift_cards_enabled: '0',
+}
+for (const [key, value] of Object.entries(gcSettings)) {
+  insertSetting.run(key, value)
+}
 
-// Abandoned carts table
-db.exec(`
-  CREATE TABLE IF NOT EXISTS abandoned_carts (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    session_id  TEXT    NOT NULL UNIQUE,
-    email       TEXT    NOT NULL DEFAULT '',
-    name        TEXT    NOT NULL DEFAULT '',
-    items       TEXT    NOT NULL DEFAULT '[]',
-    subtotal    REAL    NOT NULL DEFAULT 0,
-    recovered   INTEGER NOT NULL DEFAULT 0,
-    notified    INTEGER NOT NULL DEFAULT 0,
-    notified_at TEXT,
-    ip          TEXT    NOT NULL DEFAULT '',
-    created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
-    updated_at  TEXT    NOT NULL DEFAULT (datetime('now'))
-  );
-  CREATE INDEX IF NOT EXISTS idx_abandoned_carts_email ON abandoned_carts(email);
-  CREATE INDEX IF NOT EXISTS idx_abandoned_carts_updated ON abandoned_carts(updated_at);
-`)
+// ─── Phase 27: Order Fulfillment Tracking ─────────────────────────────────────
+{
+  const cols = db.pragma('table_info(orders)').map(c => c.name)
+  if (!cols.includes('tracking_number')) {
+    try { db.exec("ALTER TABLE orders ADD COLUMN tracking_number TEXT NOT NULL DEFAULT ''") } catch {}
+  }
+  if (!cols.includes('tracking_carrier')) {
+    try { db.exec("ALTER TABLE orders ADD COLUMN tracking_carrier TEXT NOT NULL DEFAULT ''") } catch {}
+  }
+  if (!cols.includes('tracking_url')) {
+    try { db.exec("ALTER TABLE orders ADD COLUMN tracking_url TEXT NOT NULL DEFAULT ''") } catch {}
+  }
+  if (!cols.includes('fulfillment_notes')) {
+    try { db.exec("ALTER TABLE orders ADD COLUMN fulfillment_notes TEXT NOT NULL DEFAULT ''") } catch {}
+  }
+  if (!cols.includes('shipped_at')) {
+    try { db.exec("ALTER TABLE orders ADD COLUMN shipped_at TEXT") } catch {}
+  }
+  if (!cols.includes('customer_id')) {
+    try { db.exec("ALTER TABLE orders ADD COLUMN customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL") } catch {}
+  }
+}
+
+export default db

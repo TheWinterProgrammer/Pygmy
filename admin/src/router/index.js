@@ -24,6 +24,7 @@ const routes = [
       { path: 'media',        name: 'Media',       component: () => import('../views/MediaView.vue') },
       { path: 'navigation',   name: 'Navigation',  component: () => import('../views/NavigationView.vue') },
       { path: 'orders',           name: 'Orders',       component: () => import('../views/OrdersView.vue') },
+      { path: 'fulfillment',      name: 'Fulfillment',  component: () => import('../views/FulfillmentView.vue') },
       { path: 'coupons',          name: 'Coupons',      component: () => import('../views/CouponsView.vue') },
       { path: 'products',         name: 'Products',     component: () => import('../views/ProductsView.vue') },
       { path: 'products/new',     name: 'ProductNew',   component: () => import('../views/ProductEditView.vue') },
@@ -52,6 +53,8 @@ const routes = [
       { path: 'abandoned-carts',  name: 'AbandonedCarts', component: () => import('../views/AbandonedCartsView.vue') },
       { path: 'homepage',          name: 'Homepage',       component: () => import('../views/HomepageBuilderView.vue') },
       { path: 'tax-rates',        name: 'TaxRates',       component: () => import('../views/TaxRatesView.vue') },
+      { path: 'gift-cards',       name: 'GiftCards',      component: () => import('../views/GiftCardsView.vue') },
+      { path: 'activity-log',     name: 'ActivityLog',    component: () => import('../views/ActivityLogView.vue') },
       { path: 'settings',         name: 'Settings',       component: () => import('../views/SettingsView.vue') },
     ]
   },

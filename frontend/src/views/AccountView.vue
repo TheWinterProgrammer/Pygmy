@@ -201,6 +201,28 @@
             <div class="section-title">Shipping to</div>
             <p>{{ selectedOrder.shipping_address }}</p>
           </div>
+          <!-- Tracking info -->
+          <div v-if="selectedOrder.tracking_number || selectedOrder.tracking_url" class="tracking-info">
+            <div class="section-title">📦 Tracking</div>
+            <div class="tracking-rows">
+              <div v-if="selectedOrder.tracking_carrier" class="tracking-row">
+                <span class="tr-label">Carrier</span>
+                <span>{{ selectedOrder.tracking_carrier }}</span>
+              </div>
+              <div v-if="selectedOrder.tracking_number" class="tracking-row">
+                <span class="tr-label">Tracking #</span>
+                <span style="font-family:monospace;">{{ selectedOrder.tracking_number }}</span>
+              </div>
+              <div v-if="selectedOrder.shipped_at" class="tracking-row">
+                <span class="tr-label">Shipped</span>
+                <span>{{ formatDate(selectedOrder.shipped_at) }}</span>
+              </div>
+            </div>
+            <a v-if="selectedOrder.tracking_url" :href="selectedOrder.tracking_url"
+               target="_blank" rel="noopener" class="btn btn-primary" style="margin-top:.75rem;display:inline-flex;align-items:center;gap:.4rem;">
+              🔍 Track Package
+            </a>
+          </div>
         </div>
       </div>
     </div>
@@ -553,6 +575,10 @@ onMounted(async () => {
 .summary-row.accent { color: var(--accent); }
 .summary-row.total { font-weight: 700; font-size: 1rem; padding-top: 0.6rem; margin-top: 0.4rem; border-top: 1px solid var(--border); }
 .shipping-addr p { margin: 0.4rem 0 0; font-size: 0.875rem; color: var(--muted); }
+.tracking-info { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,.07); }
+.tracking-rows { display: flex; flex-direction: column; gap: .35rem; margin-top: .5rem; }
+.tracking-row { display: flex; align-items: center; gap: 1rem; font-size: .87rem; }
+.tr-label { min-width: 90px; color: var(--muted); font-size: .8rem; }
 .modal-actions { display: flex; gap: 0.75rem; justify-content: flex-end; }
 
 @media (max-width: 768px) {

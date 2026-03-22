@@ -93,6 +93,10 @@ router.get('/stats', authMiddleware, (req, res) => {
     totalLoyaltyPoints = db.prepare("SELECT COALESCE(SUM(points_balance),0) as total FROM customers").get().total
   }
 
+  // Gift cards
+  const activeGiftCards = db.prepare("SELECT COUNT(*) as count FROM gift_cards WHERE status = 'active'").get().count
+  const giftCardBalance = db.prepare("SELECT COALESCE(SUM(balance),0) as v FROM gift_cards WHERE status = 'active'").get().v
+
   // Low stock products (track_stock=1 AND stock_quantity <= low_stock_threshold AND stock_quantity > 0)
   const lowStockProducts = db.prepare(`
     SELECT id, name, slug, stock_quantity, low_stock_threshold
@@ -136,6 +140,7 @@ router.get('/stats', authMiddleware, (req, res) => {
     inventory: { low_stock: lowStockProducts, out_of_stock: outOfStockCount },
     tax_rates: { active: activeTaxRates },
     loyalty: { enabled: loyaltyEnabled, total_points: totalLoyaltyPoints },
+    gift_cards: { active: activeGiftCards, balance: giftCardBalance },
     recentPosts,
     recentActivity
   })

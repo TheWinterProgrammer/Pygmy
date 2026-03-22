@@ -95,6 +95,24 @@
             </div>
             <div class="coupon-error" v-if="couponError">{{ couponError }}</div>
 
+            <!-- Gift Card -->
+            <template v-if="giftCardsEnabled">
+              <h3 class="form-section-title" style="margin-top:1.5rem;">🎁 Gift Card</h3>
+              <div v-if="!appliedGiftCard" class="coupon-row">
+                <input class="input coupon-input" type="text" v-model="giftCardInput"
+                  placeholder="Enter gift card code" @keyup.enter="applyGiftCard" />
+                <button type="button" class="btn btn-ghost" @click="applyGiftCard" :disabled="applyingGC">
+                  {{ applyingGC ? '…' : 'Apply' }}
+                </button>
+              </div>
+              <div v-else class="coupon-success">
+                🎁 Gift card <strong>{{ appliedGiftCard.code }}</strong> applied — {{ fmt(giftCardDiscount) }} off
+                <span class="text-muted small" style="margin-left:.4rem;">(Balance: {{ fmt(appliedGiftCard.balance) }})</span>
+                <button type="button" class="btn btn-ghost btn-sm" @click="removeGiftCard" style="margin-left:.5rem;">✕ Remove</button>
+              </div>
+              <div class="coupon-error" v-if="gcError">{{ gcError }}</div>
+            </template>
+
             <!-- Loyalty Points -->
             <template v-if="loyaltyEnabled && customer.isLoggedIn && loyaltyBalance >= loyaltyMinRedeem">
               <h3 class="form-section-title" style="margin-top:1.5rem;">🏆 Use Loyalty Points</h3>
@@ -171,6 +189,10 @@
               <span class="text-muted">🏆 Loyalty discount</span>
               <span style="color:hsl(140,60%,60%);">−{{ fmt(loyaltyDiscount) }}</span>
             </div>
+            <div class="summary-row discount-row" v-if="appliedGiftCard && giftCardDiscount > 0">
+              <span class="text-muted">🎁 Gift card ({{ appliedGiftCard.code }})</span>
+              <span style="color:hsl(140,60%,60%);">−{{ fmt(giftCardDiscount) }}</span>
+            </div>
             <div class="summary-divider"></div>
             <div class="summary-row summary-total">
               <span>Total</span>
@@ -217,6 +239,14 @@ const taxAmount   = ref(0)
 const taxRateName = ref('')
 const taxRate     = ref(0)
 const taxLoading  = ref(false)
+
+// Gift card state
+const giftCardsEnabled = ref(false)
+const giftCardInput    = ref('')
+const applyingGC       = ref(false)
+const gcError          = ref('')
+const appliedGiftCard  = ref(null) // { code, balance }
+const giftCardDiscount = ref(0)
 
 // Loyalty state
 const loyaltyBalance  = ref(0)
@@ -291,7 +321,7 @@ async function calculateTax() {
 const shippingCost = computed(() => (selectedRate.value && !selectedRate.value.free) ? selectedRate.value.cost : 0)
 
 const orderTotal = computed(() =>
-  Math.max(0, cart.subtotal - (appliedCoupon.value?.discount || 0) - loyaltyDiscount.value + shippingCost.value + taxAmount.value)
+  Math.max(0, cart.subtotal - (appliedCoupon.value?.discount || 0) - loyaltyDiscount.value - giftCardDiscount.value + shippingCost.value + taxAmount.value)
 )
 
 async function applyCoupon() {
@@ -352,6 +382,12 @@ function fmt(v) {
 
 // Auto-fill from customer account if logged in
 onMounted(async () => {
+  // Load site settings (gift cards, etc.)
+  try {
+    const { data } = await api.get('/settings')
+    giftCardsEnabled.value = data.gift_cards_enabled === '1'
+  } catch {}
+
   if (customer.isLoggedIn && customer.customer) {
     const c = customer.customer
     if (!form.customer_name) form.customer_name = `${c.first_name || ''} ${c.last_name || ''}`.trim()
@@ -392,6 +428,28 @@ function removeLoyaltyPoints() {
   loyaltyError.value = ''
 }
 
+async function applyGiftCard() {
+  gcError.value = ''
+  const code = giftCardInput.value.trim()
+  if (!code) return
+  applyingGC.value = true
+  try {
+    const { data } = await api.post('/gift-cards/validate', { code })
+    const discount = Math.min(data.balance, cart.subtotal - (appliedCoupon.value?.discount || 0))
+    appliedGiftCard.value = data
+    giftCardDiscount.value = discount
+    giftCardInput.value = ''
+  } catch (e) {
+    gcError.value = e.response?.data?.error || 'Invalid gift card code.'
+  } finally { applyingGC.value = false }
+}
+
+function removeGiftCard() {
+  appliedGiftCard.value = null
+  giftCardDiscount.value = 0
+  gcError.value = ''
+}
+
 async function placeOrder() {
   submitError.value = ''
   if (!validate()) return
@@ -414,6 +472,7 @@ async function placeOrder() {
       tax_amount: taxAmount.value,
       tax_rate_name: taxRateName.value,
       redeem_points: loyaltyApplied.value ? (parseInt(loyaltyPointsInput.value) || 0) : 0,
+      gift_card_code: appliedGiftCard.value?.code || '',
     }
 
     // Pass customer token so order is linked to their account

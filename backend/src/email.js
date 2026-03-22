@@ -359,6 +359,70 @@ export async function notifyLowStock({ productName, slug, stockQuantity, thresho
   await sendMail({ subject, html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:1rem">${bodyHtml}</div>`, text })
 }
 
+/**
+ * Send a shipment notification email to customer with tracking info.
+ * Called when order transitions to 'shipped' and has a tracking number/url.
+ */
+export async function sendShipmentNotification(order) {
+  const cfg = getOrderEmailSettings()
+  if (!cfg.smtp_host || !cfg.smtp_user || !cfg.smtp_pass) return
+
+  const siteName = cfg.site_name || 'Pygmy CMS'
+  const sym = cfg.shop_currency_symbol || '€'
+  const items = typeof order.items === 'string' ? JSON.parse(order.items || '[]') : (order.items || [])
+  const { html: itemsHtml } = buildItemsTable(items, sym)
+
+  const trackingHtml = (() => {
+    if (!order.tracking_number && !order.tracking_url) return ''
+    let html = `<div style="margin:1.25rem 0; padding:1rem; background:rgba(255,255,255,0.05); border-radius:10px; border:1px solid rgba(255,255,255,0.1);">`
+    html += `<p style="margin:0 0 .5rem; font-weight:600; color:#e2e2e8;">📦 Tracking Information</p>`
+    if (order.tracking_carrier) html += `<p style="margin:0 0 .25rem; color:#b0b0c0;">Carrier: <strong>${order.tracking_carrier}</strong></p>`
+    if (order.tracking_number) html += `<p style="margin:0 0 .25rem; color:#b0b0c0;">Tracking #: <strong>${order.tracking_number}</strong></p>`
+    if (order.tracking_url) html += `<p style="margin:.5rem 0 0;"><a href="${order.tracking_url}" style="display:inline-block;padding:.4rem 1rem;background:hsl(355,70%,30%);color:#fff;border-radius:6px;text-decoration:none;font-size:.9rem;">🔍 Track Your Package →</a></p>`
+    html += `</div>`
+    return html
+  })()
+
+  const trackingText = [
+    order.tracking_carrier && `Carrier: ${order.tracking_carrier}`,
+    order.tracking_number  && `Tracking #: ${order.tracking_number}`,
+    order.tracking_url     && `Track your package: ${order.tracking_url}`,
+  ].filter(Boolean).join('\n')
+
+  const bodyHtml = `
+    <h2>Hi ${order.customer_name},</h2>
+    <p>Great news! Your order is on its way. 🚀</p>
+    <p><strong>Order number:</strong> <span class="badge">${order.order_number}</span></p>
+    ${trackingHtml}
+    ${itemsHtml}
+    <div class="totals">
+      <div class="totals-row total"><span>Total</span><span>${sym}${Number(order.total).toFixed(2)}</span></div>
+    </div>
+    ${order.shipping_address ? `<p><strong>Shipping to:</strong><br>${order.shipping_address.replace(/\n/g, '<br>')}</p>` : ''}
+    ${order.fulfillment_notes ? `<p><strong>Notes from us:</strong> ${order.fulfillment_notes}</p>` : ''}
+  `
+
+  const bodyText = [
+    `Hi ${order.customer_name},`,
+    `Your order is on its way! 🚀`,
+    ``,
+    `Order: ${order.order_number}`,
+    trackingText,
+    ``,
+    `Total: ${sym}${Number(order.total).toFixed(2)}`,
+    order.fulfillment_notes && `\nNote: ${order.fulfillment_notes}`,
+  ].filter(v => v !== false && v !== undefined).join('\n')
+
+  const subject = `Your order ${order.order_number} has been shipped! 📦`
+
+  await sendMailTo({
+    to: order.customer_email,
+    subject,
+    html: orderEmailHtml({ siteName, heading: `Your order has shipped! 📦`, bodyHtml }),
+    text: bodyText,
+  })
+}
+
 export async function sendTestEmail() {
   return sendMail({
     subject: 'Test email from Pygmy CMS',

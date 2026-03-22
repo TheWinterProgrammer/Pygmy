@@ -196,6 +196,17 @@
           </div>
         </div>
       </div>
+
+      <div class="stat-card glass" v-if="(stats.gift_cards?.active ?? 0) > 0">
+        <div class="stat-icon">🎁</div>
+        <div class="stat-body">
+          <div class="stat-num">{{ stats.gift_cards?.active ?? 0 }}</div>
+          <div class="stat-label">
+            Active Gift Cards
+            <RouterLink to="/gift-cards" class="stat-link">→ Gift Cards</RouterLink>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Inventory alerts -->
@@ -265,9 +276,12 @@
       <RouterLink to="/webhooks" class="btn btn-ghost">🔗 Webhooks</RouterLink>
       <RouterLink to="/backup" class="btn btn-ghost">🗄️ Backup</RouterLink>
       <RouterLink to="/orders" class="btn btn-ghost">📦 Orders</RouterLink>
+      <RouterLink to="/fulfillment" class="btn btn-ghost">🚢 Fulfillment</RouterLink>
       <RouterLink to="/customers" class="btn btn-ghost">🧑‍💼 Customers</RouterLink>
       <RouterLink to="/coupons" class="btn btn-ghost">🎟️ Coupons</RouterLink>
       <RouterLink to="/abandoned-carts" class="btn btn-ghost">🛒 Abandoned Carts</RouterLink>
+      <RouterLink to="/gift-cards" class="btn btn-ghost">🎁 Gift Cards</RouterLink>
+      <RouterLink to="/activity-log" class="btn btn-ghost">🕐 Activity Log</RouterLink>
     </div>
   </div>
 </template>

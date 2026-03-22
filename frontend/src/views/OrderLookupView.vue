@@ -87,6 +87,29 @@
             </div>
           </div>
 
+          <!-- Tracking Info -->
+          <div class="tracking-card" v-if="result.tracking_number || result.tracking_url">
+            <h3 class="items-title">📦 Tracking</h3>
+            <div class="result-meta">
+              <div class="meta-row" v-if="result.tracking_carrier">
+                <span class="meta-label">Carrier</span>
+                <span>{{ result.tracking_carrier }}</span>
+              </div>
+              <div class="meta-row" v-if="result.tracking_number">
+                <span class="meta-label">Tracking #</span>
+                <span style="font-family:monospace;letter-spacing:.03em;">{{ result.tracking_number }}</span>
+              </div>
+              <div class="meta-row" v-if="result.shipped_at">
+                <span class="meta-label">Shipped</span>
+                <span>{{ formatDate(result.shipped_at) }}</span>
+              </div>
+            </div>
+            <a v-if="result.tracking_url" :href="result.tracking_url" target="_blank" rel="noopener"
+               class="btn btn-primary" style="margin-top:.75rem;display:inline-block;">
+              🔍 Track Package →
+            </a>
+          </div>
+
           <!-- Notes -->
           <div class="result-notes" v-if="result.notes">
             <span class="meta-label">Notes:</span> {{ result.notes }}
@@ -262,4 +285,5 @@ function fmt(v) {
 .total-row.big { font-size:1rem;font-weight:700; }
 
 .result-notes { font-size: .85rem; color: var(--text-muted); margin-top: .5rem; line-height: 1.5; }
+.tracking-card { margin-bottom: 1rem; padding: 1rem; background: rgba(255,255,255,.04); border-radius: .75rem; border: 1px solid rgba(255,255,255,.08); }
 </style>

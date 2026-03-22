@@ -291,6 +291,26 @@
         </div>
       </div>
 
+      <!-- Gift Cards -->
+      <div class="glass section">
+        <h2 style="margin-bottom:1.25rem;">🎁 Gift Cards</h2>
+        <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:1.25rem;">
+          Allow customers to apply gift card codes at checkout.
+        </p>
+        <label class="toggle-label" style="margin-bottom:1rem">
+          <span class="toggle-track">
+            <input type="checkbox" v-model="giftCardsEnabled" />
+            <span class="toggle-thumb"></span>
+          </span>
+          <span>Enable Gift Cards at checkout</span>
+        </label>
+        <div v-if="giftCardsEnabled">
+          <p style="font-size:0.83rem;color:var(--text-muted)">
+            Manage and issue gift cards from the <RouterLink to="/gift-cards" style="color:var(--accent)">🎁 Gift Cards</RouterLink> panel.
+          </p>
+        </div>
+      </div>
+
       <!-- Maintenance Mode -->
       <div class="glass section">
         <h2 style="margin-bottom:1.25rem;">🚧 Maintenance Mode</h2>
@@ -486,6 +506,7 @@ const form = ref({
   loyalty_redemption_rate: '100',
   loyalty_min_redeem: '100',
   loyalty_expiry_days: '0',
+  gift_cards_enabled: '0',
 })
 
 // Checkbox helpers (settings stored as '1'/'0')
@@ -524,6 +545,11 @@ const taxInclusive = computed({
 const loyaltyEnabled = computed({
   get: () => form.value.loyalty_enabled === '1',
   set: v => { form.value.loyalty_enabled = v ? '1' : '0' }
+})
+
+const giftCardsEnabled = computed({
+  get: () => form.value.gift_cards_enabled === '1',
+  set: v => { form.value.gift_cards_enabled = v ? '1' : '0' }
 })
 
 // ─── 2FA state ────────────────────────────────────────────────────────────────
