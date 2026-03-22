@@ -122,6 +122,8 @@ const navItems = [
   { to: '/revenue',       icon: '💰',  label: 'Revenue' },
   { to: '/affiliates',    icon: '🤝',  label: 'Affiliates' },
   { to: '/inventory',     icon: '🏭',  label: 'Bulk Inventory' },
+  { to: '/currency',      icon: '💱',  label: 'Multi-Currency' },
+  { to: '/bundles',       icon: '🪄',  label: 'Bundles' },
   { to: '/activity-log',  icon: '🕐',  label: 'Activity Log' },
   { to: '/settings',      icon: '⚙️',  label: 'Settings' },
 ]

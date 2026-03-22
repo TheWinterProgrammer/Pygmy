@@ -60,6 +60,9 @@ const routes = [
       { path: 'revenue',          name: 'Revenue',        component: () => import('../views/RevenueView.vue') },
       { path: 'affiliates',       name: 'Affiliates',     component: () => import('../views/AffiliatesView.vue') },
       { path: 'inventory',        name: 'Inventory',      component: () => import('../views/InventoryView.vue') },
+      { path: 'currency',         name: 'Currency',       component: () => import('../views/CurrencyView.vue') },
+      { path: 'bundles',          name: 'Bundles',        component: () => import('../views/BundlesView.vue') },
+      { path: 'bundles/:id',      name: 'BundleEdit',     component: () => import('../views/BundleEditView.vue') },
       { path: 'settings',         name: 'Settings',       component: () => import('../views/SettingsView.vue') },
     ]
   },

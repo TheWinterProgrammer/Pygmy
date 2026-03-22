@@ -837,3 +837,49 @@ for (const [key, value] of Object.entries(phase28bSettings)) {
 }
 
 export default db
+
+// ─── Phase 29: Multi-Currency + Product Bundles + Customer CSV Import ─────────
+
+// Exchange rates table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS currency_rates (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    code        TEXT NOT NULL UNIQUE,   -- e.g. USD, GBP, JPY
+    symbol      TEXT NOT NULL DEFAULT '',
+    rate        REAL NOT NULL DEFAULT 1, -- multiplier vs base currency
+    active      INTEGER NOT NULL DEFAULT 1,
+    updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS product_bundles (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT NOT NULL DEFAULT '',
+    slug        TEXT NOT NULL UNIQUE,
+    description TEXT NOT NULL DEFAULT '',
+    discount_type TEXT NOT NULL DEFAULT 'percent', -- percent | fixed
+    discount_value REAL NOT NULL DEFAULT 0,
+    cover_image TEXT NOT NULL DEFAULT '',
+    status      TEXT NOT NULL DEFAULT 'draft',  -- draft | published
+    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS bundle_items (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    bundle_id   INTEGER NOT NULL REFERENCES product_bundles(id) ON DELETE CASCADE,
+    product_id  INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    quantity    INTEGER NOT NULL DEFAULT 1
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_bundle_items_bundle ON bundle_items(bundle_id);
+  CREATE INDEX IF NOT EXISTS idx_currency_rates_code ON currency_rates(code);
+`)
+
+// Phase 29 settings
+const phase29Settings = {
+  multicurrency_enabled: '0',
+  base_currency: 'EUR',
+}
+for (const [key, value] of Object.entries(phase29Settings)) {
+  insertSetting.run(key, value)
+}

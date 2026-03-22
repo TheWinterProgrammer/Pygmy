@@ -441,6 +441,25 @@
       </div>
 
       <!-- Maintenance Mode -->
+      <!-- Multi-Currency -->
+      <div class="glass section">
+        <h2 style="margin-bottom:1.25rem;">💱 Multi-Currency</h2>
+        <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.25rem;">
+          Allow shoppers to view prices in their preferred currency. Manage exchange rates in the
+          <RouterLink to="/currency" style="color:var(--accent)">💱 Multi-Currency</RouterLink> panel.
+        </p>
+        <label class="toggle-label" style="margin-bottom:1.25rem">
+          <input type="checkbox" v-model="multicurrencyEnabled" />
+          <span>Enable multi-currency switcher on the public site</span>
+        </label>
+        <div class="form-row" v-if="multicurrencyEnabled" style="margin-top:0.5rem">
+          <div class="form-group">
+            <label>Base Currency Code <small style="color:var(--text-muted)">(e.g. EUR)</small></label>
+            <input v-model="form.base_currency" class="input" placeholder="EUR" style="max-width:120px;" />
+          </div>
+        </div>
+      </div>
+
       <div class="glass section">
         <h2 style="margin-bottom:1.25rem;">🚧 Maintenance Mode</h2>
         <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.25rem;">
@@ -647,6 +666,9 @@ const form = ref({
   // Affiliate
   affiliate_enabled: '0',
   affiliate_cookie_days: '30',
+  // Multi-Currency
+  multicurrency_enabled: '0',
+  base_currency: 'EUR',
   // Cookie consent
   cookie_consent_enabled: '1',
   cookie_consent_message: 'We use cookies to improve your experience. By continuing to use this site, you accept our use of cookies.',
@@ -709,6 +731,11 @@ const membershipsEnabled = computed({
 const affiliateEnabled = computed({
   get: () => form.value.affiliate_enabled === '1',
   set: v => { form.value.affiliate_enabled = v ? '1' : '0' }
+})
+
+const multicurrencyEnabled = computed({
+  get: () => form.value.multicurrency_enabled === '1',
+  set: v => { form.value.multicurrency_enabled = v ? '1' : '0' }
 })
 
 const cookieConsentEnabled = computed({

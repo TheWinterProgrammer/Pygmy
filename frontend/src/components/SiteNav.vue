@@ -56,6 +56,9 @@
         <span v-if="wishlist.count > 0" class="wishlist-badge">{{ wishlist.count > 9 ? '9+' : wishlist.count }}</span>
       </RouterLink>
 
+      <!-- Currency Picker -->
+      <CurrencyPicker class="nav-currency" />
+
       <!-- Cart button -->
       <button class="nav-cart-btn" @click="cart.toggle()" aria-label="Cart" title="Shopping cart">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -96,6 +99,7 @@ import { useSiteStore } from '../stores/site.js'
 import { useCartStore } from '../stores/cart.js'
 import { useWishlistStore } from '../stores/wishlist.js'
 import { useCustomerStore } from '../stores/customer.js'
+import CurrencyPicker from './CurrencyPicker.vue'
 
 const site     = useSiteStore()
 const cart          = useCartStore()

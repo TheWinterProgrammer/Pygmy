@@ -137,6 +137,13 @@ router.get('/stats', authMiddleware, (req, res) => {
     ).get()?.t ?? 0
   } catch {}
 
+  // Bundle stats
+  let totalBundles = 0, publishedBundles = 0
+  try {
+    totalBundles = db.prepare(`SELECT COUNT(*) as c FROM product_bundles`).get()?.c ?? 0
+    publishedBundles = db.prepare(`SELECT COUNT(*) as c FROM product_bundles WHERE status='published'`).get()?.c ?? 0
+  } catch {}
+
   res.json({
     pages: { total: pages, published: publishedPages },
     posts: { total: posts, published: publishedPosts, scheduled: scheduledPosts },
@@ -163,6 +170,7 @@ router.get('/stats', authMiddleware, (req, res) => {
     gift_cards: { active: activeGiftCards, balance: giftCardBalance },
     subscriptions: { active: activeSubs, trialing: trialingSubs, mrr: Math.round(subMrr * 100) / 100 },
     affiliates: { total: totalAffiliates, pending_commissions: Math.round(pendingCommissions * 100) / 100 },
+    bundles: { total: totalBundles, published: publishedBundles },
     recentPosts,
     recentActivity
   })

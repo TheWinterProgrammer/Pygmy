@@ -19,6 +19,14 @@ const routes = [
     component: () => import('../views/ContactView.vue')
   },
   {
+    path: '/shop/bundles',
+    component: () => import('../views/BundlesListView.vue'),
+  },
+  {
+    path: '/shop/bundles/:slug',
+    component: () => import('../views/BundleView.vue'),
+  },
+  {
     path: '/shop',
     component: () => import('../views/ProductsView.vue')
   },

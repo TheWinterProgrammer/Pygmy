@@ -230,6 +230,18 @@
           </div>
         </div>
       </div>
+
+      <div class="stat-card glass" v-if="(stats.bundles?.total ?? 0) > 0">
+        <div class="stat-icon">🪄</div>
+        <div class="stat-body">
+          <div class="stat-num">{{ stats.bundles?.published ?? 0 }}</div>
+          <div class="stat-label">
+            Bundles Live
+            <span v-if="stats.bundles?.total > stats.bundles?.published" style="color:var(--text-muted)"> · {{ stats.bundles.total - stats.bundles.published }} draft</span>
+            <RouterLink to="/bundles" class="stat-link">→ Bundles</RouterLink>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Inventory alerts -->

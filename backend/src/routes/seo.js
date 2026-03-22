@@ -117,7 +117,28 @@ router.get('/sitemap.xml', (req, res) => {
   </url>`)
   }
 
-  // Custom forms (active only)
+  // Bundles
+  const bundles = db.prepare("SELECT slug, updated_at FROM product_bundles WHERE status = 'published' ORDER BY created_at DESC").all()
+  if (bundles.length > 0) {
+    urls.push(`
+  <url>
+    <loc>${escapeXml(siteUrl)}/shop/bundles</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>`)
+    for (const b of bundles) {
+      const lastmod = (b.updated_at || '').split('T')[0]
+      urls.push(`
+  <url>
+    <loc>${escapeXml(siteUrl)}/shop/bundles/${escapeXml(b.slug)}</loc>
+    ${lastmod ? `<lastmod>${lastmod}</lastmod>` : ''}
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>`)
+    }
+  }
+
+// Custom forms (active only)
   const forms = db.prepare("SELECT slug, updated_at FROM custom_forms WHERE status = 'active' ORDER BY created_at DESC").all()
   for (const form of forms) {
     const lastmod = (form.updated_at || '').split('T')[0]

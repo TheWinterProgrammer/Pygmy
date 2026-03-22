@@ -50,6 +50,7 @@ router.get('/export', authMiddleware, (req, res) => {
       events:       db.prepare('SELECT * FROM events').all(),
       coupons:      db.prepare('SELECT * FROM coupons').all(),
       orders:       db.prepare('SELECT * FROM orders').all(),
+      bundles:      db.prepare('SELECT * FROM product_bundles').all(),
     }
   }
 

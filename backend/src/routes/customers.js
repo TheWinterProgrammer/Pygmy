@@ -2,8 +2,12 @@
 import { Router } from 'express'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
+import multer from 'multer'
 import db from '../db.js'
 import { authMiddleware, adminOnly } from '../middleware/auth.js'
+import { logActivity } from './activity.js'
+
+const csvUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } })
 
 const router = Router()
 const JWT_SECRET = process.env.JWT_SECRET || 'pygmy-dev-secret-change-in-production'
@@ -262,6 +266,99 @@ router.delete('/:id', authMiddleware, adminOnly, (req, res) => {
   db.prepare('UPDATE orders SET customer_id = NULL WHERE customer_id = ?').run(customer.id)
   db.prepare('DELETE FROM customers WHERE id = ?').run(customer.id)
   res.json({ ok: true })
+})
+
+// ─── Admin: Export customers as CSV ───────────────────────────────────────────
+// GET /api/customers/export/csv  (admin only)
+router.get('/export/csv', authMiddleware, adminOnly, (req, res) => {
+  const customers = db.prepare(`
+    SELECT c.id, c.first_name, c.last_name, c.email, c.phone, c.active,
+           c.points_balance, c.created_at,
+           COUNT(o.id) AS order_count,
+           COALESCE(SUM(o.total), 0) AS total_spent
+    FROM customers c
+    LEFT JOIN orders o ON o.customer_id = c.id
+    GROUP BY c.id
+    ORDER BY c.created_at DESC
+  `).all()
+
+  const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`
+  const header = ['id', 'first_name', 'last_name', 'email', 'phone', 'active', 'points_balance', 'order_count', 'total_spent', 'created_at']
+  const rows = customers.map(c =>
+    [c.id, c.first_name, c.last_name, c.email, c.phone, c.active, c.points_balance, c.order_count, c.total_spent, c.created_at]
+      .map(esc).join(',')
+  )
+  const csv = [header.join(','), ...rows].join('\n')
+
+  res.setHeader('Content-Type', 'text/csv')
+  res.setHeader('Content-Disposition', `attachment; filename="customers-${Date.now()}.csv"`)
+  res.send(csv)
+})
+
+// ─── Admin: Import customers from CSV ─────────────────────────────────────────
+// POST /api/customers/import/csv  (admin only, multipart field: file)
+// CSV must have header row with at least: email, first_name, last_name
+// Optional columns: phone, active (1/0)
+// Existing customers (matched by email) are skipped (no overwrite).
+router.post('/import/csv', authMiddleware, adminOnly, csvUpload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'CSV file required' })
+
+  const text = req.file.buffer.toString('utf-8')
+  const lines = text.split(/\r?\n/).filter(l => l.trim())
+  if (lines.length < 2) return res.status(400).json({ error: 'CSV must have a header row and at least one data row' })
+
+  // Parse quoted CSV
+  function parseLine(line) {
+    const fields = []
+    let cur = '', inQ = false
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i]
+      if (ch === '"' && !inQ) { inQ = true }
+      else if (ch === '"' && inQ && line[i + 1] === '"') { cur += '"'; i++ }
+      else if (ch === '"' && inQ) { inQ = false }
+      else if (ch === ',' && !inQ) { fields.push(cur); cur = '' }
+      else { cur += ch }
+    }
+    fields.push(cur)
+    return fields
+  }
+
+  const headers = parseLine(lines[0]).map(h => h.trim().toLowerCase())
+  const idx = k => headers.indexOf(k)
+
+  if (idx('email') === -1) return res.status(400).json({ error: "CSV must have an 'email' column" })
+
+  let created = 0, skipped = 0
+  const errors = []
+
+  const defaultPw = await bcrypt.hash('ChangeMe123!', 10)
+
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseLine(lines[i])
+    const email = cols[idx('email')]?.trim().toLowerCase()
+    if (!email || !email.includes('@')) { errors.push({ row: i + 1, error: 'Invalid email' }); continue }
+
+    const existing = db.prepare('SELECT id FROM customers WHERE email = ?').get(email)
+    if (existing) { skipped++; continue }
+
+    const firstName = idx('first_name') >= 0 ? cols[idx('first_name')]?.trim() || '' : ''
+    const lastName = idx('last_name') >= 0 ? cols[idx('last_name')]?.trim() || '' : ''
+    const phone = idx('phone') >= 0 ? cols[idx('phone')]?.trim() || '' : ''
+    const active = idx('active') >= 0 ? (cols[idx('active')]?.trim() === '1' ? 1 : 0) : 1
+
+    try {
+      db.prepare(`
+        INSERT INTO customers (email, password_hash, first_name, last_name, phone, active)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(email, defaultPw, firstName, lastName, phone, active)
+      created++
+    } catch (e) {
+      errors.push({ row: i + 1, error: e.message })
+    }
+  }
+
+  logActivity(req.user?.id, req.user?.name, 'import', 'customers', null, `Imported ${created} customers from CSV`)
+  res.json({ ok: true, created, skipped, errors: errors.slice(0, 20) })
 })
 
 export { customerAuthMiddleware }

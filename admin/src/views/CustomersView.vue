@@ -4,7 +4,14 @@
       <h1>👤 Customers</h1>
       <div class="header-right">
         <span class="stat-label">{{ total }} total</span>
+        <button class="btn btn-ghost btn-sm" @click="exportCsv" title="Export customers as CSV">⬇️ Export CSV</button>
+        <button class="btn btn-ghost btn-sm" @click="$refs.csvInput.click()" title="Import customers from CSV">⬆️ Import CSV</button>
+        <input ref="csvInput" type="file" accept=".csv" style="display:none" @change="importCsv" />
       </div>
+    </div>
+    <div v-if="importResult" class="import-banner glass">
+      {{ importResult }}
+      <button style="margin-left:1rem;opacity:.6;cursor:pointer;background:none;border:none;color:inherit" @click="importResult = ''">✕</button>
     </div>
 
     <!-- Search -->
@@ -173,10 +180,41 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useAuthStore } from '../stores/auth.js'
+import api from '../api.js'
 
 const auth = useAuthStore()
 const customers = ref([])
 const total = ref(0)
+const importResult = ref('')
+
+async function exportCsv() {
+  const token = localStorage.getItem('pygmy_token')
+  const res = await fetch((import.meta.env.VITE_API_URL || 'http://localhost:3200/api') + '/customers/export/csv', {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `customers-${Date.now()}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+async function importCsv(evt) {
+  const file = evt.target.files[0]
+  if (!file) return
+  evt.target.value = ''
+  const fd = new FormData()
+  fd.append('file', file)
+  try {
+    const { data } = await api.post('/customers/import/csv', fd)
+    importResult.value = `✅ Import complete — ${data.created} created, ${data.skipped} skipped${data.errors?.length ? `, ${data.errors.length} errors` : ''}`
+    fetchCustomers()
+  } catch (e) {
+    importResult.value = `❌ Import failed: ${e.response?.data?.error || e.message}`
+  }
+}
 const loading = ref(false)
 const q = ref('')
 const detailCustomer = ref(null)

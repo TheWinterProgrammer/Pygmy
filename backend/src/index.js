@@ -48,6 +48,8 @@ import digitalDownloadsRoutes from './routes/digital_downloads.js'
 import { issueDownloadTokensForOrder } from './routes/digital_downloads.js'
 import subscriptionsRoutes from './routes/subscriptions.js'
 import affiliatesRoutes, { recordReferral } from './routes/affiliates.js'
+import currencyRoutes from './routes/currency.js'
+import bundlesRoutes from './routes/bundles.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -193,6 +195,8 @@ app.use('/api/gift-cards', giftCardsRoutes)
 app.use('/api/digital-downloads', digitalDownloadsRoutes)
 app.use('/api/subscriptions', subscriptionsRoutes)
 app.use('/api/affiliates', affiliatesRoutes)
+app.use('/api/currency', currencyRoutes)
+app.use('/api/bundles', bundlesRoutes)
 
 // ─── SEO (public) ─────────────────────────────────────────────────────────────
 app.use('/', seoRoutes)

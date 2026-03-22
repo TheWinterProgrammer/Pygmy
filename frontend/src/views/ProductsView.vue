@@ -268,6 +268,13 @@ const activeTag      = ref(route.query.tag || null)
 const addedIds       = ref(new Set())
 const hoverProduct   = ref(null)
 
+// Advanced filters
+const filterInStock   = ref(route.query.in_stock === '1')
+const filterMinPrice  = ref(route.query.min_price ? Number(route.query.min_price) : '')
+const filterMaxPrice  = ref(route.query.max_price ? Number(route.query.max_price) : '')
+const filterSort      = ref(route.query.sort || 'newest')
+const showFilters     = ref(false)
+
 // ── Quick View ──────────────────────────────────────────────────────────────
 const quickViewProduct   = ref(null)
 const qvDetail           = ref(null)
@@ -398,11 +405,37 @@ async function load() {
   const params = { limit, offset: offset.value }
   if (activeCategory.value) params.category = activeCategory.value
   if (activeTag.value) params.tag = activeTag.value
+  if (filterInStock.value) params.in_stock = '1'
+  if (filterMinPrice.value !== '') params.min_price = filterMinPrice.value
+  if (filterMaxPrice.value !== '') params.max_price = filterMaxPrice.value
+  if (filterSort.value && filterSort.value !== 'newest') params.sort = filterSort.value
 
   const { data } = await api.get('/products', { params })
   products.value = data.products
   total.value = data.total
   loading.value = false
+}
+
+function applyFilters() {
+  offset.value = 0
+  router.replace({ query: {
+    ...route.query,
+    category: activeCategory.value || undefined,
+    tag: activeTag.value || undefined,
+    in_stock: filterInStock.value ? '1' : undefined,
+    min_price: filterMinPrice.value !== '' ? filterMinPrice.value : undefined,
+    max_price: filterMaxPrice.value !== '' ? filterMaxPrice.value : undefined,
+    sort: filterSort.value !== 'newest' ? filterSort.value : undefined,
+  }})
+  load()
+}
+
+function resetFilters() {
+  filterInStock.value = false
+  filterMinPrice.value = ''
+  filterMaxPrice.value = ''
+  filterSort.value = 'newest'
+  applyFilters()
 }
 
 function setCategory(slug) {
@@ -418,6 +451,10 @@ function filterTag(tag) {
 function clearFilters() {
   activeCategory.value = null
   activeTag.value = null
+  filterInStock.value = false
+  filterMinPrice.value = ''
+  filterMaxPrice.value = ''
+  filterSort.value = 'newest'
   router.replace({ query: {} })
 }
 
