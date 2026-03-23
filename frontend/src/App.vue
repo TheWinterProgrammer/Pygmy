@@ -17,6 +17,7 @@
     <CartDrawer />
     <CookieBanner v-if="site.settings?.cookie_consent_enabled === '1'" :settings="site.settings" />
     <SitePopup />
+    <SupportWidget />
   </div>
 
   <!-- Loading screen -->
@@ -34,6 +35,7 @@ import CartDrawer from './components/CartDrawer.vue'
 import CookieBanner from './components/CookieBanner.vue'
 import AnnouncementBar from './components/AnnouncementBar.vue'
 import SitePopup from './components/SitePopup.vue'
+import SupportWidget from './components/SupportWidget.vue'
 import { useAffiliate } from './composables/useAffiliate.js'
 
 const site = useSiteStore()

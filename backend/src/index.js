@@ -60,6 +60,10 @@ import emailTemplatesRoutes from './routes/email_templates.js'
 import flashSalesRoutes from './routes/flash_sales.js'
 import announcementBarRoutes from './routes/announcement_bar.js'
 import popupsRoutes from './routes/popups.js'
+import supportRoutes from './routes/support.js'
+import contentCalendarRoutes from './routes/content_calendar.js'
+import quickNotesRoutes from './routes/quick_notes.js'
+import siteHealthRoutes from './routes/site_health.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -217,6 +221,10 @@ app.use('/api/email-templates', emailTemplatesRoutes)
 app.use('/api/flash-sales', flashSalesRoutes)
 app.use('/api/announcement-bars', announcementBarRoutes)
 app.use('/api/popups', popupsRoutes)
+app.use('/api/support', supportRoutes)
+app.use('/api/content-calendar', contentCalendarRoutes)
+app.use('/api/quick-notes', quickNotesRoutes)
+app.use('/api/site-health', siteHealthRoutes)
 
 // ─── SEO (public) ─────────────────────────────────────────────────────────────
 app.use('/', seoRoutes)

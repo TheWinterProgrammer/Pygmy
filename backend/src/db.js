@@ -1223,3 +1223,69 @@ db.prepare(`
     created_at TEXT DEFAULT (datetime('now'))
   )
 `).run()
+
+// ── Phase 32: Support Tickets + Live Chat ─────────────────────────────────────
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS support_tickets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticket_number TEXT UNIQUE NOT NULL,
+    subject TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'open',       -- open | in_progress | waiting | resolved | closed
+    priority TEXT NOT NULL DEFAULT 'normal',   -- low | normal | high | urgent
+    channel TEXT NOT NULL DEFAULT 'widget',    -- widget | email | manual
+    customer_name TEXT NOT NULL,
+    customer_email TEXT NOT NULL,
+    customer_id INTEGER,                       -- FK customers (if logged in)
+    assigned_to INTEGER,                       -- FK users
+    order_number TEXT,
+    tags TEXT DEFAULT '[]',
+    is_read INTEGER NOT NULL DEFAULT 0,
+    last_reply_at TEXT,
+    resolved_at TEXT,
+    closed_at TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  )
+`).run()
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS ticket_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticket_id INTEGER NOT NULL REFERENCES support_tickets(id) ON DELETE CASCADE,
+    sender TEXT NOT NULL DEFAULT 'customer',   -- customer | agent
+    sender_name TEXT NOT NULL,
+    sender_email TEXT,
+    agent_id INTEGER,
+    message TEXT NOT NULL,
+    attachments TEXT DEFAULT '[]',
+    is_internal INTEGER NOT NULL DEFAULT 0,    -- internal note (not visible to customer)
+    created_at TEXT DEFAULT (datetime('now'))
+  )
+`).run()
+
+// Phase 32 settings
+const phase32Settings = {
+  support_enabled: '1',
+  support_widget_enabled: '1',
+  support_widget_greeting: 'Hi there! 👋 How can we help you today?',
+  support_widget_offline_msg: "We're currently offline. Leave us a message and we'll get back to you!",
+  support_online_hours: '{"mon":"09:00-17:00","tue":"09:00-17:00","wed":"09:00-17:00","thu":"09:00-17:00","fri":"09:00-17:00","sat":"","sun":""}',
+  support_auto_reply_enabled: '0',
+  support_auto_reply_msg: "Thanks for reaching out! We've received your message and will get back to you within 24 hours.",
+  support_notify_email: '',
+}
+for (const [key, value] of Object.entries(phase32Settings)) {
+  db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)').run(key, value)
+}
+
+// ── Phase 33: Quick Notes ────────────────────────────────────────────────────
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS quick_notes (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    content    TEXT    NOT NULL DEFAULT '',
+    color      TEXT    NOT NULL DEFAULT 'yellow',  -- yellow | green | blue | pink | purple
+    pinned     INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT    DEFAULT (datetime('now')),
+    updated_at TEXT    DEFAULT (datetime('now'))
+  )
+`).run()

@@ -23,8 +23,11 @@ router.get('/count', authMiddleware, (req, res) => {
   let qa = 0
   try { qa = db.prepare(`SELECT COUNT(*) as n FROM product_qa WHERE status = 'pending'`).get().n } catch {}
 
-  const total = comments + contact + forms + qa
-  res.json({ total, comments, contact, forms, qa })
+  let support = 0
+  try { support = db.prepare(`SELECT COUNT(*) as n FROM support_tickets WHERE is_read = 0`).get().n } catch {}
+
+  const total = comments + contact + forms + qa + support
+  res.json({ total, comments, contact, forms, qa, support })
 })
 
 // GET /api/notifications — recent items for the dropdown (last 15)

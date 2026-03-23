@@ -117,6 +117,10 @@ router.get('/stats', authMiddleware, (req, res) => {
     SELECT * FROM activity_log ORDER BY created_at DESC LIMIT 10
   `).all()
 
+  // Support tickets
+  const openTickets = db.prepare("SELECT COUNT(*) AS c FROM support_tickets WHERE status IN ('open','in_progress')").get()?.c || 0
+  const unreadTickets = db.prepare("SELECT COUNT(*) AS c FROM support_tickets WHERE is_read = 0").get()?.c || 0
+
   // Subscription/Membership stats
   let activeSubs = 0, trialingSubs = 0, subMrr = 0
   try {
@@ -179,6 +183,7 @@ router.get('/stats', authMiddleware, (req, res) => {
     affiliates: { total: totalAffiliates, pending_commissions: Math.round(pendingCommissions * 100) / 100 },
     bundles: { total: totalBundles, published: publishedBundles },
     product_qa: { total: qaTotal, pending: qaPending },
+    support: { open: openTickets, unread: unreadTickets },
     recentPosts,
     recentActivity
   })

@@ -19,6 +19,14 @@ const routes = [
     component: () => import('../views/ContactView.vue')
   },
   {
+    path: '/support',
+    component: () => import('../views/SupportView.vue')
+  },
+  {
+    path: '/returns',
+    component: () => import('../views/ReturnRequestView.vue')
+  },
+  {
     path: '/shop/bundles',
     component: () => import('../views/BundlesListView.vue'),
   },

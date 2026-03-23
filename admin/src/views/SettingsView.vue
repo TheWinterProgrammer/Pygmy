@@ -440,6 +440,41 @@
         </div>
       </div>
 
+      <!-- Support Widget -->
+      <div class="glass section">
+        <h2 style="margin-bottom:1.25rem;">🎫 Support Widget</h2>
+        <div class="form-row" style="margin-bottom:1rem">
+          <label class="toggle-label">
+            <input type="checkbox" v-model="form.support_enabled" true-value="1" false-value="0" />
+            <span>Enable Support Tickets</span>
+          </label>
+          <label class="toggle-label">
+            <input type="checkbox" v-model="form.support_widget_enabled" true-value="1" false-value="0" />
+            <span>Show Chat Widget on Frontend</span>
+          </label>
+        </div>
+        <div class="form-group">
+          <label>Widget Greeting Message</label>
+          <input v-model="form.support_widget_greeting" class="input" placeholder="Hi! How can we help you today?" />
+        </div>
+        <div class="form-group">
+          <label>Offline Message</label>
+          <input v-model="form.support_widget_offline_msg" class="input" placeholder="We're offline. Leave a message!" />
+        </div>
+        <div class="form-group">
+          <label>Support Notification Email</label>
+          <input v-model="form.support_notify_email" class="input" type="email" placeholder="support@yoursite.com" />
+          <small style="color:var(--muted)">Receive an email when a new ticket is created.</small>
+        </div>
+        <div class="form-group">
+          <label class="toggle-label" style="margin-bottom:.5rem">
+            <input type="checkbox" v-model="form.support_auto_reply_enabled" true-value="1" false-value="0" />
+            <span>Send Auto-Reply to customer on ticket creation</span>
+          </label>
+          <textarea v-if="form.support_auto_reply_enabled === '1'" v-model="form.support_auto_reply_msg" class="input textarea" rows="2" placeholder="Thanks for reaching out! We'll reply within 24 hours."></textarea>
+        </div>
+      </div>
+
       <!-- Maintenance Mode -->
       <!-- Multi-Currency -->
       <div class="glass section">
@@ -627,6 +662,14 @@ const form = ref({
   // newsletter
   newsletter_enabled: '0',
   newsletter_intro: '',
+  // support widget
+  support_enabled: '1',
+  support_widget_enabled: '1',
+  support_widget_greeting: 'Hi there! 👋 How can we help you today?',
+  support_widget_offline_msg: "We're offline. Leave a message and we'll be in touch!",
+  support_notify_email: '',
+  support_auto_reply_enabled: '0',
+  support_auto_reply_msg: "Thanks for reaching out! We've received your message and will get back to you within 24 hours.",
   // maintenance
   maintenance_mode: '0',
   maintenance_message: '',

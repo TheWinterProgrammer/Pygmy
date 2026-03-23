@@ -132,8 +132,11 @@ const navItems = [
   { to: '/flash-sales',   icon: '⚡',  label: 'Flash Sales' },
   { to: '/announcement-bars', icon: '📢', label: 'Announcement Bars' },
   { to: '/popups',        icon: '💬',  label: 'Pop-up Builder' },
-  { to: '/activity-log',  icon: '🕐',  label: 'Activity Log' },
-  { to: '/settings',      icon: '⚙️',  label: 'Settings' },
+  { to: '/support',            icon: '🎫',  label: 'Support Tickets' },
+  { to: '/content-calendar',  icon: '📅',  label: 'Content Calendar' },
+  { to: '/site-health',       icon: '🩺',  label: 'Site Health' },
+  { to: '/activity-log',      icon: '🕐',  label: 'Activity Log' },
+  { to: '/settings',          icon: '⚙️',  label: 'Settings' },
 ]
 
 function handleLogout() {

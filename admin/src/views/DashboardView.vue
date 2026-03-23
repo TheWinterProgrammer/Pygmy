@@ -254,6 +254,17 @@
         </div>
       </div>
 
+      <!-- Support Tickets -->
+      <div class="stat-card glass" :class="{ 'stat-alert': (stats.support?.unread ?? 0) > 0 }">
+        <div class="stat-icon">🎫</div>
+        <div class="stat-body">
+          <div class="stat-num">{{ stats.support?.open ?? 0 }}</div>
+          <div class="stat-label">Open Tickets</div>
+          <span v-if="(stats.support?.unread ?? 0) > 0" style="color:var(--accent);font-weight:600">{{ stats.support.unread }} unread</span>
+          <RouterLink to="/support" class="stat-link">→ Support</RouterLink>
+        </div>
+      </div>
+
     </div>
 
     <!-- Inventory alerts -->
@@ -337,7 +348,13 @@
       <RouterLink to="/flash-sales" class="btn btn-ghost">⚡ Flash Sales</RouterLink>
       <RouterLink to="/announcement-bars" class="btn btn-ghost">📢 Announcement Bars</RouterLink>
       <RouterLink to="/popups" class="btn btn-ghost">💬 Pop-ups</RouterLink>
+      <RouterLink to="/support" class="btn btn-ghost">🎫 Support Tickets</RouterLink>
+      <RouterLink to="/content-calendar" class="btn btn-ghost">📅 Content Calendar</RouterLink>
+      <RouterLink to="/site-health" class="btn btn-ghost">🩺 Site Health</RouterLink>
     </div>
+
+    <!-- Quick Notes -->
+    <QuickNotes style="margin-top:1.5rem;" />
   </div>
 </template>
 
@@ -345,6 +362,7 @@
 import { ref, onMounted } from 'vue'
 import { useAuthStore } from '../stores/auth.js'
 import api from '../api.js'
+import QuickNotes from '../components/QuickNotes.vue'
 
 const auth = useAuthStore()
 const stats = ref(null)

@@ -21,6 +21,7 @@
       <nav class="footer-nav">
         <ul>
           <li><a href="/order/lookup">📦 Track Order</a></li>
+          <li><a href="/support">🎫 Support</a></li>
           <li><a href="/contact">Contact</a></li>
           <li><a href="/search">Search</a></li>
         </ul>

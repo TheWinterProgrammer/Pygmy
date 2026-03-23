@@ -71,6 +71,9 @@ const routes = [
       { path: 'flash-sales',      name: 'FlashSales',     component: () => import('../views/FlashSalesView.vue') },
       { path: 'announcement-bars', name: 'AnnouncementBars', component: () => import('../views/AnnouncementBarsView.vue') },
       { path: 'popups',           name: 'Popups',         component: () => import('../views/PopupsView.vue') },
+      { path: 'support',          name: 'Support',        component: () => import('../views/SupportView.vue') },
+      { path: 'content-calendar', name: 'ContentCalendar', component: () => import('../views/ContentCalendarView.vue') },
+      { path: 'site-health',      name: 'SiteHealth',     component: () => import('../views/SiteHealthView.vue') },
       { path: 'settings',         name: 'Settings',       component: () => import('../views/SettingsView.vue') },
     ]
   },
