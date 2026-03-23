@@ -82,6 +82,9 @@ const routes = [
       { path: 'performance',       name: 'Performance',      component: () => import('../views/PerformanceView.vue') },
       { path: 'digest',            name: 'Digest',           component: () => import('../views/DigestView.vue') },
       { path: 'push-notifications', name: 'PushNotifications', component: () => import('../views/PushNotificationsView.vue') },
+      { path: 'price-alerts',      name: 'PriceAlerts',      component: () => import('../views/PriceAlertsView.vue') },
+      { path: 'product-badges',    name: 'ProductBadges',    component: () => import('../views/ProductBadgesView.vue') },
+      { path: 'social-proof',      name: 'SocialProof',      component: () => import('../views/SocialProofView.vue') },
       { path: 'settings',          name: 'Settings',         component: () => import('../views/SettingsView.vue') },
     ]
   },

@@ -74,6 +74,10 @@ import digestRoutes, { processDigest } from './routes/digest.js'
 import customerNotesRoutes from './routes/customer_notes.js'
 import recentlyViewedRoutes from './routes/recently_viewed.js'
 import pushNotificationsRoutes from './routes/push_notifications.js'
+import priceAlertsRoutes from './routes/price_alerts.js'
+import socialProofRoutes from './routes/social_proof.js'
+import productBadgesRoutes from './routes/product_badges.js'
+import savedCartsRoutes from './routes/saved_carts.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -245,6 +249,10 @@ app.use('/api/digest', digestRoutes)
 app.use('/api/customer-notes', customerNotesRoutes)
 app.use('/api/recently-viewed', recentlyViewedRoutes)
 app.use('/api/push', pushNotificationsRoutes)
+app.use('/api/price-alerts', priceAlertsRoutes)
+app.use('/api/social-proof', socialProofRoutes)
+app.use('/api/product-badges', productBadgesRoutes)
+app.use('/api/saved-carts', savedCartsRoutes)
 
 // ─── SEO (public) ─────────────────────────────────────────────────────────────
 app.use('/', seoRoutes)

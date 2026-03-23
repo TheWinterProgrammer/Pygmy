@@ -63,11 +63,13 @@ onMounted(async () => {
   } catch {}
 })
 
-// Exported so ProductView can call this
-export function trackView(productId) {
+// Exposed so ProductView can call this via template ref or import
+function trackView(productId) {
   const sessionId = getSessionId()
   api.post('/recently-viewed', { session_id: sessionId, product_id: productId }).catch(() => {})
 }
+
+defineExpose({ trackView })
 </script>
 
 <style scoped>

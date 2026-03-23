@@ -14,6 +14,13 @@ import { addOrderEvent } from './order_timeline.js'
 
 const CUSTOMER_JWT_SECRET = process.env.CUSTOMER_JWT_SECRET || 'pygmy-customer-secret-change-in-production'
 
+function maskCustomerName(name) {
+  if (!name) return 'Someone'
+  const parts = name.trim().split(/\s+/)
+  if (parts.length === 1) return parts[0].slice(0, 1) + '.'
+  return parts[0] + ' ' + parts[parts.length - 1].slice(0, 1) + '.'
+}
+
 function resolveCustomerId(req) {
   try {
     const header = req.headers.authorization
@@ -280,6 +287,26 @@ router.post('/', (req, res) => {
 
   // Send webhook (fire-and-forget)
   try { fireWebhooks('order.created', { order_number: orderNumber, total: computedTotal }) } catch {}
+
+  // Record social proof purchase activity (fire-and-forget)
+  try {
+    if (validatedItems.length > 0) {
+      const addrParts = (shipping_address || '').split(',')
+      const city = addrParts.length > 1 ? addrParts[addrParts.length - 2]?.trim() : ''
+      db.prepare(`
+        INSERT INTO purchase_activity (product_name, customer_display, city, amount)
+        VALUES (?, ?, ?, ?)
+      `).run(
+        validatedItems[0].name,
+        maskCustomerName(customer_name || ''),
+        city,
+        computedTotal
+      )
+      // Prune to 100
+      const oldest = db.prepare('SELECT id FROM purchase_activity ORDER BY id DESC LIMIT -1 OFFSET 100').all().map(r => r.id)
+      if (oldest.length) db.prepare(`DELETE FROM purchase_activity WHERE id IN (${oldest.map(() => '?').join(',')})`).run(...oldest)
+    }
+  } catch (e) { /* non-critical */ }
 
   // Send order confirmation email (fire-and-forget)
   sendOrderConfirmation({ ...order, items: validatedItems, downloadTokens }).catch(() => {})

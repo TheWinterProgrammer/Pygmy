@@ -17,6 +17,7 @@ import { authMiddleware } from '../middleware/auth.js'
 import { logActivity } from './activity.js'
 import { notifyLowStock } from '../email.js'
 import { autoNotifyRestock } from './stock_alerts.js'
+import { autoNotifyPriceDrop } from './price_alerts.js'
 
 const csvUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } })
 
@@ -141,7 +142,22 @@ router.get('/', (req, res) => {
     `SELECT COUNT(*) AS n FROM products ${!showAll ? 'WHERE status="published"' : ''}`
   ).get().n
 
-  res.json({ products: rows.map(parseProduct), total })
+  // Attach badges to each product
+  const productIds = rows.map(r => r.id)
+  let badgeMap = {}
+  if (productIds.length) {
+    try {
+      const badges = db.prepare(
+        `SELECT * FROM product_badges WHERE product_id IN (${productIds.map(() => '?').join(',')}) ORDER BY sort_order ASC`
+      ).all(...productIds)
+      for (const b of badges) {
+        if (!badgeMap[b.product_id]) badgeMap[b.product_id] = []
+        badgeMap[b.product_id].push(b)
+      }
+    } catch {} // table may not exist in old DBs
+  }
+
+  res.json({ products: rows.map(r => ({ ...parseProduct(r), badges: badgeMap[r.id] || [] })), total })
 })
 
 // ─── single ───────────────────────────────────────────────────────────────────
@@ -186,7 +202,9 @@ router.get('/:slug', (req, res) => {
   `).get(req.params.slug)
   if (!row) return res.status(404).json({ error: 'Not found' })
   const parsed = parseProduct(row)
-  res.json({ ...parsed, _preview: isAdmin && row.status !== 'published' })
+  let badges = []
+  try { badges = db.prepare('SELECT * FROM product_badges WHERE product_id = ? ORDER BY sort_order ASC').all(row.id) } catch {}
+  res.json({ ...parsed, badges, _preview: isAdmin && row.status !== 'published' })
 })
 
 // ─── create ───────────────────────────────────────────────────────────────────
@@ -333,6 +351,15 @@ router.put('/:id', authMiddleware, (req, res) => {
       autoNotifyRestock(updated.id).catch(() => {})
     }
   }
+
+  // Trigger price drop alerts if price dropped
+  try {
+    const prevPrice = existing.sale_price || existing.price
+    const newPrice  = updated.sale_price  || updated.price
+    if (newPrice < prevPrice) {
+      autoNotifyPriceDrop(updated.id, newPrice).catch(() => {})
+    }
+  } catch {}
 
   res.json(parseProduct(updated))
 })

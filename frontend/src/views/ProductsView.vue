@@ -49,6 +49,14 @@
           <div class="sale-badge" v-if="p.sale_price">Sale</div>
           <div class="featured-badge" v-if="p.featured">★ Featured</div>
           <div class="oos-badge" v-if="p.track_stock && !p.in_stock">Out of Stock</div>
+          <!-- Custom badges -->
+          <div class="custom-badges" v-if="p.badges?.length">
+            <span
+              v-for="b in p.badges" :key="b.id"
+              class="custom-badge"
+              :class="`badge-${b.style}`"
+            >{{ b.label }}</span>
+          </div>
         </div>
         <div class="card-img card-img-placeholder" v-else>🛍️</div>
 
@@ -570,6 +578,17 @@ function fmt(n) {
 .sale-badge { left: 0.6rem; background: var(--accent); color: #fff; }
 .featured-badge { right: 0.6rem; background: gold; color: #000; }
 .oos-badge { left: 0; right: 0; bottom: 0; top: auto; border-radius: 0; background: rgba(0,0,0,.75); color: rgba(255,255,255,.8); font-size: .75rem; text-align: center; }
+
+/* Custom product badges */
+.custom-badges { position: absolute; bottom: .6rem; left: .6rem; display: flex; flex-wrap: wrap; gap: 4px; }
+.custom-badge  { padding: 2px 8px; border-radius: 99px; font-size: .68rem; font-weight: 700; letter-spacing: .03em; }
+.badge-default { background: rgba(150,150,150,.3); color: #ccc; }
+.badge-red     { background: rgba(220,50,50,.3); color: #ff6b6b; }
+.badge-green   { background: rgba(50,200,80,.3); color: #4ce88a; }
+.badge-blue    { background: rgba(50,120,220,.3); color: #6fb3f5; }
+.badge-orange  { background: rgba(255,140,0,.3); color: #ffa030; }
+.badge-purple  { background: rgba(150,80,220,.3); color: #c084fc; }
+.badge-gold    { background: rgba(200,160,0,.3); color: #ffd700; }
 
 .card-body { padding: 1rem 1.25rem 1.25rem; flex: 1; display: flex; flex-direction: column; gap: 0.4rem; }
 .card-meta { display: flex; gap: 0.5rem; align-items: center; }

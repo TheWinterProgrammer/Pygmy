@@ -53,6 +53,15 @@
             </RouterLink>
           </div>
 
+          <!-- Custom badges -->
+          <div class="product-badges" v-if="product.badges?.length">
+            <span
+              v-for="b in product.badges" :key="b.id"
+              class="product-badge"
+              :class="`badge-${b.style}`"
+            >{{ b.label }}</span>
+          </div>
+
           <h1 class="product-name">{{ product.name }}</h1>
           <p class="product-excerpt" v-if="product.excerpt">{{ product.excerpt }}</p>
 
@@ -153,6 +162,17 @@
               {{ wishlist.isWishlisted(product.id) ? '♥' : '♡' }}
             </button>
           </div>
+
+          <!-- Social Proof: live viewers -->
+          <SocialProof style="margin-bottom:8px;" />
+
+          <!-- Price Drop Alert -->
+          <PriceAlertButton
+            v-if="product?.id"
+            :product-id="product.id"
+            :current-price="product.sale_price || product.price"
+            :currency-symbol="site.settings?.shop_currency_symbol || '€'"
+          />
 
           <div class="back-link">
             <RouterLink to="/shop" class="btn btn-outline">← Back to Shop</RouterLink>
@@ -336,6 +356,8 @@
 import { ref, computed, reactive, onMounted, watch } from 'vue'
 import FlashSaleBanner from '../components/FlashSaleBanner.vue'
 import RecentlyViewed from '../components/RecentlyViewed.vue'
+import SocialProof from '../components/SocialProof.vue'
+import PriceAlertButton from '../components/PriceAlertButton.vue'
 import { useRoute } from 'vue-router'
 import { useHead } from '@vueuse/head'
 import api from '../api.js'
@@ -666,6 +688,16 @@ function fmt(n) {
   text-decoration: none;
 }
 .cat-tag:hover { text-decoration: underline; }
+
+.product-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.product-badge  { padding: 3px 10px; border-radius: 99px; font-size: .75rem; font-weight: 700; letter-spacing: .03em; }
+.badge-default  { background: rgba(150,150,150,.2); color: #ccc; }
+.badge-red      { background: rgba(220,50,50,.2); color: #ff6b6b; }
+.badge-green    { background: rgba(50,200,80,.2); color: #4ce88a; }
+.badge-blue     { background: rgba(50,120,220,.2); color: #6fb3f5; }
+.badge-orange   { background: rgba(255,140,0,.2); color: #ffa030; }
+.badge-purple   { background: rgba(150,80,220,.2); color: #c084fc; }
+.badge-gold     { background: rgba(200,160,0,.2); color: #ffd700; }
 
 .product-name { font-size: clamp(1.5rem, 3vw, 2.25rem); font-weight: 800; line-height: 1.2; margin: 0; }
 .product-excerpt { color: var(--text-muted); font-size: 1rem; line-height: 1.6; margin: 0; }

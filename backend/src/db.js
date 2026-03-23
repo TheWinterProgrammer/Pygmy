@@ -1550,3 +1550,66 @@ try { db.prepare(`ALTER TABLE activity_log ADD COLUMN metadata TEXT DEFAULT NULL
 // Phase 37: billing address on orders
 try { db.prepare(`ALTER TABLE orders ADD COLUMN billing_address TEXT DEFAULT NULL`).run() } catch {}
 try { db.prepare(`ALTER TABLE orders ADD COLUMN billing_same_as_shipping INTEGER DEFAULT 1`).run() } catch {}
+
+// ── Phase 38: Price Drop Alerts ────────────────────────────────────────────────
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS price_alerts (
+    id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id              INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    email                   TEXT    NOT NULL,
+    name                    TEXT    NOT NULL DEFAULT '',
+    target_price            REAL    DEFAULT NULL,
+    current_price_at_signup REAL    NOT NULL DEFAULT 0,
+    notified                INTEGER NOT NULL DEFAULT 0,
+    notified_at             TEXT    DEFAULT NULL,
+    created_at              TEXT    DEFAULT (datetime('now')),
+    UNIQUE(product_id, email)
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_price_alerts_product ON price_alerts(product_id)`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_price_alerts_notified ON price_alerts(notified)`).run()
+
+// ── Phase 38: Social Proof — Live Viewers ──────────────────────────────────────
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS live_viewers (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT    NOT NULL UNIQUE,
+    path       TEXT    NOT NULL,
+    expires_at TEXT    NOT NULL
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_live_viewers_path ON live_viewers(path)`).run()
+
+// ── Phase 38: Social Proof — Purchase Activity Feed ───────────────────────────
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS purchase_activity (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_name     TEXT    NOT NULL,
+    customer_display TEXT    NOT NULL DEFAULT 'Someone',
+    city             TEXT    NOT NULL DEFAULT '',
+    amount           REAL    DEFAULT NULL,
+    created_at       TEXT    DEFAULT (datetime('now'))
+  )
+`).run()
+
+// ── Phase 38: Product Badges ───────────────────────────────────────────────────
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS product_badges (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    label      TEXT    NOT NULL,
+    style      TEXT    NOT NULL DEFAULT 'default',
+    sort_order INTEGER NOT NULL DEFAULT 0
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_product_badges_product ON product_badges(product_id)`).run()
+
+// ── Phase 38: Saved Carts (cross-device) ──────────────────────────────────────
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS saved_carts (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id INTEGER NOT NULL UNIQUE REFERENCES customers(id) ON DELETE CASCADE,
+    items       TEXT    NOT NULL DEFAULT '[]',
+    updated_at  TEXT    DEFAULT (datetime('now'))
+  )
+`).run()

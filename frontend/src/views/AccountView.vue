@@ -165,6 +165,41 @@
             </div>
           </template>
         </div>
+
+        <!-- ── Saved Cart Tab ── -->
+        <div v-if="activeTab === 'cart'">
+          <div class="tab-header">
+            <h2 class="tab-title">🛒 Saved Cart</h2>
+          </div>
+          <div v-if="savedCartLoading" class="loading">Loading…</div>
+          <div v-else-if="!savedCartItems.length" class="empty-state">
+            <p>No saved cart found. Add items to your cart while shopping to save them across devices.</p>
+            <RouterLink to="/shop" class="btn btn-primary" style="text-decoration:none;">Browse Shop</RouterLink>
+          </div>
+          <template v-else>
+            <p class="muted" style="margin-bottom:1rem;">Last saved: {{ savedCartUpdated }}</p>
+            <div class="saved-cart-list">
+              <div v-for="item in savedCartItems" :key="item.cart_key" class="saved-cart-item glass">
+                <img v-if="item.cover_image" :src="`http://localhost:3200${item.cover_image}`" :alt="item.name" class="saved-cart-img" />
+                <div v-else class="saved-cart-img saved-cart-placeholder">🛍️</div>
+                <div class="saved-cart-info">
+                  <div class="saved-cart-name">{{ item.name }}</div>
+                  <div v-if="item.variant_label" class="muted" style="font-size:.8rem;">{{ item.variant_label }}</div>
+                  <div class="saved-cart-price">{{ currency }}{{ Number(item.unit_price).toFixed(2) }} × {{ item.quantity }}</div>
+                </div>
+                <div class="saved-cart-total">{{ currency }}{{ (item.unit_price * item.quantity).toFixed(2) }}</div>
+              </div>
+            </div>
+            <div class="saved-cart-footer">
+              <div class="saved-cart-subtotal">
+                Subtotal: <strong>{{ currency }}{{ savedCartSubtotal }}</strong>
+              </div>
+              <button class="btn btn-primary" @click="restoreCart">
+                🛒 Load into Cart
+              </button>
+            </div>
+          </template>
+        </div>
       </main>
     </div>
 
@@ -332,6 +367,7 @@ import { ref, computed, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCustomerStore } from '../stores/customer.js'
 import { useSiteStore } from '../stores/site.js'
+import { useCartStore } from '../stores/cart.js'
 import api from '../api.js'
 
 const router = useRouter()
@@ -350,6 +386,7 @@ const tabs = [
   { id: 'addresses', icon: '📍', label: 'Addresses' },
   { id: 'profile', icon: '✏️', label: 'Profile' },
   { id: 'points', icon: '🏆', label: 'Points' },
+  { id: 'cart', icon: '🛒', label: 'Saved Cart' },
 ]
 const activeTab = ref('orders')
 
@@ -492,12 +529,48 @@ async function loadLoyalty() {
   }
 }
 
+// ── Saved Cart ────────────────────────────────────────────────────────────────
+const cartStore = useCartStore()
+const savedCartItems = ref([])
+const savedCartLoading = ref(false)
+const savedCartUpdatedRaw = ref(null)
+const savedCartSubtotal = computed(() =>
+  savedCartItems.value.reduce((s, i) => s + i.unit_price * i.quantity, 0).toFixed(2)
+)
+const savedCartUpdated = computed(() => {
+  if (!savedCartUpdatedRaw.value) return ''
+  return new Date(savedCartUpdatedRaw.value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
+})
+
+async function loadSavedCart() {
+  savedCartLoading.value = true
+  try {
+    const data = await cartStore.loadSavedCart()
+    if (data) {
+      savedCartItems.value = data.items || []
+      savedCartUpdatedRaw.value = data.updated_at || null
+    }
+  } catch {}
+  finally { savedCartLoading.value = false }
+}
+
+async function restoreCart() {
+  const ok = await cartStore.restoreSavedCart('merge')
+  if (ok) {
+    cartStore.open()
+    alert('Cart loaded! Your saved items have been added to your cart.')
+  } else {
+    alert('No items to restore.')
+  }
+}
+
 onMounted(async () => {
   if (!store.isLoggedIn) { router.push('/account/login'); return }
   await site.init()
   loadOrders()
   loadAddresses()
   loadLoyalty()
+  loadSavedCart()
   profile.first_name = store.customer?.first_name || ''
   profile.last_name = store.customer?.last_name || ''
   profile.phone = store.customer?.phone || ''
@@ -648,4 +721,17 @@ onMounted(async () => {
 .at-body { flex: 1; }
 .at-msg { font-size: 13px; color: var(--text, #e0e0e0); }
 .at-time { font-size: 11px; color: var(--muted, #888); margin-top: 2px; }
+
+/* Saved Cart Tab */
+.saved-cart-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 1.5rem; }
+.saved-cart-item { display: flex; align-items: center; gap: 1rem; padding: 12px 16px; border-radius: 1rem; }
+.saved-cart-img { width: 56px; height: 56px; object-fit: cover; border-radius: 0.5rem; flex-shrink: 0; }
+.saved-cart-placeholder { display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,.05); font-size: 1.5rem; }
+.saved-cart-info { flex: 1; min-width: 0; }
+.saved-cart-name { font-weight: 600; font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.saved-cart-price { font-size: .8rem; color: var(--muted); margin-top: 2px; }
+.saved-cart-total { font-weight: 700; font-size: .95rem; white-space: nowrap; }
+.saved-cart-footer { display: flex; align-items: center; justify-content: space-between; padding: 1rem 0; border-top: 1px solid rgba(255,255,255,.08); }
+.saved-cart-subtotal { font-size: .95rem; color: var(--muted); }
+.saved-cart-subtotal strong { color: var(--text); font-size: 1.1rem; }
 </style>

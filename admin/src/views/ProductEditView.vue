@@ -101,6 +101,28 @@
           :product-id="parseInt(route.params.id)"
         />
 
+        <!-- Product Badges -->
+        <div class="glass section" v-if="!isNew">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+            <h3 style="margin:0">🏷️ Product Badges</h3>
+            <button type="button" class="btn btn-ghost btn-sm" @click="addBadge">+ Add Badge</button>
+          </div>
+          <p class="text-muted" style="font-size:.84rem;margin-bottom:1rem;" v-if="!productBadges.length">
+            No badges yet. Add labels like "New", "Hot", "Staff Pick" to highlight this product.
+          </p>
+          <div class="badges-list">
+            <div v-for="(b, i) in productBadges" :key="b.id || 'new-' + i" class="badge-row">
+              <input class="input" v-model="b.label" placeholder="Label" maxlength="32" style="flex:1" />
+              <select class="input" v-model="b.style" style="width:110px">
+                <option v-for="s in BADGE_STYLES" :key="s" :value="s">{{ s }}</option>
+              </select>
+              <span class="badge-preview" :style="badgeStyleInline(b.style)">{{ b.label || 'Preview' }}</span>
+              <button type="button" class="btn-icon" @click="saveSingleBadge(i)">💾</button>
+              <button type="button" class="btn-icon" @click="deleteSingleBadge(i, b.id)">✕</button>
+            </div>
+          </div>
+        </div>
+
         <!-- SEO -->
         <div class="glass section">
           <h3 style="margin-bottom:1rem">SEO</h3>

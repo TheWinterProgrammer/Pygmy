@@ -58,6 +58,58 @@ export const useCartStore = defineStore('cart', () => {
     api.post('/abandoned-carts/recover', { session_id: sessionId }).catch(() => {})
   }
 
+  // ── Saved Cart (server-side, for logged-in customers) ──────────────────────
+
+  let saveTimer = null
+  /** Save current cart to server (debounced, only when logged in) */
+  function scheduleSave() {
+    clearTimeout(saveTimer)
+    saveTimer = setTimeout(() => {
+      try {
+        // Dynamically import to avoid circular dep at module load time
+        import('./customer.js').then(({ useCustomerStore }) => {
+          const customer = useCustomerStore()
+          if (!customer.isLoggedIn) return
+          api.put('/saved-carts/me', { items: items.value }, {
+            headers: { Authorization: `Bearer ${customer.token}` }
+          }).catch(() => {})
+        }).catch(() => {})
+      } catch {}
+    }, 3000)
+  }
+
+  /** Load saved cart from server for logged-in customer */
+  async function loadSavedCart() {
+    try {
+      const { useCustomerStore } = await import('./customer.js')
+      const customer = useCustomerStore()
+      if (!customer.isLoggedIn) return null
+      const res = await api.get('/saved-carts/me', {
+        headers: { Authorization: `Bearer ${customer.token}` }
+      })
+      return res.data // { items, subtotal, updated_at }
+    } catch {
+      return null
+    }
+  }
+
+  /** Restore saved cart (merge or replace) */
+  async function restoreSavedCart(mode = 'merge') {
+    const saved = await loadSavedCart()
+    if (!saved?.items?.length) return false
+    if (mode === 'replace') {
+      items.value = saved.items
+    } else {
+      // merge: add saved items that aren't already in cart
+      for (const si of saved.items) {
+        const exists = items.value.find(i => i.cart_key === si.cart_key)
+        if (!exists) items.value.push(si)
+      }
+    }
+    persist()
+    return true
+  }
+
   // ── Computed ───────────────────────────────────────────────────────────────
 
   const count = computed(() => items.value.reduce((s, i) => s + i.quantity, 0))
@@ -100,12 +152,14 @@ export const useCartStore = defineStore('cart', () => {
     }
     persist()
     scheduleTrack()
+    scheduleSave()
   }
 
   function removeItem(cartKey) {
     items.value = items.value.filter(i => (i.cart_key || String(i.product_id)) !== cartKey)
     persist()
     scheduleTrack()
+    scheduleSave()
   }
 
   function updateQuantity(cartKey, quantity) {
@@ -115,6 +169,7 @@ export const useCartStore = defineStore('cart', () => {
       item.quantity = quantity
       persist()
       scheduleTrack()
+      scheduleSave()
     }
   }
 
@@ -137,5 +192,6 @@ export const useCartStore = defineStore('cart', () => {
     addItem, removeItem, updateQuantity, clear,
     open, close, toggle,
     updateContactInfo, markRecovered,
+    loadSavedCart, restoreSavedCart, scheduleSave,
   }
 })
