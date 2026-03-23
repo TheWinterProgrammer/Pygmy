@@ -552,6 +552,13 @@ const defaultSettings = {
   loyalty_redemption_rate: '100',
   loyalty_min_redeem: '100',
   loyalty_expiry_days: '0',
+  // Phase 36: Digest Emails
+  digest_enabled: '0',
+  digest_frequency: 'weekly',
+  digest_recipients: '',
+  digest_last_sent: '',
+  // Phase 36: Default language
+  default_language: 'en',
 }
 
 const insertSetting = db.prepare(`
@@ -1418,3 +1425,61 @@ db.prepare(`CREATE INDEX IF NOT EXISTS idx_seq_enrollments_seq ON email_sequence
 try { db.prepare(`ALTER TABLE comments ADD COLUMN parent_id INTEGER REFERENCES comments(id) ON DELETE CASCADE`).run() } catch {}
 // Add liked_count to comments for future social proof
 try { db.prepare(`ALTER TABLE comments ADD COLUMN liked_count INTEGER NOT NULL DEFAULT 0`).run() } catch {}
+
+// ── Phase 36: Multi-language Content Translations ─────────────────────────────
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS languages (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    code        TEXT    NOT NULL UNIQUE,  -- e.g. 'de', 'fr', 'es'
+    name        TEXT    NOT NULL,          -- e.g. 'German', 'French'
+    native_name TEXT    NOT NULL DEFAULT '', -- e.g. 'Deutsch'
+    flag        TEXT    NOT NULL DEFAULT '', -- e.g. '🇩🇪'
+    active      INTEGER NOT NULL DEFAULT 1,
+    is_default  INTEGER NOT NULL DEFAULT 0,
+    sort_order  INTEGER NOT NULL DEFAULT 0,
+    created_at  TEXT    DEFAULT (datetime('now'))
+  )
+`).run()
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS content_translations (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    entity_type   TEXT    NOT NULL,  -- 'page' | 'post' | 'product' | 'navigation'
+    entity_id     INTEGER NOT NULL,
+    language_code TEXT    NOT NULL REFERENCES languages(code) ON DELETE CASCADE,
+    field         TEXT    NOT NULL,  -- 'title' | 'content' | 'excerpt' | 'meta_title' | 'meta_description'
+    value         TEXT    NOT NULL DEFAULT '',
+    updated_at    TEXT    DEFAULT (datetime('now'))
+  )
+`).run()
+
+db.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_translations_entity_field
+  ON content_translations(entity_type, entity_id, language_code, field)`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_translations_entity
+  ON content_translations(entity_type, entity_id)`).run()
+
+// ── Phase 36: Web Vitals / RUM Performance ────────────────────────────────────
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS web_vitals (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    path        TEXT    NOT NULL,
+    lcp         REAL    DEFAULT NULL,   -- Largest Contentful Paint (ms)
+    fid         REAL    DEFAULT NULL,   -- First Input Delay (ms)
+    cls         REAL    DEFAULT NULL,   -- Cumulative Layout Shift (score)
+    fcp         REAL    DEFAULT NULL,   -- First Contentful Paint (ms)
+    ttfb        REAL    DEFAULT NULL,   -- Time to First Byte (ms)
+    inp         REAL    DEFAULT NULL,   -- Interaction to Next Paint (ms)
+    device      TEXT    DEFAULT 'desktop', -- 'mobile' | 'tablet' | 'desktop'
+    session_id  TEXT    DEFAULT NULL,
+    created_at  TEXT    DEFAULT (datetime('now'))
+  )
+`).run()
+
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_web_vitals_path ON web_vitals(path)`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_web_vitals_date ON web_vitals(created_at)`).run()
+
+// ── Phase 36: Digest Email Preferences ───────────────────────────────────────
+// Stored in settings table, no new tables needed
+
+// Migrations (safe)
+try { db.prepare(`ALTER TABLE activity_log ADD COLUMN metadata TEXT DEFAULT NULL`).run() } catch {}

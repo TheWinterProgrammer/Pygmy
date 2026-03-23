@@ -68,6 +68,9 @@ import abTestingRoutes from './routes/ab_testing.js'
 import searchAnalyticsRoutes from './routes/search_analytics.js'
 import emailSequencesRoutes from './routes/email_sequences.js'
 import customerSegmentsRoutes from './routes/customer_segments.js'
+import languagesRoutes from './routes/languages.js'
+import webVitalsRoutes from './routes/web_vitals.js'
+import digestRoutes, { processDigest } from './routes/digest.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -233,6 +236,9 @@ app.use('/api/ab-tests', abTestingRoutes)
 app.use('/api/search-analytics', searchAnalyticsRoutes)
 app.use('/api/email-sequences', emailSequencesRoutes)
 app.use('/api/customer-segments', customerSegmentsRoutes)
+app.use('/api/languages', languagesRoutes)
+app.use('/api/web-vitals', webVitalsRoutes)
+app.use('/api/digest', digestRoutes)
 
 // ─── SEO (public) ─────────────────────────────────────────────────────────────
 app.use('/', seoRoutes)
@@ -360,3 +366,7 @@ async function runEmailSequenceProcessor() {
 }
 
 setInterval(runEmailSequenceProcessor, 5 * 60_000) // every 5 minutes
+
+// ─── Digest Email Scheduler ───────────────────────────────────────────────────
+// Check once per hour if a digest is due
+setInterval(() => processDigest().catch(console.error), 60 * 60_000)

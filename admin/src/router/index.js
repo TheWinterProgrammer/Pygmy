@@ -78,6 +78,9 @@ const routes = [
       { path: 'search-analytics',  name: 'SearchAnalytics',  component: () => import('../views/SearchAnalyticsView.vue') },
       { path: 'email-sequences',   name: 'EmailSequences',   component: () => import('../views/EmailSequencesView.vue') },
       { path: 'customer-segments', name: 'CustomerSegments', component: () => import('../views/CustomerSegmentsView.vue') },
+      { path: 'languages',         name: 'Languages',        component: () => import('../views/LanguagesView.vue') },
+      { path: 'performance',       name: 'Performance',      component: () => import('../views/PerformanceView.vue') },
+      { path: 'digest',            name: 'Digest',           component: () => import('../views/DigestView.vue') },
       { path: 'settings',          name: 'Settings',         component: () => import('../views/SettingsView.vue') },
     ]
   },

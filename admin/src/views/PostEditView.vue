@@ -159,6 +159,14 @@
             type="post"
           />
         </div>
+
+        <div class="glass section" v-if="!isNew">
+          <TranslationEditor
+            entity-type="post"
+            :entity-id="Number(route.params.id)"
+            :default-values="{ title: form.title, excerpt: form.excerpt, content: form.content, meta_title: form.meta_title, meta_description: form.meta_desc }"
+          />
+        </div>
       </div>
     </div>
   </div>
@@ -174,6 +182,7 @@ import MediaPickerModal from '../components/MediaPickerModal.vue'
 import RevisionsModal from '../components/RevisionsModal.vue'
 import SeoAnalyzer from '../components/SeoAnalyzer.vue'
 import LockBanner from '../components/LockBanner.vue'
+import TranslationEditor from '../components/TranslationEditor.vue'
 import { useContentLock } from '../composables/useContentLock.js'
 import { useAutoSave } from '../composables/useAutoSave.js'
 

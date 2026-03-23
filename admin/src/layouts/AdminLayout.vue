@@ -140,6 +140,9 @@ const navItems = [
   { to: '/email-sequences',    icon: '📧',  label: 'Email Sequences' },
   { to: '/customer-segments',  icon: '🎯',  label: 'Customer Segments' },
   { to: '/activity-log',       icon: '🕐',  label: 'Activity Log' },
+  { to: '/languages',          icon: '🌐',  label: 'Languages' },
+  { to: '/performance',        icon: '⚡',  label: 'Performance' },
+  { to: '/digest',             icon: '📬',  label: 'Digest Emails' },
   { to: '/settings',          icon: '⚙️',  label: 'Settings' },
 ]
 
