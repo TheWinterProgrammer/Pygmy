@@ -64,6 +64,57 @@ router.get('/stats', authMiddleware, (req, res) => {
   const pendingOrders = db.prepare("SELECT COUNT(*) as count FROM orders WHERE status = 'pending'").get().count
   const orderRevenue  = db.prepare("SELECT COALESCE(SUM(total),0) as r FROM orders WHERE status IN ('completed','processing','shipped')").get().r
 
+  // 7-day revenue sparkline (array of 7 daily totals, oldest first)
+  const revSparkRows = db.prepare(`
+    SELECT
+      date(created_at) as day,
+      COALESCE(SUM(total), 0) as daily_revenue
+    FROM orders
+    WHERE created_at >= date('now', '-6 days')
+      AND status IN ('completed','processing','shipped')
+    GROUP BY day
+    ORDER BY day ASC
+  `).all()
+
+  // Fill in zero-revenue days so we always have 7 data points
+  const revSparkline = []
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i)
+    const key = d.toISOString().slice(0, 10)
+    const found = revSparkRows.find(r => r.day === key)
+    revSparkline.push(found ? Math.round(found.daily_revenue * 100) / 100 : 0)
+  }
+
+  // 7-day orders sparkline
+  const ordSparkRows = db.prepare(`
+    SELECT date(created_at) as day, COUNT(*) as cnt
+    FROM orders
+    WHERE created_at >= date('now', '-6 days')
+    GROUP BY day ORDER BY day ASC
+  `).all()
+  const ordSparkline = []
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i)
+    const key = d.toISOString().slice(0, 10)
+    const found = ordSparkRows.find(r => r.day === key)
+    ordSparkline.push(found ? found.cnt : 0)
+  }
+
+  // 7-day views sparkline
+  const viewSparkRows = db.prepare(`
+    SELECT date(viewed_at) as day, SUM(view_count) as cnt
+    FROM page_views
+    WHERE viewed_at >= date('now', '-6 days')
+    GROUP BY day ORDER BY day ASC
+  `).all()
+  const viewSparkline = []
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i)
+    const key = d.toISOString().slice(0, 10)
+    const found = viewSparkRows.find(r => r.day === key)
+    viewSparkline.push(found ? (found.cnt || 0) : 0)
+  }
+
   // Coupons
   const totalCoupons  = db.prepare('SELECT COUNT(*) as count FROM coupons').get().count
   const activeCoupons = db.prepare('SELECT COUNT(*) as count FROM coupons WHERE active = 1').get().count
@@ -224,6 +275,7 @@ router.get('/stats', authMiddleware, (req, res) => {
     events: { total: totalEvents, published: publishedEvents, upcoming: upcomingEvents },
     media_folders: { total: totalFolders },
     orders: { total: totalOrders, pending: pendingOrders, revenue: orderRevenue },
+    sparklines: { revenue: revSparkline, orders: ordSparkline, views: viewSparkline },
     coupons: { total: totalCoupons, active: activeCoupons },
     customers: { total: totalCustomers, active: activeCustomers },
     abandoned_carts: { count: abandonedCarts, revenue: abandonedRevenue },

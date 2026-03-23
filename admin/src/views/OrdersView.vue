@@ -29,12 +29,29 @@
       </select>
     </div>
 
+    <!-- Bulk action bar -->
+    <div v-if="selectedOrders.size > 0" class="glass bulk-bar">
+      <span class="bulk-count">{{ selectedOrders.size }} selected</span>
+      <select class="input input-sm" v-model="bulkStatus" style="width:160px;">
+        <option value="">Set status…</option>
+        <option v-for="s in STATUSES" :key="s.value" :value="s.value">{{ s.label }}</option>
+      </select>
+      <button class="btn btn-primary btn-sm" @click="applyBulkStatus" :disabled="!bulkStatus || bulkLoading">
+        {{ bulkLoading ? 'Updating…' : 'Apply' }}
+      </button>
+      <button class="btn btn-ghost btn-sm" @click="exportSelectedCsv">⬇️ Export Selected</button>
+      <button class="btn btn-ghost btn-sm" @click="selectedOrders.clear()">✕ Clear</button>
+    </div>
+
     <!-- Table -->
     <div class="glass table-wrap">
       <div class="loading-bar" v-if="loading"></div>
       <table class="data-table" v-if="orders.length">
         <thead>
           <tr>
+            <th style="width:36px;">
+              <input type="checkbox" :checked="allSelected" @change="toggleAll" />
+            </th>
             <th>Order #</th>
             <th>Customer</th>
             <th>Items</th>
@@ -46,6 +63,9 @@
         </thead>
         <tbody>
           <tr v-for="order in orders" :key="order.id" @click="openOrder(order)" style="cursor:pointer;">
+            <td @click.stop>
+              <input type="checkbox" :checked="selectedOrders.has(order.id)" @change="toggleSelect(order.id)" />
+            </td>
             <td><strong>{{ order.order_number }}</strong></td>
             <td>
               <div>{{ order.customer_name }}</div>
@@ -53,7 +73,14 @@
             </td>
             <td>{{ order.items.length }} item{{ order.items.length !== 1 ? 's' : '' }}</td>
             <td><strong>{{ fmtCurrency(order.total) }}</strong></td>
-            <td><span :class="['badge', statusBadge(order.status)]">{{ order.status }}</span></td>
+            <td>
+              <span :class="['badge', statusBadge(order.status)]">{{ order.status }}</span>
+              <span v-if="order.payment_status && order.payment_status !== 'unpaid'"
+                :class="['badge', order.payment_status === 'paid' ? 'badge-green' : order.payment_status === 'refunded' ? 'badge-red' : 'badge-yellow']"
+                style="margin-left:4px;font-size:0.7rem;">
+                {{ order.payment_status }}
+              </span>
+            </td>
             <td class="text-muted" style="font-size:.82rem;">{{ fmtDate(order.created_at) }}</td>
             <td @click.stop>
               <button class="btn btn-ghost btn-sm" @click="openOrder(order)">View</button>
@@ -190,6 +217,51 @@
             </p>
           </div>
 
+          <!-- Payment -->
+          <div class="section-card glass" style="margin-bottom:1rem;">
+            <h3 style="margin:0 0 .75rem;font-size:.95rem;color:var(--accent);">💳 Payment</h3>
+            <div class="form-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;align-items:end;">
+              <div>
+                <label class="label" style="display:block;font-size:.78rem;color:var(--text-muted);margin-bottom:.25rem;">Method</label>
+                <select class="input" v-model="editPaymentMethod" style="width:100%;">
+                  <option value="manual">Manual</option>
+                  <option value="stripe">Stripe</option>
+                  <option value="paypal">PayPal</option>
+                  <option value="bank_transfer">Bank Transfer</option>
+                  <option value="cash_on_delivery">Cash on Delivery</option>
+                  <option value="crypto">Crypto</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label class="label" style="display:block;font-size:.78rem;color:var(--text-muted);margin-bottom:.25rem;">Status</label>
+                <select class="input" v-model="editPaymentStatus" style="width:100%;"
+                  :style="{ color: editPaymentStatus === 'paid' ? 'hsl(140,60%,60%)' : editPaymentStatus === 'refunded' ? 'hsl(355,70%,65%)' : '' }">
+                  <option value="unpaid">Unpaid</option>
+                  <option value="pending">Pending</option>
+                  <option value="paid">Paid ✓</option>
+                  <option value="failed">Failed</option>
+                  <option value="refunded">Refunded</option>
+                </select>
+              </div>
+            </div>
+            <div style="margin-top:.6rem;">
+              <label class="label" style="display:block;font-size:.78rem;color:var(--text-muted);margin-bottom:.25rem;">Reference / Transaction ID <span style="opacity:.6">(optional)</span></label>
+              <input class="input" type="text" v-model="editPaymentReference" placeholder="txn_1234, pi_xxx, etc." style="width:100%;box-sizing:border-box;" />
+            </div>
+            <div style="display:flex;justify-content:flex-end;margin-top:.75rem;gap:.5rem;">
+              <button class="btn btn-ghost btn-sm"
+                v-if="editPaymentStatus !== 'paid'"
+                @click="editPaymentStatus = 'paid'; savePayment()"
+                :disabled="saving">
+                ✓ Mark as Paid
+              </button>
+              <button class="btn btn-ghost btn-sm" @click="savePayment" :disabled="saving">
+                {{ saving ? 'Saving…' : '💾 Save Payment' }}
+              </button>
+            </div>
+          </div>
+
           <!-- Notes -->
           <div class="section-card glass" style="margin-bottom:1rem;">
             <h3 style="margin:0 0 .5rem;font-size:.95rem;color:var(--accent);">📝 Internal Notes</h3>
@@ -286,12 +358,67 @@ const deleting   = ref(false)
 const q          = ref('')
 const filterStatus = ref('')
 const selected           = ref(null)
+// Bulk selection
+const selectedOrders = ref(new Set())
+const bulkStatus     = ref('')
+const bulkLoading    = ref(false)
+const allSelected    = computed(() => orders.value.length > 0 && orders.value.every(o => selectedOrders.value.has(o.id)))
+function toggleSelect(id) {
+  const s = new Set(selectedOrders.value)
+  if (s.has(id)) s.delete(id)
+  else s.add(id)
+  selectedOrders.value = s
+}
+function toggleAll() {
+  if (allSelected.value) {
+    selectedOrders.value = new Set()
+  } else {
+    selectedOrders.value = new Set(orders.value.map(o => o.id))
+  }
+}
+async function applyBulkStatus() {
+  if (!bulkStatus.value || selectedOrders.value.size === 0) return
+  bulkLoading.value = true
+  try {
+    const ids = [...selectedOrders.value]
+    await Promise.all(ids.map(id => apiFetch(`/orders/${id}`, { method: 'PUT', body: JSON.stringify({ status: bulkStatus.value }) })))
+    await load()
+    selectedOrders.value = new Set()
+    bulkStatus.value = ''
+  } catch (e) {
+    alert(e.message)
+  } finally {
+    bulkLoading.value = false
+  }
+}
+function exportSelectedCsv() {
+  const selected = orders.value.filter(o => selectedOrders.value.has(o.id))
+  const header = ['Order #', 'Customer', 'Email', 'Total', 'Status', 'Payment Status', 'Date']
+  const rows = selected.map(o => [
+    o.order_number,
+    o.customer_name,
+    o.customer_email,
+    o.total,
+    o.status,
+    o.payment_status || 'unpaid',
+    o.created_at,
+  ])
+  const csv = [header, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
+  const blob = new Blob([csv], { type: 'text/csv' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = `orders-selected-${Date.now()}.csv`
+  a.click()
+}
 const editStatus         = ref('')
 const editNotes          = ref('')
 const editTrackingNumber = ref('')
 const editTrackingCarrier= ref('')
 const editTrackingUrl    = ref('')
 const editFulfillmentNotes = ref('')
+const editPaymentMethod    = ref('manual')
+const editPaymentStatus    = ref('unpaid')
+const editPaymentReference = ref('')
 const deleteTarget = ref(null)
 const messageTarget = ref(null)
 const messageText = ref('')
@@ -378,6 +505,9 @@ function openOrder(order) {
   editTrackingCarrier.value  = order.tracking_carrier || ''
   editTrackingUrl.value      = order.tracking_url || ''
   editFulfillmentNotes.value = order.fulfillment_notes || ''
+  editPaymentMethod.value    = order.payment_method || 'manual'
+  editPaymentStatus.value    = order.payment_status || 'unpaid'
+  editPaymentReference.value = order.payment_reference || ''
 }
 
 async function saveStatus() {
@@ -434,6 +564,29 @@ async function saveFulfillment() {
     editTrackingCarrier.value  = updated.tracking_carrier || ''
     editTrackingUrl.value      = updated.tracking_url || ''
     editFulfillmentNotes.value = updated.fulfillment_notes || ''
+  } catch (e) {
+    alert(e.message)
+  } finally {
+    saving.value = false
+  }
+}
+
+async function savePayment() {
+  if (!selected.value) return
+  saving.value = true
+  try {
+    const updated = await apiFetch(`/orders/${selected.value.id}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        payment_method:    editPaymentMethod.value,
+        payment_status:    editPaymentStatus.value,
+        payment_reference: editPaymentReference.value,
+      })
+    })
+    Object.assign(selected.value, updated)
+    editPaymentMethod.value    = updated.payment_method || 'manual'
+    editPaymentStatus.value    = updated.payment_status || 'unpaid'
+    editPaymentReference.value = updated.payment_reference || ''
   } catch (e) {
     alert(e.message)
   } finally {
@@ -544,6 +697,12 @@ onMounted(() => {
   margin-top: .2rem;
 }
 .filter-bar { border-radius: .75rem; }
+.bulk-bar {
+  display: flex; align-items: center; gap: .75rem; flex-wrap: wrap;
+  padding: .6rem 1rem; border-radius: .75rem; margin-bottom: .75rem;
+  border: 1px solid var(--accent); background: rgba(var(--accent-rgb, 210,60,60), 0.07);
+}
+.bulk-count { font-size: .85rem; font-weight: 600; color: var(--accent); }
 .section-card { padding: .875rem 1rem; border-radius: .75rem; }
 .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .35rem; font-size: .88rem; }
 .info-grid > div { display: flex; flex-direction: column; }

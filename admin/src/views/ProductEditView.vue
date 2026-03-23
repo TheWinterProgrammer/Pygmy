@@ -266,6 +266,28 @@
           <img v-if="form.cover_image" :src="form.cover_image" class="cover-preview" alt="cover" />
         </div>
 
+        <!-- Product Video -->
+        <div class="glass section">
+          <h3 style="margin-bottom:0.5rem">🎬 Product Video</h3>
+          <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.75rem">Optional YouTube, Vimeo, or direct MP4 URL. Displayed on the product page.</p>
+          <input v-model="form.video_url" class="input" placeholder="https://youtube.com/watch?v=... or https://example.com/video.mp4" />
+          <div v-if="form.video_url" class="video-preview-wrap">
+            <div class="video-preview-label">Preview:</div>
+            <iframe
+              v-if="isYouTubeUrl(form.video_url) || isVimeoUrl(form.video_url)"
+              :src="embedUrl(form.video_url)"
+              frameborder="0"
+              allow="autoplay; encrypted-media"
+              allowfullscreen
+              class="video-iframe"
+            />
+            <video v-else controls class="video-direct">
+              <source :src="form.video_url" />
+              Your browser does not support video playback.
+            </video>
+          </div>
+        </div>
+
         <!-- Inventory / Stock -->
         <div class="glass section">
           <h3 style="margin-bottom:1rem">📦 Inventory</h3>
@@ -409,7 +431,7 @@ const tagsInput   = ref('')
 const form = ref({
   name: '', slug: '', excerpt: '', description: '',
   price: null, sale_price: null, sku: '',
-  cover_image: '', gallery: [],
+  cover_image: '', gallery: [], video_url: '',
   category_id: null, tags: [], status: 'draft',
   featured: false, meta_title: '', meta_desc: '',
   publish_at: '',
@@ -438,6 +460,7 @@ onMounted(async () => {
         sku: product.sku || '',
         cover_image: product.cover_image || '',
         gallery: product.gallery || [],
+        video_url: product.video_url || '',
         category_id: product.category_id,
         tags: product.tags || [],
         status: product.status,
@@ -471,6 +494,25 @@ function autoSlug() {
 function openCoverPicker() {
   pickerMulti.value = false
   showPicker.value = true
+}
+
+// ── Video URL helpers ──────────────────────────────────────────────────────────
+function isYouTubeUrl(url) {
+  return /youtube\.com|youtu\.be/.test(url)
+}
+function isVimeoUrl(url) {
+  return /vimeo\.com/.test(url)
+}
+function embedUrl(url) {
+  if (isYouTubeUrl(url)) {
+    const m = url.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
+    if (m) return `https://www.youtube.com/embed/${m[1]}`
+  }
+  if (isVimeoUrl(url)) {
+    const m = url.match(/vimeo\.com\/(\d+)/)
+    if (m) return `https://player.vimeo.com/video/${m[1]}`
+  }
+  return url
 }
 
 function openGalleryPicker() {
@@ -626,6 +668,17 @@ async function deleteCustomOption(oi, id) {
 }
 
 .new-cat { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
+.video-preview-wrap { margin-top: 0.75rem; }
+.video-preview-label { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.4rem; }
+.video-iframe {
+  width: 100%; height: 200px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: #000;
+}
+.video-direct {
+  width: 100%; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: #000;
+  max-height: 220px;
+}
 .new-cat .input { flex: 1; }
 
 .checkbox-row {

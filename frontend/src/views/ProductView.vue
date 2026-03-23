@@ -45,6 +45,22 @@
           </div>
         </div>
 
+        <!-- Product Video -->
+        <div v-if="product.video_url" class="product-video glass">
+          <h3 class="video-label">🎬 Product Video</h3>
+          <iframe
+            v-if="/youtube\.com|youtu\.be|vimeo\.com/.test(product.video_url)"
+            :src="videoEmbedUrl(product.video_url)"
+            frameborder="0"
+            allow="autoplay; encrypted-media"
+            allowfullscreen
+            class="video-frame"
+          />
+          <video v-else controls class="video-direct">
+            <source :src="product.video_url" />
+          </video>
+        </div>
+
         <!-- Info -->
         <div class="product-info">
           <div class="info-category" v-if="product.category_name">
@@ -465,6 +481,14 @@ const activeImage = ref(null)
 const qty        = ref(1)
 const addedFlash = ref(false)
 
+function videoEmbedUrl(url) {
+  const ytMatch = url.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
+  if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}`
+  const vimeoMatch = url.match(/vimeo\.com\/(\d+)/)
+  if (vimeoMatch) return `https://player.vimeo.com/video/${vimeoMatch[1]}`
+  return url
+}
+
 // Back-in-Stock
 const bisEmail = ref('')
 const bisName = ref('')
@@ -814,6 +838,20 @@ function fmt(n) {
   gap: 0.5rem;
   flex-wrap: wrap;
   margin-top: 0.75rem;
+}
+.product-video {
+  margin-top: 1rem;
+  padding: 1.25rem;
+  border-radius: 1rem;
+}
+.video-label {
+  font-size: 0.9rem; font-weight: 600; margin: 0 0 0.75rem; opacity: 0.8;
+}
+.video-frame {
+  width: 100%; height: 300px; border-radius: 0.5rem; border: none; background: #000;
+}
+.video-direct {
+  width: 100%; border-radius: 0.5rem; background: #000; max-height: 320px;
 }
 .thumb-btn {
   width: 64px; height: 64px;

@@ -2,7 +2,13 @@
   <div>
     <div class="page-header">
       <h1>Dashboard</h1>
-      <span class="text-muted">Welcome back, {{ auth.user?.name || 'Admin' }} 👋</span>
+      <div style="display:flex;align-items:center;gap:0.75rem;">
+        <span class="text-muted">Welcome back, {{ auth.user?.name || 'Admin' }} 👋</span>
+        <button class="btn btn-ghost btn-sm" @click="loadStats" title="Refresh stats" style="padding:2px 8px;font-size:0.78rem;">
+          🔄 Refresh
+        </button>
+        <span v-if="lastRefreshed" style="font-size:0.72rem;color:var(--text-muted);">Updated {{ lastRefreshed }}</span>
+      </div>
     </div>
 
     <div class="stats-grid" v-if="stats">
@@ -84,6 +90,7 @@
             <RouterLink to="/analytics" class="stat-link">→ Analytics</RouterLink>
           </div>
         </div>
+        <Sparkline v-if="stats.sparklines?.views?.length" :data="stats.sparklines.views" :width="72" :height="28" color="hsl(228,70%,72%)" fill="hsl(228,70%,72%)" class="stat-sparkline" />
       </div>
       <div class="stat-card glass">
         <div class="stat-icon">🔀</div>
@@ -138,7 +145,21 @@
             <RouterLink to="/orders" class="stat-link">→ Orders</RouterLink>
           </div>
         </div>
+        <Sparkline v-if="stats.sparklines?.orders?.length" :data="stats.sparklines.orders" :width="72" :height="28" color="hsl(355,70%,58%)" class="stat-sparkline" />
       </div>
+      <!-- Revenue stat card with sparkline -->
+      <div class="stat-card glass accent-card" v-if="(stats.orders?.revenue ?? 0) > 0">
+        <div class="stat-icon">💰</div>
+        <div class="stat-body">
+          <div class="stat-num">€{{ formatRevenue(stats.orders?.revenue ?? 0) }}</div>
+          <div class="stat-label">
+            Revenue (all time)
+            <RouterLink to="/revenue" class="stat-link">→ Revenue</RouterLink>
+          </div>
+        </div>
+        <Sparkline v-if="stats.sparklines?.revenue?.length" :data="stats.sparklines.revenue" :width="72" :height="28" color="hsl(140,60%,55%)" fill="hsl(140,60%,55%)" class="stat-sparkline" />
+      </div>
+
       <div class="stat-card glass">
         <div class="stat-icon">🎟️</div>
         <div class="stat-body">
@@ -421,20 +442,41 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from '../stores/auth.js'
 import api from '../api.js'
 import QuickNotes from '../components/QuickNotes.vue'
+import Sparkline from '../components/Sparkline.vue'
 
 const auth = useAuthStore()
 const stats = ref(null)
+const lastRefreshed = ref(null)
+let refreshTimer = null
 
-onMounted(async () => {
-  const { data } = await api.get('/dashboard/stats')
-  stats.value = data
+async function loadStats() {
+  try {
+    const { data } = await api.get('/dashboard/stats')
+    stats.value = data
+    lastRefreshed.value = new Date().toLocaleTimeString()
+  } catch {}
+}
+
+onMounted(() => {
+  loadStats()
+  // Auto-refresh every 60 seconds
+  refreshTimer = setInterval(loadStats, 60_000)
+})
+
+onUnmounted(() => {
+  clearInterval(refreshTimer)
 })
 
 function fmt(n) { return Number(n).toLocaleString() }
+function formatRevenue(n) {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'k'
+  return Number(n).toFixed(2)
+}
 
 function formatDate(iso) {
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -470,6 +512,7 @@ function timeAgo(iso) {
 .stat-icon { font-size: 1.8rem; }
 .stat-num  { font-size: 2rem; font-weight: 700; line-height: 1; }
 .stat-label { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem; display: flex; gap: 0.4rem; align-items: center; }
+.stat-sparkline { margin-left: auto; flex-shrink: 0; opacity: 0.75; }
 
 .section { padding: 1.5rem; margin-bottom: 1.5rem; }
 
