@@ -27,6 +27,15 @@
         <option value="">All statuses</option>
         <option v-for="s in STATUSES" :key="s.value" :value="s.value">{{ s.label }}</option>
       </select>
+      <div style="display:flex;align-items:center;gap:.4rem;">
+        <label style="font-size:.8rem;color:var(--text-muted);white-space:nowrap;">From</label>
+        <input type="date" class="input" style="width:140px;" v-model="filterFrom" @change="load" />
+      </div>
+      <div style="display:flex;align-items:center;gap:.4rem;">
+        <label style="font-size:.8rem;color:var(--text-muted);white-space:nowrap;">To</label>
+        <input type="date" class="input" style="width:140px;" v-model="filterTo" @change="load" />
+      </div>
+      <button v-if="filterFrom || filterTo" class="btn btn-ghost btn-sm" @click="filterFrom=''; filterTo=''; load()">✕ Clear dates</button>
     </div>
 
     <!-- Bulk action bar -->
@@ -357,6 +366,8 @@ const saving     = ref(false)
 const deleting   = ref(false)
 const q          = ref('')
 const filterStatus = ref('')
+const filterFrom   = ref('')
+const filterTo     = ref('')
 const selected           = ref(null)
 // Bulk selection
 const selectedOrders = ref(new Set())
@@ -476,6 +487,8 @@ async function load() {
     const params = new URLSearchParams({ limit: 100 })
     if (q.value) params.set('q', q.value)
     if (filterStatus.value) params.set('status', filterStatus.value)
+    if (filterFrom.value) params.set('from', filterFrom.value)
+    if (filterTo.value) params.set('to', filterTo.value)
     const data = await apiFetch(`/orders?${params}`)
     orders.value = data.orders
   } catch (e) {
@@ -653,6 +666,8 @@ async function doDelete() {
 function exportCsv() {
   const params = new URLSearchParams()
   if (filterStatus.value) params.set('status', filterStatus.value)
+  if (filterFrom.value) params.set('from', filterFrom.value)
+  if (filterTo.value) params.set('to', filterTo.value)
   const token = auth.token
   const url = `/api/orders/export/csv?${params}`
   // Use fetch to inject auth header, then blob-download

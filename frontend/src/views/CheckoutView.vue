@@ -381,6 +381,12 @@
               <span class="text-muted">💳 Store Credit</span>
               <span style="color:hsl(140,60%,60%);">−{{ fmt(storeCreditApplied) }}</span>
             </div>
+            <div class="summary-row discount-row" v-if="autoDiscountTotal > 0">
+              <span class="text-muted">⚡ Auto Discount
+                <span v-if="autoDiscountApplied.length" class="auto-disc-labels">({{ autoDiscountApplied.map(a => a.name).join(', ') }})</span>
+              </span>
+              <span style="color:hsl(140,60%,60%);">−{{ fmt(autoDiscountTotal) }}</span>
+            </div>
             <div class="summary-row" v-if="giftWrap && giftWrapPrice > 0">
               <span class="text-muted">🎀 Gift Wrap</span>
               <span>+{{ fmt(giftWrapPrice) }}</span>
@@ -410,7 +416,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCartStore } from '../stores/cart.js'
 import { useSiteStore } from '../stores/site.js'
@@ -651,9 +657,33 @@ const giftWrapPrice   = ref(5)
 const giftWrap        = ref(false)
 const giftMessage     = ref('')
 
+// ── Auto Discounts (BOGO / Buy X Get Y) ──────────────────────────────────────
+const autoDiscountApplied  = ref([])
+const autoDiscountTotal    = ref(0)
+const autoDiscountLoading  = ref(false)
+
+async function evaluateAutoDiscounts () {
+  if (!cart.items?.length) { autoDiscountApplied.value = []; autoDiscountTotal.value = 0; return }
+  autoDiscountLoading.value = true
+  try {
+    const res = await fetch('/api/auto-discounts/evaluate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        items: cart.items.map(i => ({ product_id: i.product_id, quantity: i.quantity, unit_price: i.unit_price || i.price })),
+        subtotal: cart.subtotal
+      })
+    })
+    const data = await res.json()
+    autoDiscountApplied.value = data.applied || []
+    autoDiscountTotal.value   = data.total_discount || 0
+  } catch { /* silent */ }
+  autoDiscountLoading.value = false
+}
+
 // ── Total ─────────────────────────────────────────────────────────────────────
 const orderTotal = computed(() =>
-  Math.max(0, cart.subtotal - (appliedCoupon.value?.discount || 0) - loyaltyDiscount.value - giftCardDiscount.value - storeCreditApplied.value + shippingCost.value + taxAmount.value + (giftWrap.value ? giftWrapPrice.value : 0))
+  Math.max(0, cart.subtotal - (appliedCoupon.value?.discount || 0) - loyaltyDiscount.value - giftCardDiscount.value - storeCreditApplied.value - autoDiscountTotal.value + shippingCost.value + taxAmount.value + (giftWrap.value ? giftWrapPrice.value : 0))
 )
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -710,6 +740,8 @@ onMounted(async () => {
     giftWrapEnabled.value     = data.gift_wrap_enabled === '1'
     giftWrapPrice.value       = parseFloat(data.gift_wrap_price || '5')
   } catch {}
+  // Evaluate auto discounts on load
+  evaluateAutoDiscounts()
 
   if (customer.isLoggedIn && customer.customer) {
     const c = customer.customer
@@ -772,6 +804,8 @@ watch(() => step.value, (s) => {
   if (s === 3 && !orderBumps.value.length) loadOrderBumps()
 })
 
+watch(() => cart.items, () => evaluateAutoDiscounts(), { deep: true })
+
 async function placeOrder() {
   submitError.value = ''
   placing.value = true
@@ -810,10 +844,19 @@ async function placeOrder() {
       store_credit_amount:    storeCreditApplied.value || 0,
       gift_wrap:              giftWrap.value ? 1 : 0,
       gift_message:           giftMessage.value.trim(),
+      auto_discount_amount:   autoDiscountTotal.value || 0,
     }
 
     const headers = customer.isLoggedIn ? { Authorization: `Bearer ${customer.token}` } : {}
     const { data } = await api.post('/orders', payload, { headers })
+    // Record auto-discount uses
+    if (autoDiscountApplied.value.length) {
+      fetch('/api/auto-discounts/record-use', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rule_ids: autoDiscountApplied.value.map(a => a.rule_id) })
+      }).catch(() => {})
+    }
     cart.markRecovered()
     cart.clear()
     clearReferral()

@@ -103,6 +103,9 @@ const routes = [
       { path: 'automation',        name: 'Automation',        component: () => import('../views/AutomationView.vue') },
       { path: 'coupon-campaigns',  name: 'CouponCampaigns',   component: () => import('../views/CouponCampaignsView.vue') },
       { path: 'sms',               name: 'Sms',              component: () => import('../views/SmsView.vue') },
+      { path: 'gift-registry',     name: 'GiftRegistry',     component: () => import('../views/GiftRegistryView.vue') },
+      { path: 'auto-discounts',    name: 'AutoDiscounts',    component: () => import('../views/AutoDiscountsView.vue') },
+      { path: 'customer-ltv',      name: 'CustomerLtv',      component: () => import('../views/CustomerLtvView.vue') },
       { path: 'settings',          name: 'Settings',         component: () => import('../views/SettingsView.vue') },
     ]
   },

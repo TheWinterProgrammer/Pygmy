@@ -6,6 +6,7 @@ import { authMiddleware } from '../middleware/auth.js'
 import { logActivity } from './activity.js'
 import { fireWebhooks } from './webhooks.js'
 import { fireAutomation } from './automation.js'
+import { computeAndStoreLtv } from './customer_ltv.js'
 import { sendOrderConfirmation, sendOrderStatusUpdate, sendShipmentNotification } from '../email.js'
 import { sendOrderConfirmSms, sendShippedSms } from '../sms.js'
 import { validateCouponLogic } from './coupons.js'
@@ -346,6 +347,8 @@ router.post('/', (req, res) => {
   try { fireWebhooks('order.created', { order_number: orderNumber, total: computedTotal }) } catch {}
   // Fire automation rules (async, non-blocking)
   fireAutomation('order.created', { ...order, id: newId, items: validatedItems, customer_id: linkedCustomer?.id || null }).catch(() => {})
+  // Recompute LTV for customer (async, fire-and-forget)
+  if (linkedCustomer?.id) { try { computeAndStoreLtv(linkedCustomer.id) } catch {} }
 
   // Record social proof purchase activity (fire-and-forget)
   try {
@@ -392,7 +395,7 @@ router.post('/', (req, res) => {
 // ─── Admin: List orders ───────────────────────────────────────────────────────
 // GET /api/orders
 router.get('/', authMiddleware, (req, res) => {
-  const { status, q, limit = 50, offset = 0 } = req.query
+  const { status, q, limit = 50, offset = 0, from, to } = req.query
 
   let sql = 'SELECT * FROM orders WHERE 1=1'
   const params = []
@@ -407,6 +410,9 @@ router.get('/', authMiddleware, (req, res) => {
     const like = `%${q}%`
     params.push(like, like, like)
   }
+
+  if (from) { sql += ' AND date(created_at) >= ?'; params.push(from) }
+  if (to)   { sql += ' AND date(created_at) <= ?'; params.push(to) }
 
   sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?'
   params.push(parseInt(limit), parseInt(offset))

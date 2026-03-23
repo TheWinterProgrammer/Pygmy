@@ -75,6 +75,14 @@ const routes = [
     component: () => import('../views/OrderDownloadsView.vue')
   },
   {
+    path: '/gift-registry',
+    component: () => import('../views/GiftRegistryView.vue')
+  },
+  {
+    path: '/gift-registry/:slug',
+    component: () => import('../views/GiftRegistryDetailView.vue')
+  },
+  {
     path: '/order/:orderNumber',
     component: () => import('../views/OrderConfirmView.vue')
   },

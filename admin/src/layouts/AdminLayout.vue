@@ -174,6 +174,9 @@ const navItems = [
   { to: '/automation',         icon: '⚡',  label: 'Automation Rules' },
   { to: '/coupon-campaigns',   icon: '🎟️',  label: 'Coupon Campaigns' },
   { to: '/sms',                icon: '📱',  label: 'SMS Notifications' },
+  { to: '/gift-registry',      icon: '🎁',  label: 'Gift Registries' },
+  { to: '/auto-discounts',     icon: '⚡',  label: 'Auto Discounts' },
+  { to: '/customer-ltv',       icon: '📊',  label: 'Customer LTV' },
   { to: '/settings',          icon: '⚙️',  label: 'Settings' },
 ]
 

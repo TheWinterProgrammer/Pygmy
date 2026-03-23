@@ -309,6 +309,27 @@
         </div>
       </div>
 
+      <!-- Phase 50: Gift Registries -->
+      <div class="stat-card glass" v-if="(stats.gift_registries?.total ?? 0) > 0">
+        <div class="stat-icon">🎁</div>
+        <div class="stat-body">
+          <div class="stat-num">{{ stats.gift_registries?.active ?? 0 }}</div>
+          <div class="stat-label">Gift Registries</div>
+          <span style="color:var(--text-muted);font-size:.8rem;">{{ stats.gift_registries?.total ?? 0 }} total</span>
+          <RouterLink to="/gift-registry" class="stat-link">→ Registries</RouterLink>
+        </div>
+      </div>
+
+      <!-- Phase 50: Auto Discounts -->
+      <div class="stat-card glass" v-if="(stats.auto_discounts?.active ?? 0) > 0">
+        <div class="stat-icon">⚡</div>
+        <div class="stat-body">
+          <div class="stat-num">{{ stats.auto_discounts?.active ?? 0 }}</div>
+          <div class="stat-label">Auto Discounts Active</div>
+          <RouterLink to="/auto-discounts" class="stat-link">→ Auto Discounts</RouterLink>
+        </div>
+      </div>
+
     </div>
 
     <!-- Inventory alerts -->
@@ -434,6 +455,9 @@
       <RouterLink to="/automation" class="btn btn-ghost">⚡ Automation</RouterLink>
       <RouterLink to="/coupon-campaigns" class="btn btn-ghost">🎟️ Coupon Campaigns</RouterLink>
       <RouterLink to="/referral" class="btn btn-ghost">🔗 Referral</RouterLink>
+      <RouterLink to="/gift-registry" class="btn btn-ghost">🎁 Gift Registries</RouterLink>
+      <RouterLink to="/auto-discounts" class="btn btn-ghost">⚡ Auto Discounts</RouterLink>
+      <RouterLink to="/customer-ltv" class="btn btn-ghost">📊 Customer LTV</RouterLink>
     </div>
 
     <!-- Quick Notes -->

@@ -247,6 +247,14 @@ router.get('/stats', authMiddleware, (req, res) => {
     couponCampaignsActive = db.prepare(`SELECT COUNT(*) as c FROM coupon_campaigns WHERE active = 1`).get()?.c ?? 0
   } catch {}
 
+  // Phase 50 stats
+  let giftRegistriesTotal = 0, giftRegistriesActive = 0, autoDiscountsActive = 0
+  try {
+    giftRegistriesTotal  = db.prepare(`SELECT COUNT(*) as c FROM gift_registries`).get()?.c ?? 0
+    giftRegistriesActive = db.prepare(`SELECT COUNT(*) as c FROM gift_registries WHERE status='active'`).get()?.c ?? 0
+    autoDiscountsActive  = db.prepare(`SELECT COUNT(*) as c FROM auto_discounts WHERE active=1`).get()?.c ?? 0
+  } catch {}
+
   // Recent bookings (for dashboard widget)
   let recentBookings = []
   try {
@@ -294,6 +302,8 @@ router.get('/stats', authMiddleware, (req, res) => {
     bookings: { total: bookingsTotal, pending: bookingsPending, today: bookingsToday, enabled: bookingsEnabled },
     automation: { total: automationTotal, active: automationActive, runs_today: automationRunsToday },
     coupon_campaigns: { total: couponCampaignsTotal, active: couponCampaignsActive },
+    gift_registries: { total: giftRegistriesTotal, active: giftRegistriesActive },
+    auto_discounts: { active: autoDiscountsActive },
     recentPosts,
     recentActivity,
     recentBookings

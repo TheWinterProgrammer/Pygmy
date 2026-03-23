@@ -621,6 +621,36 @@
         </div>
       </div>
 
+      <!-- Gift Registry & Auto Discounts (Phase 50) -->
+      <div class="glass section" style="grid-column:span 2">
+        <h2 style="margin-bottom:1.25rem;">🎁 Gift Registries &amp; Auto Discounts</h2>
+        <div class="settings-grid">
+          <div>
+            <label class="toggle-label">
+              <input type="checkbox" v-model="giftRegistryEnabled" />
+              <span>Enable Gift Registry system</span>
+            </label>
+            <p style="color:var(--muted);font-size:0.82rem;margin-top:0.5rem;">
+              Customers can create and share wish lists / gift registries for weddings, baby showers, etc.
+            </p>
+            <div class="form-group" style="margin-top:0.75rem;" v-if="giftRegistryEnabled">
+              <label>Gift Registry Page Title</label>
+              <input v-model="form.gift_registry_title" class="input" placeholder="Gift Registries" />
+            </div>
+          </div>
+          <div>
+            <label class="toggle-label">
+              <input type="checkbox" v-model="autoDiscountsEnabled" />
+              <span>Enable Auto Discounts (BOGO / Buy X Get Y)</span>
+            </label>
+            <p style="color:var(--muted);font-size:0.82rem;margin-top:0.5rem;">
+              Cart-level automatic promotions apply without coupon codes. Manage rules in
+              <RouterLink to="/auto-discounts" style="color:var(--accent)">⚡ Auto Discounts</RouterLink>.
+            </p>
+          </div>
+        </div>
+      </div>
+
       <div class="glass section profile-section">
         <h2 style="margin-bottom:1.25rem;">🔐 My Profile</h2>
         <div class="form-group">
@@ -816,6 +846,10 @@ const form = ref({
   // Affiliate
   affiliate_enabled: '0',
   affiliate_cookie_days: '30',
+  // Phase 50
+  gift_registry_enabled: '1',
+  gift_registry_title: 'Gift Registries',
+  auto_discounts_enabled: '1',
   // Bookings
   bookings_enabled: '0',
   bookings_page_title: 'Book an Appointment',
@@ -900,6 +934,16 @@ const multicurrencyEnabled = computed({
 const bookingsEnabled = computed({
   get: () => form.value.bookings_enabled === '1',
   set: v => { form.value.bookings_enabled = v ? '1' : '0' }
+})
+
+const giftRegistryEnabled = computed({
+  get: () => form.value.gift_registry_enabled === '1',
+  set: v => { form.value.gift_registry_enabled = v ? '1' : '0' }
+})
+
+const autoDiscountsEnabled = computed({
+  get: () => form.value.auto_discounts_enabled === '1',
+  set: v => { form.value.auto_discounts_enabled = v ? '1' : '0' }
 })
 
 const bookingsReminderEnabled = computed({

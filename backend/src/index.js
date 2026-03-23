@@ -100,6 +100,9 @@ import bookingsRoutes from './routes/bookings.js'
 import couponCampaignsRoutes from './routes/coupon_campaigns.js'
 import automationRoutes, { fireAutomation } from './routes/automation.js'
 import smsRoutes from './routes/sms.js'
+import giftRegistryRoutes from './routes/gift_registry.js'
+import autoDiscountsRoutes from './routes/auto_discounts.js'
+import customerLtvRoutes, { computeAndStoreLtv } from './routes/customer_ltv.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -296,6 +299,9 @@ app.use('/api/bookings', bookingsRoutes)
 app.use('/api/coupon-campaigns', couponCampaignsRoutes)
 app.use('/api/automation', automationRoutes)
 app.use('/api/sms', smsRoutes)
+app.use('/api/gift-registry', giftRegistryRoutes)
+app.use('/api/auto-discounts', autoDiscountsRoutes)
+app.use('/api/customer-ltv', customerLtvRoutes)
 app.use('/', shoppingFeedRoutes)
 
 // ─── SEO (public) ─────────────────────────────────────────────────────────────

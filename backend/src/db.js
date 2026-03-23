@@ -2279,3 +2279,113 @@ for (const [key, value] of Object.entries(phase48Defaults)) {
 }
 
 console.log('Phase 48 schema ready')
+
+// ── Phase 50 schema migrations ────────────────────────────────────────────────
+
+// Gift Registry
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS gift_registries (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    title       TEXT    NOT NULL DEFAULT 'My Gift Registry',
+    slug        TEXT    NOT NULL UNIQUE,
+    customer_id INTEGER REFERENCES customers(id) ON DELETE CASCADE,
+    event_type  TEXT    NOT NULL DEFAULT 'wedding', -- wedding|baby|birthday|other
+    event_date  TEXT,
+    description TEXT    DEFAULT '',
+    thank_you   TEXT    DEFAULT '',
+    is_public   INTEGER NOT NULL DEFAULT 1,
+    status      TEXT    NOT NULL DEFAULT 'active', -- active|archived
+    created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+  )
+`).run()
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS gift_registry_items (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    registry_id  INTEGER NOT NULL REFERENCES gift_registries(id) ON DELETE CASCADE,
+    product_id   INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    quantity     INTEGER NOT NULL DEFAULT 1,
+    purchased    INTEGER NOT NULL DEFAULT 0,
+    notes        TEXT    DEFAULT '',
+    added_at     TEXT    NOT NULL DEFAULT (datetime('now'))
+  )
+`).run()
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS gift_registry_purchases (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    registry_id  INTEGER NOT NULL REFERENCES gift_registries(id) ON DELETE CASCADE,
+    item_id      INTEGER NOT NULL REFERENCES gift_registry_items(id) ON DELETE CASCADE,
+    giver_name   TEXT    NOT NULL DEFAULT 'Anonymous',
+    giver_email  TEXT    DEFAULT '',
+    quantity     INTEGER NOT NULL DEFAULT 1,
+    message      TEXT    DEFAULT '',
+    order_id     INTEGER REFERENCES orders(id) ON DELETE SET NULL,
+    purchased_at TEXT    NOT NULL DEFAULT (datetime('now'))
+  )
+`).run()
+
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_registry_customer ON gift_registries(customer_id)`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_registry_slug ON gift_registries(slug)`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_registry_items_reg ON gift_registry_items(registry_id)`).run()
+
+// Cart-level auto discounts (BOGO / Buy X Get Y)
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS auto_discounts (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    name           TEXT    NOT NULL,
+    type           TEXT    NOT NULL DEFAULT 'bogo', -- bogo|buy_x_get_y|spend_x_get_y|nth_free
+    description    TEXT    DEFAULT '',
+    buy_product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,
+    buy_quantity   INTEGER NOT NULL DEFAULT 1,
+    get_product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,
+    get_quantity   INTEGER NOT NULL DEFAULT 1,
+    get_discount   INTEGER NOT NULL DEFAULT 100, -- percent off the "get" item(s)
+    min_spend      REAL    NOT NULL DEFAULT 0,
+    nth_item       INTEGER NOT NULL DEFAULT 3,   -- for nth_free type
+    max_uses_total INTEGER NOT NULL DEFAULT 0,
+    uses_count     INTEGER NOT NULL DEFAULT 0,
+    starts_at      TEXT,
+    ends_at        TEXT,
+    active         INTEGER NOT NULL DEFAULT 1,
+    created_at     TEXT    NOT NULL DEFAULT (datetime('now'))
+  )
+`).run()
+
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_auto_disc_active ON auto_discounts(active)`).run()
+
+// Customer LTV table (cache table for fast reads)
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS customer_ltv (
+    customer_id       INTEGER PRIMARY KEY REFERENCES customers(id) ON DELETE CASCADE,
+    total_orders      INTEGER NOT NULL DEFAULT 0,
+    total_spent       REAL    NOT NULL DEFAULT 0,
+    avg_order_value   REAL    NOT NULL DEFAULT 0,
+    first_order_date  TEXT,
+    last_order_date   TEXT,
+    days_as_customer  INTEGER NOT NULL DEFAULT 0,
+    order_frequency   REAL    NOT NULL DEFAULT 0, -- orders per month
+    predicted_ltv     REAL    NOT NULL DEFAULT 0, -- simple 12-month projection
+    ltv_tier          TEXT    NOT NULL DEFAULT 'new', -- new|occasional|regular|loyal|vip
+    updated_at        TEXT    NOT NULL DEFAULT (datetime('now'))
+  )
+`).run()
+
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_ltv_tier ON customer_ltv(ltv_tier)`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_ltv_spent ON customer_ltv(total_spent)`).run()
+
+// Phase 50 settings
+const phase50Defaults = {
+  gift_registry_enabled:  '1',
+  gift_registry_title:    'Gift Registries',
+  auto_discounts_enabled: '1',
+}
+for (const [key, value] of Object.entries(phase50Defaults)) {
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
+}
+
+console.log('Phase 50 schema ready')
+
+// Phase 50 order column
+try { db.prepare(`ALTER TABLE orders ADD COLUMN auto_discount_amount REAL NOT NULL DEFAULT 0`).run() } catch {}
+
