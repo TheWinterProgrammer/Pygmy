@@ -38,7 +38,7 @@ router.post('/subscribe', (req, res) => {
 
 // ── GET /api/stock-alerts?product_id= — Admin: list alerts ───────────────────
 router.get('/', authMiddleware, (req, res) => {
-  const { product_id, notified, limit = 50, offset = 0 } = req.query
+  const { product_id, notified, q = '', limit = 50, offset = 0 } = req.query
   let query = `
     SELECT sa.*, p.name AS product_name, p.slug AS product_slug, p.stock_quantity
     FROM stock_alerts sa
@@ -54,6 +54,11 @@ router.get('/', authMiddleware, (req, res) => {
   if (notified !== undefined) {
     query += ' AND sa.notified = ?'
     params.push(notified === '1' ? 1 : 0)
+  }
+  if (q) {
+    query += ' AND (sa.email LIKE ? OR sa.name LIKE ? OR p.name LIKE ?)'
+    const like = `%${q}%`
+    params.push(like, like, like)
   }
 
   const total = db.prepare(query.replace(/SELECT sa\.\*.*?FROM/, 'SELECT COUNT(*) as cnt FROM')).get(...params)?.cnt || 0
