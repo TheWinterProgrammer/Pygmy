@@ -2054,14 +2054,23 @@ if (!productColsP42.includes('subscription_enabled')) {
 const phase42Defaults = {
   loyalty_tiers_enabled: '1',
   product_subscriptions_enabled: '0',
-  theme_font:           'Poppins',
-  theme_button_radius:  '0.5rem',
-  theme_card_style:     'glass',
-  theme_nav_style:      'floating',
-  theme_hero_layout:    'centered',
+  theme_font:               'Poppins',
+  theme_font_size:          '16px',
+  theme_button_radius:      '0.5rem',
+  theme_card_style:         'glass',
+  theme_nav_style:          'floating',
+  theme_hero_layout:        'centered',
+  theme_products_per_row:   '3',
+  theme_show_excerpt:       '0',
+  theme_show_atc:           '1',
+  theme_footer_style:       'minimal',
+  theme_show_social:        '0',
+  bg_color:                 'hsl(228, 4%, 10%)',
+  surface_color:            'hsl(228, 4%, 15%)',
+  custom_css:               '',
 }
 for (const [key, value] of Object.entries(phase42Defaults)) {
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
 }
 
-console.log('Phase 42 schema ready')
+console.log('Phase 42 + Phase 43 schema ready')

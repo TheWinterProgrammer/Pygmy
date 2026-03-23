@@ -41,6 +41,33 @@ export const useSiteStore = defineStore('site', () => {
         el.innerHTML = settingsRes.data.footer_scripts
         document.body.appendChild(el)
       }
+      // Inject dynamic theme CSS (accent color, bg, surface, font, etc.)
+      {
+        const s = settingsRes.data
+        let themeVars = ':root {'
+        if (s.accent_color) themeVars += `--accent:${s.accent_color};`
+        if (s.bg_color) themeVars += `--bg:${s.bg_color};`
+        if (s.surface_color) themeVars += `--surface:${s.surface_color};`
+        if (s.theme_button_radius) themeVars += `--btn-radius:${s.theme_button_radius};`
+        if (s.theme_font_size) themeVars += `font-size:${s.theme_font_size};`
+        themeVars += '}'
+        // Google Font import if custom
+        if (s.theme_font && s.theme_font !== 'Poppins' && !s.theme_font.includes('system')) {
+          const fontSlug = s.theme_font.replace(/ /g, '+')
+          themeVars = `@import url('https://fonts.googleapis.com/css2?family=${fontSlug}:wght@400;500;600;700&display=swap');` + themeVars
+          themeVars += `body { font-family: '${s.theme_font}', sans-serif; }`
+        }
+        // Append custom CSS
+        if (s.custom_css) themeVars += '\n' + s.custom_css
+
+        let styleEl = document.getElementById('pygmy-theme-css')
+        if (!styleEl) {
+          styleEl = document.createElement('style')
+          styleEl.id = 'pygmy-theme-css'
+          document.head.appendChild(styleEl)
+        }
+        styleEl.textContent = themeVars
+      }
     } catch (e) {
       // If the API responds with a 503 maintenance error, show maintenance mode
       if (e?.response?.status === 503 || e?.response?.data?.error === 'maintenance') {
