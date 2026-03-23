@@ -199,6 +199,81 @@
               </button>
             </div>
           </template>
+        <!-- ── Store Credit Tab ── -->
+        <div v-if="activeTab === 'credit'">
+          <h2 class="tab-title">💳 Store Credit</h2>
+          <div v-if="creditLoading" class="loading">Loading…</div>
+          <template v-else>
+            <div class="credit-balance-card glass">
+              <div class="credit-amount">{{ currency }}{{ Number(creditBalance).toFixed(2) }}</div>
+              <div class="credit-label">Available Store Credit</div>
+              <p class="muted" style="margin-top:.5rem;font-size:.85rem;">Store credit is automatically applied at checkout.</p>
+            </div>
+            <h3 style="margin:1.5rem 0 1rem;">Transaction History</h3>
+            <div v-if="!creditTransactions.length" class="empty-state">
+              <p>No store credit transactions yet.</p>
+            </div>
+            <div v-else class="credit-transactions">
+              <div v-for="tx in creditTransactions" :key="tx.id" class="credit-tx-row glass">
+                <div>
+                  <div class="tx-type">{{ tx.type }}</div>
+                  <div class="tx-note muted">{{ tx.note || '—' }}</div>
+                </div>
+                <div :class="['tx-amount', tx.amount > 0 ? 'positive' : 'negative']">
+                  {{ tx.amount > 0 ? '+' : '' }}{{ currency }}{{ Math.abs(tx.amount).toFixed(2) }}
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <!-- ── Referral Tab ── -->
+        <div v-if="activeTab === 'referral'">
+          <h2 class="tab-title">🔗 Referral Program</h2>
+          <div v-if="referralLoading" class="loading">Loading…</div>
+          <div v-else-if="!referralEnabled" class="empty-state">
+            <p>The referral program is not currently active.</p>
+          </div>
+          <template v-else>
+            <div class="referral-card glass">
+              <h3>Your Referral Code</h3>
+              <div class="referral-code-display">
+                <span class="referral-code">{{ referralCode }}</span>
+                <button class="copy-btn" @click="copyCode">{{ copied ? '✓ Copied!' : '📋 Copy' }}</button>
+              </div>
+              <p class="muted" style="margin-top:.75rem;font-size:.85rem;">
+                Share your code with friends. When they place their first order, you'll earn
+                <strong>{{ currency }}{{ Number(referralRewardAmount).toFixed(2) }}</strong> store credit.
+              </p>
+              <div class="referral-stats">
+                <div class="ref-stat">
+                  <div class="ref-stat-value">{{ referralTimesUsed }}</div>
+                  <div class="ref-stat-label">Times Used</div>
+                </div>
+                <div class="ref-stat">
+                  <div class="ref-stat-value">{{ currency }}{{ Number(referralCreditEarned).toFixed(2) }}</div>
+                  <div class="ref-stat-label">Credit Earned</div>
+                </div>
+              </div>
+            </div>
+
+            <h3 style="margin:1.5rem 0 1rem;">Referral Activity</h3>
+            <div v-if="!referralEvents.length" class="empty-state">
+              <p>No one has used your referral code yet.</p>
+            </div>
+            <div v-else class="credit-transactions">
+              <div v-for="ev in referralEvents" :key="ev.id" class="credit-tx-row glass">
+                <div>
+                  <div class="tx-type">{{ ev.referred_email }}</div>
+                  <div class="tx-note muted">{{ fmtDate(ev.created_at) }}</div>
+                </div>
+                <div :class="['tx-amount', ev.reward_given ? 'positive' : '']">
+                  {{ ev.reward_given ? `+${currency}${Number(ev.reward_amount).toFixed(2)}` : '⏳ Pending' }}
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
         </div>
       </main>
     </div>
@@ -245,6 +320,13 @@
               class="btn btn-primary"
               style="display:inline-flex;align-items:center;gap:.4rem;"
             >📥 Access Downloads</RouterLink>
+          </div>
+
+          <!-- Invoice download -->
+          <div class="invoice-row">
+            <a :href="`/api/invoices/${selectedOrder.order_number}?email=${encodeURIComponent(store.customer?.email||'')}`" target="_blank" class="btn btn-ghost btn-sm" style="display:inline-flex;align-items:center;gap:.4rem;">
+              🧾 Download Invoice
+            </a>
           </div>
 
           <!-- Tracking info -->
@@ -387,6 +469,8 @@ const tabs = [
   { id: 'profile', icon: '✏️', label: 'Profile' },
   { id: 'points', icon: '🏆', label: 'Points' },
   { id: 'cart', icon: '🛒', label: 'Saved Cart' },
+  { id: 'credit', icon: '💳', label: 'Store Credit' },
+  { id: 'referral', icon: '🔗', label: 'Referral' },
 ]
 const activeTab = ref('orders')
 
@@ -564,6 +648,60 @@ async function restoreCart() {
   }
 }
 
+// ── Store Credit ──────────────────────────────────────────────────────────────
+const creditBalance = ref(0)
+const creditTransactions = ref([])
+const creditLoading = ref(true)
+
+async function loadCredit() {
+  creditLoading.value = true
+  try {
+    const res = await fetch('/api/store-credit/me', { headers: { Authorization: `Bearer ${store.token}` } })
+    if (res.ok) {
+      const d = await res.json()
+      creditBalance.value = d.balance || 0
+      creditTransactions.value = d.transactions || []
+    }
+  } catch {} finally { creditLoading.value = false }
+}
+
+// ── Referral ──────────────────────────────────────────────────────────────────
+const referralCode = ref('')
+const referralTimesUsed = ref(0)
+const referralCreditEarned = ref(0)
+const referralEnabled = ref(false)
+const referralRewardAmount = ref(10)
+const referralEvents = ref([])
+const referralLoading = ref(true)
+const copied = ref(false)
+
+async function loadReferral() {
+  referralLoading.value = true
+  try {
+    const res = await fetch('/api/referral/my-code', { headers: { Authorization: `Bearer ${store.token}` } })
+    if (res.ok) {
+      const d = await res.json()
+      referralCode.value = d.code || ''
+      referralTimesUsed.value = d.times_used || 0
+      referralCreditEarned.value = d.credit_earned || 0
+      referralEnabled.value = d.referral_enabled
+      referralRewardAmount.value = d.reward_amount || 10
+      referralEvents.value = d.events || []
+    }
+  } catch {} finally { referralLoading.value = false }
+}
+
+function copyCode() {
+  navigator.clipboard.writeText(referralCode.value)
+  copied.value = true
+  setTimeout(() => { copied.value = false }, 2000)
+}
+
+function fmtDate(d) {
+  if (!d) return ''
+  return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
 onMounted(async () => {
   if (!store.isLoggedIn) { router.push('/account/login'); return }
   await site.init()
@@ -571,6 +709,8 @@ onMounted(async () => {
   loadAddresses()
   loadLoyalty()
   loadSavedCart()
+  loadCredit()
+  loadReferral()
   profile.first_name = store.customer?.first_name || ''
   profile.last_name = store.customer?.last_name || ''
   profile.phone = store.customer?.phone || ''
@@ -734,4 +874,25 @@ onMounted(async () => {
 .saved-cart-footer { display: flex; align-items: center; justify-content: space-between; padding: 1rem 0; border-top: 1px solid rgba(255,255,255,.08); }
 .saved-cart-subtotal { font-size: .95rem; color: var(--muted); }
 .saved-cart-subtotal strong { color: var(--text); font-size: 1.1rem; }
+
+/* Store Credit Tab */
+.credit-balance-card { padding: 2rem; text-align: center; border-radius: 1.5rem; margin-bottom: 1.5rem; }
+.credit-amount { font-size: 3rem; font-weight: 800; color: hsl(355,70%,58%); }
+.credit-label { color: var(--muted); font-size: 1rem; }
+.credit-transactions { display: flex; flex-direction: column; gap: 0.75rem; }
+.credit-tx-row { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; border-radius: 0.75rem; }
+.tx-type { font-weight: 600; text-transform: capitalize; }
+.tx-note { font-size: 0.8rem; }
+.tx-amount { font-weight: 700; font-size: 1rem; }
+.tx-amount.positive { color: hsl(120,50%,60%); }
+.tx-amount.negative { color: hsl(355,70%,58%); }
+
+/* Referral Tab */
+.referral-card { padding: 1.5rem; border-radius: 1.5rem; margin-bottom: 1.5rem; }
+.referral-code-display { display: flex; align-items: center; gap: 1rem; margin-top: 0.75rem; }
+.referral-code { font-size: 1.6rem; font-weight: 800; letter-spacing: 0.1em; color: hsl(355,70%,58%); font-family: monospace; background: rgba(255,255,255,0.05); padding: 0.4rem 1rem; border-radius: 0.75rem; }
+.copy-btn { background: hsl(228,4%,20%); border: none; color: #fff; padding: 0.5rem 1rem; border-radius: 0.75rem; cursor: pointer; font-size: 0.9rem; }
+.referral-stats { display: flex; gap: 2rem; margin-top: 1.25rem; }
+.ref-stat-value { font-size: 1.5rem; font-weight: 700; color: hsl(355,70%,58%); }
+.ref-stat-label { font-size: 0.8rem; color: var(--muted); }
 </style>

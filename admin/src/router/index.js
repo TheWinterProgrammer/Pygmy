@@ -85,6 +85,11 @@ const routes = [
       { path: 'price-alerts',      name: 'PriceAlerts',      component: () => import('../views/PriceAlertsView.vue') },
       { path: 'product-badges',    name: 'ProductBadges',    component: () => import('../views/ProductBadgesView.vue') },
       { path: 'social-proof',      name: 'SocialProof',      component: () => import('../views/SocialProofView.vue') },
+      { path: 'store-credit',      name: 'StoreCredit',      component: () => import('../views/StoreCreditView.vue') },
+      { path: 'referral',          name: 'Referral',         component: () => import('../views/ReferralView.vue') },
+      { path: 'collections',       name: 'Collections',      component: () => import('../views/CollectionsView.vue') },
+      { path: 'upsell',            name: 'Upsell',           component: () => import('../views/UpsellView.vue') },
+      { path: 'suppliers',         name: 'Suppliers',        component: () => import('../views/SuppliersView.vue') },
       { path: 'settings',          name: 'Settings',         component: () => import('../views/SettingsView.vue') },
     ]
   },

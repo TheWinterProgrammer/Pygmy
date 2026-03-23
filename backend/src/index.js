@@ -78,6 +78,12 @@ import priceAlertsRoutes from './routes/price_alerts.js'
 import socialProofRoutes from './routes/social_proof.js'
 import productBadgesRoutes from './routes/product_badges.js'
 import savedCartsRoutes from './routes/saved_carts.js'
+import storeCreditRoutes from './routes/store_credit.js'
+import referralRoutes, { processReferralReward } from './routes/referral.js'
+import collectionsRoutes from './routes/collections.js'
+import upsellRoutes from './routes/upsell.js'
+import suppliersRoutes from './routes/suppliers.js'
+import invoicesRoutes from './routes/invoices.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -253,6 +259,12 @@ app.use('/api/price-alerts', priceAlertsRoutes)
 app.use('/api/social-proof', socialProofRoutes)
 app.use('/api/product-badges', productBadgesRoutes)
 app.use('/api/saved-carts', savedCartsRoutes)
+app.use('/api/store-credit', storeCreditRoutes)
+app.use('/api/referral', referralRoutes)
+app.use('/api/collections', collectionsRoutes)
+app.use('/api/upsell', upsellRoutes)
+app.use('/api/suppliers', suppliersRoutes)
+app.use('/api/invoices', invoicesRoutes)
 
 // ─── SEO (public) ─────────────────────────────────────────────────────────────
 app.use('/', seoRoutes)

@@ -61,10 +61,40 @@
           <RouterLink to="/shop" class="btn btn-primary">Continue Shopping</RouterLink>
           <RouterLink to="/account" class="btn btn-ghost">👤 My Account</RouterLink>
           <RouterLink to="/order/lookup" class="btn btn-ghost">📦 Track Order</RouterLink>
+          <a :href="`/api/invoices/${order.order_number}?email=${encodeURIComponent(order.customer_email||'')}`" target="_blank" class="btn btn-ghost">🧾 Invoice</a>
           <RouterLink to="/" class="btn btn-ghost">← Home</RouterLink>
         </div>
       </div>
     </div>
+
+    <!-- Post-Purchase Upsell Overlay -->
+    <Transition name="upsell-fade">
+      <div class="upsell-overlay" v-if="upsellOffer && !upsellDismissed">
+        <div class="upsell-card glass">
+          <button class="upsell-close" @click="upsellDismissed=true">✕</button>
+          <div class="upsell-badge">⚡ One-Time Offer</div>
+          <h2>{{ upsellOffer.headline }}</h2>
+          <p v-if="upsellOffer.subtext">{{ upsellOffer.subtext }}</p>
+          <div class="upsell-product">
+            <img v-if="upsellOffer.cover_image" :src="upsellOffer.cover_image" class="upsell-img" />
+            <div class="upsell-info">
+              <div class="upsell-name">{{ upsellOffer.product_name }}</div>
+              <div class="upsell-price">
+                <span v-if="upsellOffer.discount_pct>0" class="upsell-original">{{ fmt(upsellOffer.product_price) }}</span>
+                <span class="upsell-final">{{ fmt(upsellOffer.upsell_price) }}</span>
+                <span v-if="upsellOffer.discount_pct>0" class="upsell-discount">{{ upsellOffer.discount_pct }}% OFF</span>
+              </div>
+            </div>
+          </div>
+          <div class="upsell-actions">
+            <button class="btn btn-primary upsell-yes" @click="acceptUpsell" :disabled="upsellAccepted">
+              {{ upsellAccepted ? '✓ Added!' : upsellOffer.button_yes }}
+            </button>
+            <button class="btn btn-ghost upsell-no" @click="upsellDismissed=true">{{ upsellOffer.button_no }}</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -77,19 +107,43 @@ import api from '../api.js'
 const route = useRoute()
 const site  = useSiteStore()
 
-const order   = ref(null)
-const loading = ref(true)
+const order          = ref(null)
+const loading        = ref(true)
+const upsellOffer    = ref(null)
+const upsellDismissed = ref(false)
+const upsellAccepted  = ref(false)
 
 onMounted(async () => {
   try {
     const { data } = await api.get(`/orders/confirm/${route.params.orderNumber}`)
     order.value = data
+    // Fetch upsell offer after a short delay
+    setTimeout(async () => {
+      try {
+        const productIds = (data.items || []).map(i => i.product_id).filter(Boolean).join(',')
+        const { data: offer } = await api.get(`/upsell/active?order_number=${data.order_number}&product_ids=${productIds}`)
+        if (offer) upsellOffer.value = offer
+      } catch {}
+    }, 1800)
   } catch {
     order.value = null
   } finally {
     loading.value = false
   }
 })
+
+async function acceptUpsell() {
+  if (!upsellOffer.value || upsellAccepted.value) return
+  // Record conversion
+  try {
+    await api.post(`/upsell/${upsellOffer.value.id}/convert`, {
+      order_number: order.value.order_number,
+      revenue: upsellOffer.value.upsell_price
+    })
+  } catch {}
+  upsellAccepted.value = true
+  setTimeout(() => { upsellDismissed.value = true }, 1600)
+}
 
 function fmt(v) {
   return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(v || 0)
@@ -213,4 +267,80 @@ h1 { font-size: 2rem; font-weight: 800; margin: 0 0 .5rem; }
   justify-content: center;
   flex-wrap: wrap;
 }
+
+/* Upsell overlay */
+.upsell-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 1rem;
+}
+.upsell-card {
+  width: 100%;
+  max-width: 460px;
+  border-radius: 1.5rem;
+  padding: 2rem;
+  position: relative;
+  text-align: center;
+}
+.upsell-close {
+  position: absolute;
+  top: 1rem; right: 1rem;
+  background: none; border: none;
+  font-size: 1.2rem; cursor: pointer;
+  opacity: .5;
+}
+.upsell-close:hover { opacity: 1; }
+.upsell-badge {
+  display: inline-block;
+  background: var(--accent);
+  color: #fff;
+  font-size: .75rem;
+  font-weight: 700;
+  padding: 3px 12px;
+  border-radius: 99px;
+  margin-bottom: .75rem;
+  letter-spacing: .05em;
+}
+.upsell-card h2 { font-size: 1.4rem; font-weight: 800; margin-bottom: .5rem; }
+.upsell-card p { color: var(--text-muted); font-size: .9rem; margin-bottom: 1rem; }
+.upsell-product {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: rgba(255,255,255,.05);
+  border-radius: 1rem;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  text-align: left;
+}
+.upsell-img {
+  width: 72px; height: 72px;
+  border-radius: .75rem;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.upsell-name { font-weight: 600; margin-bottom: .4rem; }
+.upsell-price { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.upsell-original { text-decoration: line-through; color: var(--text-muted); font-size: .9rem; }
+.upsell-final { font-size: 1.25rem; font-weight: 800; color: var(--accent); }
+.upsell-discount {
+  background: rgba(var(--accent-rgb,213,60,60),.15);
+  color: var(--accent);
+  font-size: .75rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 99px;
+}
+.upsell-actions { display: flex; flex-direction: column; gap: .75rem; }
+.upsell-yes { font-size: 1rem; padding: .75rem 1.5rem; }
+.upsell-no  { font-size: .85rem; opacity: .6; }
+
+/* Transition */
+.upsell-fade-enter-active, .upsell-fade-leave-active { transition: opacity .35s, transform .35s; }
+.upsell-fade-enter-from, .upsell-fade-leave-to { opacity: 0; transform: scale(.95); }
 </style>

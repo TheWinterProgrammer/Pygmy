@@ -11,6 +11,7 @@ import { redeemGiftCard } from './gift_cards.js'
 import { issueDownloadTokensForOrder } from './digital_downloads.js'
 import { recordReferral } from './affiliates.js'
 import { addOrderEvent } from './order_timeline.js'
+import { processReferralReward } from './referral.js'
 
 const CUSTOMER_JWT_SECRET = process.env.CUSTOMER_JWT_SECRET || 'pygmy-customer-secret-change-in-production'
 
@@ -65,6 +66,10 @@ router.post('/', (req, res) => {
     tax_amount = 0, tax_rate_name = '',
     redeem_points = 0,
     affiliate_code = '',
+    referral_code = '',
+    store_credit_amount = 0,
+    gift_wrap = 0,
+    gift_message = '',
   } = req.body
 
   if (!customer_name || !customer_email) {
@@ -166,9 +171,25 @@ router.post('/', (req, res) => {
     appliedGiftCard = gc.code
   }
 
+  // Store credit redemption
+  let storeCreditDiscount = 0
+  const storeCreditAmountNum = Math.max(0, parseFloat(store_credit_amount) || 0)
+  if (storeCreditAmountNum > 0 && getSetting('store_credit_enabled') === '1' && customerId) {
+    const cust = db.prepare('SELECT store_credit_balance FROM customers WHERE id = ?').get(customerId)
+    if (cust && cust.store_credit_balance >= storeCreditAmountNum) {
+      storeCreditDiscount = storeCreditAmountNum
+    }
+  }
+
+  // Gift wrap
+  const giftWrapEnabled = getSetting('gift_wrap_enabled') === '1'
+  const giftWrapPrice = giftWrapEnabled ? parseFloat(getSetting('gift_wrap_price') || '5') : 0
+  const applyGiftWrap = gift_wrap && giftWrapEnabled ? 1 : 0
+  const giftWrapCost = applyGiftWrap ? giftWrapPrice : 0
+
   // Tax inclusive means tax is already in subtotal, so don't add it again
   const taxInclusive = getSetting('tax_inclusive') === '1'
-  const computedTotal = Math.max(0, computedSubtotal - discountAmount - loyaltyDiscount - giftCardDiscount + shippingCostNum + (taxInclusive ? 0 : taxAmountNum))
+  const computedTotal = Math.max(0, computedSubtotal - discountAmount - loyaltyDiscount - giftCardDiscount - storeCreditDiscount + shippingCostNum + giftWrapCost + (taxInclusive ? 0 : taxAmountNum))
   const orderNumber = generateOrderNumber()
 
   // Use a transaction: insert order + decrement stock + increment coupon uses + loyalty
@@ -178,8 +199,8 @@ router.post('/', (req, res) => {
         shipping_address, billing_address, billing_same_as_shipping,
         items, subtotal, discount_amount, shipping_cost, shipping_zone, shipping_method,
         shipping_country, shipping_rate_name, total, coupon_code, notes, customer_id, tax_amount, tax_rate_name,
-        gift_card_code, gift_card_discount)
-      VALUES (?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        gift_card_code, gift_card_discount, gift_wrap, gift_message, gift_wrap_cost, store_credit_used)
+      VALUES (?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       orderNumber,
       customer_name.trim(),
@@ -190,7 +211,7 @@ router.post('/', (req, res) => {
       billing_same_as_shipping ? 1 : 0,
       JSON.stringify(validatedItems),
       computedSubtotal,
-      discountAmount + loyaltyDiscount,
+      discountAmount + loyaltyDiscount + storeCreditDiscount,
       shippingCostNum,
       (shipping_zone || '').trim(),
       (shipping_method || '').trim(),
@@ -203,7 +224,11 @@ router.post('/', (req, res) => {
       taxAmountNum,
       taxRateNameStr,
       appliedGiftCard,
-      giftCardDiscount
+      giftCardDiscount,
+      applyGiftWrap,
+      (gift_message || '').trim(),
+      giftWrapCost,
+      storeCreditDiscount
     )
 
     const newOrderId = result.lastInsertRowid
@@ -279,11 +304,34 @@ router.post('/', (req, res) => {
 
   // Record affiliate referral (fire-and-forget)
   if (affiliate_code) {
-    try { recordReferral(affiliate_code, newOrderId, computedTotal) } catch (e) { console.warn('Affiliate referral error:', e.message) }
+    try { recordReferral(affiliate_code, newId, computedTotal) } catch (e) { console.warn('Affiliate referral error:', e.message) }
+  }
+
+  // Deduct store credit from customer balance (fire-and-forget)
+  if (storeCreditDiscount > 0 && customerId) {
+    try {
+      db.prepare('UPDATE customers SET store_credit_balance = MAX(0, store_credit_balance - ?) WHERE id = ?').run(storeCreditDiscount, customerId)
+      db.prepare(`INSERT INTO store_credit_transactions (customer_id, amount, type, note, order_id) VALUES (?, ?, 'redemption', ?, ?)`).run(customerId, -storeCreditDiscount, `Redeemed on order #${orderNumber}`, newId)
+    } catch (e) { console.warn('Store credit deduction error:', e.message) }
+  }
+
+  // Process referral reward (fire-and-forget)
+  if (referral_code) {
+    try {
+      // Register the referral event for first-time email if not already registered
+      const existingRef = db.prepare('SELECT id FROM referral_events WHERE referred_email = ?').get(customer_email.trim().toLowerCase())
+      if (!existingRef) {
+        const refCode = db.prepare('SELECT * FROM referral_codes WHERE code = ?').get(referral_code.toUpperCase())
+        if (refCode) {
+          db.prepare(`INSERT INTO referral_events (referral_code, referrer_id, referred_email, referred_id) VALUES (?, ?, ?, ?)`).run(refCode.code, refCode.customer_id, customer_email.trim().toLowerCase(), customerId || null)
+        }
+      }
+      processReferralReward(newId, customer_email.trim().toLowerCase(), computedTotal)
+    } catch (e) { console.warn('Referral reward error:', e.message) }
   }
 
   // Add initial timeline event
-  addOrderEvent(newOrderId, 'system', `Order #${orderNumber} placed successfully.`, true, 'system')
+  addOrderEvent(newId, 'system', `Order #${orderNumber} placed successfully.`, true, 'system')
 
   // Send webhook (fire-and-forget)
   try { fireWebhooks('order.created', { order_number: orderNumber, total: computedTotal }) } catch {}

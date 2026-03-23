@@ -316,6 +316,68 @@
         </div>
       </div>
 
+      <!-- Store Credit -->
+      <div class="glass section">
+        <h2 style="margin-bottom:1.25rem;">💳 Store Credit</h2>
+        <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:1.25rem;">
+          Issue and manage store credit for customers. Customers can redeem it at checkout.
+        </p>
+        <label class="toggle-label" style="margin-bottom:1.25rem;">
+          <input type="checkbox" v-model="storeCreditEnabled" />
+          <span>Enable store credit</span>
+        </label>
+        <p style="font-size:0.83rem;color:var(--text-muted)">
+          Manage balances from the <RouterLink to="/store-credit" style="color:var(--accent)">💳 Store Credit</RouterLink> panel.
+        </p>
+      </div>
+
+      <!-- Gift Wrap -->
+      <div class="glass section">
+        <h2 style="margin-bottom:1.25rem;">🎀 Gift Wrapping</h2>
+        <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:1.25rem;">
+          Offer customers the option to add gift wrapping at checkout for a small fee.
+        </p>
+        <label class="toggle-label" style="margin-bottom:1.25rem;">
+          <input type="checkbox" v-model="giftWrapEnabledSetting" />
+          <span>Enable gift wrapping option at checkout</span>
+        </label>
+        <div v-if="giftWrapEnabledSetting">
+          <div class="form-group">
+            <label>Gift Wrap Price ({{ form.shop_currency_symbol || '€' }})</label>
+            <input v-model.number="form.gift_wrap_price" type="number" step="0.01" min="0" class="input" style="max-width:120px;" />
+          </div>
+          <div class="form-group">
+            <label>Gift Wrap Label</label>
+            <input v-model="form.gift_wrap_label" class="input" placeholder="Gift Wrapping" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Referral Program -->
+      <div class="glass section">
+        <h2 style="margin-bottom:1.25rem;">🔗 Customer Referral Program</h2>
+        <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:1.25rem;">
+          Let customers earn store credit by referring friends. Reward fires on the referred customer's first order.
+        </p>
+        <label class="toggle-label" style="margin-bottom:1.25rem;">
+          <input type="checkbox" v-model="referralProgramEnabled" />
+          <span>Enable referral program</span>
+        </label>
+        <div v-if="referralProgramEnabled">
+          <div class="form-group">
+            <label>Reward Amount (store credit per successful referral)</label>
+            <input v-model.number="form.referral_reward_amount" type="number" step="0.01" min="0" class="input" style="max-width:120px;" />
+          </div>
+          <div class="form-group">
+            <label>Minimum Order Value to Trigger Reward <small style="color:var(--text-muted)">(0 = any order)</small></label>
+            <input v-model.number="form.referral_min_order" type="number" step="0.01" min="0" class="input" style="max-width:120px;" />
+          </div>
+          <p style="font-size:0.83rem;color:var(--text-muted)">
+            View referral stats in the <RouterLink to="/referral" style="color:var(--accent)">🔗 Referral Program</RouterLink> panel.
+          </p>
+        </div>
+      </div>
+
       <!-- Email Branding -->
       <div class="glass section">
         <h2 style="margin-bottom:1.25rem;">📧 Email Branding</h2>

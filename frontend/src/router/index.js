@@ -83,6 +83,14 @@ const routes = [
     component: () => import('../views/MembershipView.vue')
   },
   {
+    path: '/collections',
+    component: () => import('../views/CollectionsView.vue')
+  },
+  {
+    path: '/collections/:slug',
+    component: () => import('../views/CollectionView.vue')
+  },
+  {
     path: '/account/login',
     component: () => import('../views/AccountLoginView.vue')
   },

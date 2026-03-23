@@ -402,7 +402,8 @@ async function saveFulfillment() {
 }
 
 function printInvoice(order) {
-  window.open(`http://localhost:3200/api/orders/${order.id}/invoice`, '_blank')
+  const API = import.meta.env.VITE_API_URL || 'http://localhost:3200'
+  window.open(`${API}/api/invoices/${order.order_number}/admin`, '_blank')
 }
 
 function printPackingSlip(order) {

@@ -1613,3 +1613,166 @@ db.prepare(`
     updated_at  TEXT    DEFAULT (datetime('now'))
   )
 `).run()
+
+// ── Phase 39: Store Credit + Referral Program ────────────────────────────────
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS store_credit_transactions (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id   INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+    amount        REAL NOT NULL,                   -- positive = credit, negative = debit
+    type          TEXT NOT NULL DEFAULT 'manual',  -- manual | referral | refund | redemption | expiry
+    note          TEXT,
+    order_id      INTEGER,                         -- linked order (if redemption/refund)
+    created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_sc_customer ON store_credit_transactions(customer_id)`).run()
+
+// Add store_credit_balance column to customers if not present
+try { db.prepare('ALTER TABLE customers ADD COLUMN store_credit_balance REAL NOT NULL DEFAULT 0').run() } catch {}
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS referral_codes (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id   INTEGER NOT NULL UNIQUE REFERENCES customers(id) ON DELETE CASCADE,
+    code          TEXT NOT NULL UNIQUE,
+    times_used    INTEGER NOT NULL DEFAULT 0,
+    credit_earned REAL NOT NULL DEFAULT 0,
+    created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_referral_code ON referral_codes(code)`).run()
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS referral_events (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    referral_code   TEXT NOT NULL,
+    referrer_id     INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+    referred_email  TEXT NOT NULL,
+    referred_id     INTEGER REFERENCES customers(id) ON DELETE SET NULL,
+    order_id        INTEGER,
+    reward_given    INTEGER NOT NULL DEFAULT 0,   -- 0/1
+    reward_amount   REAL,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`).run()
+
+// Add gift_wrap columns to orders
+try { db.prepare('ALTER TABLE orders ADD COLUMN gift_wrap INTEGER NOT NULL DEFAULT 0').run() } catch {}
+try { db.prepare('ALTER TABLE orders ADD COLUMN gift_message TEXT').run() } catch {}
+try { db.prepare('ALTER TABLE orders ADD COLUMN gift_wrap_cost REAL NOT NULL DEFAULT 0').run() } catch {}
+try { db.prepare('ALTER TABLE orders ADD COLUMN store_credit_used REAL NOT NULL DEFAULT 0').run() } catch {}
+
+// Referral / store credit settings defaults
+const referralDefaults = {
+  referral_enabled: '0',
+  referral_reward_amount: '10',   // store credit for referrer on first order
+  referral_min_order: '0',        // min order value to trigger reward
+  store_credit_enabled: '1',
+  gift_wrap_enabled: '0',
+  gift_wrap_price: '5.00',
+  gift_wrap_label: 'Gift Wrapping',
+}
+for (const [key, value] of Object.entries(referralDefaults)) {
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
+}
+
+// ── Phase 39: Product Collections ────────────────────────────────────────────
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS collections (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    name         TEXT    NOT NULL,
+    slug         TEXT    NOT NULL UNIQUE,
+    description  TEXT    DEFAULT '',
+    cover_image  TEXT    DEFAULT '',
+    sort_order   INTEGER NOT NULL DEFAULT 0,
+    active       INTEGER NOT NULL DEFAULT 1,
+    seo_title    TEXT    DEFAULT '',
+    seo_desc     TEXT    DEFAULT '',
+    created_at   TEXT    DEFAULT (datetime('now')),
+    updated_at   TEXT    DEFAULT (datetime('now'))
+  )
+`).run()
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS collection_products (
+    collection_id INTEGER NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+    product_id    INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    sort_order    INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (collection_id, product_id)
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_col_prods ON collection_products(collection_id)`).run()
+
+// ── Phase 39: Post-Purchase Upsell ────────────────────────────────────────────
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS upsell_offers (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id    INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    trigger_type  TEXT    NOT NULL DEFAULT 'any',  -- any | product | category
+    trigger_value TEXT    DEFAULT '',               -- product_id or category slug
+    headline      TEXT    NOT NULL DEFAULT 'Special One-Time Offer!',
+    subtext       TEXT    DEFAULT '',
+    discount_pct  INTEGER NOT NULL DEFAULT 0,       -- 0 = no discount
+    active        INTEGER NOT NULL DEFAULT 1,
+    sort_order    INTEGER NOT NULL DEFAULT 0,
+    created_at    TEXT    DEFAULT (datetime('now'))
+  )
+`).run()
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS upsell_conversions (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    offer_id    INTEGER NOT NULL REFERENCES upsell_offers(id) ON DELETE CASCADE,
+    order_number TEXT   NOT NULL,
+    revenue     REAL   NOT NULL DEFAULT 0,
+    created_at  TEXT   DEFAULT (datetime('now'))
+  )
+`).run()
+
+// ── Phase 39: Suppliers ───────────────────────────────────────────────────────
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS suppliers (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    name         TEXT    NOT NULL,
+    contact_name TEXT    DEFAULT '',
+    email        TEXT    DEFAULT '',
+    phone        TEXT    DEFAULT '',
+    website      TEXT    DEFAULT '',
+    address      TEXT    DEFAULT '',
+    notes        TEXT    DEFAULT '',
+    active       INTEGER NOT NULL DEFAULT 1,
+    created_at   TEXT    DEFAULT (datetime('now')),
+    updated_at   TEXT    DEFAULT (datetime('now'))
+  )
+`).run()
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS purchase_orders (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    supplier_id  INTEGER NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
+    po_number    TEXT    NOT NULL UNIQUE,
+    status       TEXT    NOT NULL DEFAULT 'draft',  -- draft | sent | received | partial | cancelled
+    items        TEXT    NOT NULL DEFAULT '[]',      -- JSON [{product_id, name, qty, unit_cost}]
+    total_cost   REAL    NOT NULL DEFAULT 0,
+    notes        TEXT    DEFAULT '',
+    expected_at  TEXT    DEFAULT NULL,
+    received_at  TEXT    DEFAULT NULL,
+    created_at   TEXT    DEFAULT (datetime('now')),
+    updated_at   TEXT    DEFAULT (datetime('now'))
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_po_supplier ON purchase_orders(supplier_id)`).run()
+
+// Add supplier_id to products
+try { db.prepare('ALTER TABLE products ADD COLUMN supplier_id INTEGER REFERENCES suppliers(id) ON DELETE SET NULL').run() } catch {}
+
+const phase39Defaults = {
+  upsell_enabled: '0',
+  upsell_button_text: 'Yes! Add to My Order',
+  upsell_decline_text: 'No thanks, I\'ll pass',
+  suppliers_enabled: '1',
+}
+for (const [key, value] of Object.entries(phase39Defaults)) {
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
+}

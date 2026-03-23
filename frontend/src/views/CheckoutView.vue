@@ -277,6 +277,36 @@
                 </div>
                 <div class="coupon-error" v-if="loyaltyError">{{ loyaltyError }}</div>
               </template>
+
+              <!-- Store Credit -->
+              <template v-if="storeCreditEnabled && customer.isLoggedIn && storeCreditBalance > 0">
+                <h3 class="sub-section" style="margin-top:1.25rem;">💳 Store Credit</h3>
+                <div class="loyalty-balance-info">
+                  You have <strong>{{ fmt(storeCreditBalance) }}</strong> available store credit
+                </div>
+                <div v-if="!storeCreditApplied" class="coupon-row">
+                  <input class="input coupon-input" type="number" step="0.01"
+                    v-model.number="storeCreditInput" :placeholder="`Max ${fmt(storeCreditBalance)}`"
+                    :max="storeCreditBalance" min="0" />
+                  <button type="button" class="btn btn-ghost" @click="applyStoreCredit">Apply</button>
+                </div>
+                <div v-else class="coupon-success">
+                  💳 Store credit: −{{ fmt(storeCreditApplied) }}
+                  <button type="button" class="btn btn-ghost btn-sm" @click="removeStoreCredit" style="margin-left:.5rem;">✕</button>
+                </div>
+              </template>
+
+              <!-- Gift Wrap -->
+              <template v-if="giftWrapEnabled">
+                <h3 class="sub-section" style="margin-top:1.25rem;">🎀 Gift Wrap</h3>
+                <label class="gift-wrap-toggle">
+                  <input type="checkbox" v-model="giftWrap" />
+                  <span>Add gift wrapping (+{{ fmt(giftWrapPrice) }})</span>
+                </label>
+                <div v-if="giftWrap" style="margin-top:.75rem;">
+                  <input class="input" type="text" v-model="giftMessage" placeholder="Gift message (optional)" maxlength="200" />
+                </div>
+              </template>
             </div>
 
             <div class="field-error global-error" v-if="submitError">{{ submitError }}</div>
@@ -325,6 +355,14 @@
             <div class="summary-row discount-row" v-if="appliedGiftCard && giftCardDiscount > 0">
               <span class="text-muted">🎁 {{ appliedGiftCard.code }}</span>
               <span style="color:hsl(140,60%,60%);">−{{ fmt(giftCardDiscount) }}</span>
+            </div>
+            <div class="summary-row discount-row" v-if="storeCreditApplied > 0">
+              <span class="text-muted">💳 Store Credit</span>
+              <span style="color:hsl(140,60%,60%);">−{{ fmt(storeCreditApplied) }}</span>
+            </div>
+            <div class="summary-row" v-if="giftWrap && giftWrapPrice > 0">
+              <span class="text-muted">🎀 Gift Wrap</span>
+              <span>+{{ fmt(giftWrapPrice) }}</span>
             </div>
             <div class="summary-row">
               <span class="text-muted">Shipping</span>
@@ -573,9 +611,28 @@ function removeLoyaltyPoints() {
   loyaltyPointsInput.value = 0; loyaltyError.value = ''
 }
 
+// ── Store Credit ──────────────────────────────────────────────────────────────
+const storeCreditEnabled = ref(false)
+const storeCreditBalance = ref(0)
+const storeCreditInput   = ref(0)
+const storeCreditApplied = ref(0)
+
+function applyStoreCredit() {
+  const amt = Math.min(Math.max(0, parseFloat(storeCreditInput.value) || 0), storeCreditBalance.value)
+  if (amt <= 0) return
+  storeCreditApplied.value = amt
+}
+function removeStoreCredit() { storeCreditApplied.value = 0; storeCreditInput.value = 0 }
+
+// ── Gift Wrap ─────────────────────────────────────────────────────────────────
+const giftWrapEnabled = ref(false)
+const giftWrapPrice   = ref(5)
+const giftWrap        = ref(false)
+const giftMessage     = ref('')
+
 // ── Total ─────────────────────────────────────────────────────────────────────
 const orderTotal = computed(() =>
-  Math.max(0, cart.subtotal - (appliedCoupon.value?.discount || 0) - loyaltyDiscount.value - giftCardDiscount.value + shippingCost.value + taxAmount.value)
+  Math.max(0, cart.subtotal - (appliedCoupon.value?.discount || 0) - loyaltyDiscount.value - giftCardDiscount.value - storeCreditApplied.value + shippingCost.value + taxAmount.value + (giftWrap.value ? giftWrapPrice.value : 0))
 )
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -627,7 +684,10 @@ function buildBillingAddressString() {
 onMounted(async () => {
   try {
     const { data } = await api.get('/settings')
-    giftCardsEnabled.value = data.gift_cards_enabled === '1'
+    giftCardsEnabled.value    = data.gift_cards_enabled === '1'
+    storeCreditEnabled.value  = data.store_credit_enabled === '1'
+    giftWrapEnabled.value     = data.gift_wrap_enabled === '1'
+    giftWrapPrice.value       = parseFloat(data.gift_wrap_price || '5')
   } catch {}
 
   if (customer.isLoggedIn && customer.customer) {
@@ -656,6 +716,13 @@ onMounted(async () => {
       loyaltyMinRedeem.value = res.data.min_redeem || 100
       loyaltyRedemptionRate.value = res.data.redemption_rate || 100
     } catch {}
+    // Load store credit balance
+    if (storeCreditEnabled.value) {
+      try {
+        const res = await fetch('/api/store-credit/me', { headers: { Authorization: `Bearer ${customer.token}` } })
+        if (res.ok) { const d = await res.json(); storeCreditBalance.value = d.balance || 0 }
+      } catch {}
+    }
   }
 })
 
@@ -687,6 +754,9 @@ async function placeOrder() {
       redeem_points:          loyaltyApplied.value ? (parseInt(loyaltyPointsInput.value) || 0) : 0,
       gift_card_code:         appliedGiftCard.value?.code || '',
       affiliate_code:         getActiveCode() || '',
+      store_credit_amount:    storeCreditApplied.value || 0,
+      gift_wrap:              giftWrap.value ? 1 : 0,
+      gift_message:           giftMessage.value.trim(),
     }
 
     const headers = customer.isLoggedIn ? { Authorization: `Bearer ${customer.token}` } : {}
@@ -884,6 +954,12 @@ async function placeOrder() {
   padding: .4rem .75rem;
   background: rgba(251,191,36,.08); border: 1px solid rgba(251,191,36,.25); border-radius: .5rem;
 }
+
+.gift-wrap-toggle {
+  display: flex; align-items: center; gap: .6rem; cursor: pointer;
+  font-size: .9rem; color: var(--text);
+}
+.gift-wrap-toggle input[type="checkbox"] { width: 1.1rem; height: 1.1rem; accent-color: var(--accent); }
 
 /* Place button */
 .place-btn { font-size: 1rem; min-width: 220px; }
