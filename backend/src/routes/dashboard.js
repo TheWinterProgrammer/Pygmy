@@ -171,6 +171,42 @@ router.get('/stats', authMiddleware, (req, res) => {
     pushCampaigns   = db.prepare(`SELECT COUNT(*) as c FROM push_campaigns WHERE status = 'sent'`).get()?.c ?? 0
   } catch {}
 
+  // Bookings stats
+  let bookingsTotal = 0, bookingsPending = 0, bookingsToday = 0, bookingsEnabled = false
+  try {
+    const bookingsEnabledSetting = db.prepare("SELECT value FROM settings WHERE key = 'bookings_enabled'").get()?.value
+    bookingsEnabled = bookingsEnabledSetting === '1'
+    bookingsTotal   = db.prepare(`SELECT COUNT(*) as c FROM bookings`).get()?.c ?? 0
+    bookingsPending = db.prepare(`SELECT COUNT(*) as c FROM bookings WHERE status = 'pending'`).get()?.c ?? 0
+    bookingsToday   = db.prepare(`SELECT COUNT(*) as c FROM bookings WHERE booking_date = date('now')`).get()?.c ?? 0
+  } catch {}
+
+  // Automation stats
+  let automationTotal = 0, automationActive = 0, automationRunsToday = 0
+  try {
+    automationTotal    = db.prepare(`SELECT COUNT(*) as c FROM automation_rules`).get()?.c ?? 0
+    automationActive   = db.prepare(`SELECT COUNT(*) as c FROM automation_rules WHERE active = 1`).get()?.c ?? 0
+    automationRunsToday = db.prepare(`SELECT COUNT(*) as c FROM automation_runs WHERE triggered_at >= date('now')`).get()?.c ?? 0
+  } catch {}
+
+  // Coupon Campaigns stats
+  let couponCampaignsTotal = 0, couponCampaignsActive = 0
+  try {
+    couponCampaignsTotal  = db.prepare(`SELECT COUNT(*) as c FROM coupon_campaigns`).get()?.c ?? 0
+    couponCampaignsActive = db.prepare(`SELECT COUNT(*) as c FROM coupon_campaigns WHERE active = 1`).get()?.c ?? 0
+  } catch {}
+
+  // Recent bookings (for dashboard widget)
+  let recentBookings = []
+  try {
+    recentBookings = db.prepare(`
+      SELECT b.id, b.reference, b.customer_name, b.booking_date, b.time_slot, b.status,
+             s.name as service_name
+      FROM bookings b JOIN services s ON b.service_id = s.id
+      ORDER BY b.created_at DESC LIMIT 5
+    `).all()
+  } catch {}
+
   res.json({
     pages: { total: pages, published: publishedPages },
     posts: { total: posts, published: publishedPosts, scheduled: scheduledPosts },
@@ -203,8 +239,12 @@ router.get('/stats', authMiddleware, (req, res) => {
     support: { open: openTickets, unread: unreadTickets },
     ab_tests: { total: totalTests, running: runningTests },
     search: { searches_7d: totalSearches7d },
+    bookings: { total: bookingsTotal, pending: bookingsPending, today: bookingsToday, enabled: bookingsEnabled },
+    automation: { total: automationTotal, active: automationActive, runs_today: automationRunsToday },
+    coupon_campaigns: { total: couponCampaignsTotal, active: couponCampaignsActive },
     recentPosts,
-    recentActivity
+    recentActivity,
+    recentBookings
   })
 })
 

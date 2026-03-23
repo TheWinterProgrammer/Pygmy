@@ -1,5 +1,6 @@
 <template>
   <div>
+    <div v-if="feedback" :class="['feedback-toast', feedback.type]">{{ feedback.msg }}</div>
     <div class="page-header">
       <h1>🏬 Inventory Locations</h1>
       <p class="subtitle">Manage stock across multiple warehouses or storage locations</p>
@@ -209,10 +210,13 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useToast } from 'vue-toastification'
 import api from '../api.js'
 
-const toast = useToast()
+const feedback = ref(null)
+const toast = {
+  success: (msg) => { feedback.value = { type: 'success', msg }; setTimeout(() => { feedback.value = null }, 3000) },
+  error: (msg) => { feedback.value = { type: 'error', msg }; setTimeout(() => { feedback.value = null }, 4000) },
+}
 const API = import.meta.env.VITE_API_URL || 'http://localhost:3200'
 
 const locations    = ref([])
@@ -375,4 +379,7 @@ onMounted(() => { load(); loadConfig() })
 .danger-text { color: var(--accent); }
 .warn-text { color: #ffc107; }
 .ok-text { color: #4caf50; }
+.feedback-toast { position: fixed; top: 1rem; right: 1rem; padding: 0.75rem 1.25rem; border-radius: 8px; font-size: 0.9rem; font-weight: 600; z-index: 9999; }
+.feedback-toast.success { background: hsl(140,50%,18%); color: hsl(140,60%,65%); border: 1px solid hsl(140,50%,30%); }
+.feedback-toast.error { background: hsl(355,70%,18%); color: hsl(355,70%,65%); border: 1px solid hsl(355,70%,30%); }
 </style>

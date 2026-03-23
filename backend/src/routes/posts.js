@@ -46,7 +46,9 @@ function slugify(str) {
 
 function parsePost(post) {
   if (!post) return null
-  return { ...post, tags: JSON.parse(post.tags || '[]') }
+  let gallery = []
+  try { gallery = JSON.parse(post.gallery || '[]') } catch {}
+  return { ...post, tags: JSON.parse(post.tags || '[]'), gallery }
 }
 
 // ─── Categories ───────────────────────────────────────────────────────────────
@@ -211,7 +213,7 @@ router.get('/:slug', (req, res) => {
 
 // POST /api/posts (auth)
 router.post('/', authMiddleware, (req, res) => {
-  const { title, slug, excerpt, content, cover_image, category_id, tags, status, published_at, meta_title, meta_desc } = req.body
+  const { title, slug, excerpt, content, cover_image, gallery, category_id, tags, status, published_at, meta_title, meta_desc } = req.body
   if (!title) return res.status(400).json({ error: 'Title required' })
 
   const finalSlug = slug || slugify(title)
@@ -224,12 +226,13 @@ router.post('/', authMiddleware, (req, res) => {
   else if (finalStatus === 'scheduled') finalPublished = published_at || null
 
   const info = db.prepare(`
-    INSERT INTO posts (title, slug, excerpt, content, cover_image, category_id, tags, status, published_at, meta_title, meta_desc, access_level)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO posts (title, slug, excerpt, content, cover_image, gallery, category_id, tags, status, published_at, meta_title, meta_desc, access_level)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     title, finalSlug,
     excerpt || null, content || '',
     cover_image || null,
+    JSON.stringify(Array.isArray(gallery) ? gallery : []),
     category_id || null,
     JSON.stringify(Array.isArray(tags) ? tags : []),
     finalStatus, finalPublished,
@@ -249,7 +252,7 @@ router.put('/:id', authMiddleware, (req, res) => {
   const post = db.prepare('SELECT * FROM posts WHERE id = ?').get(req.params.id)
   if (!post) return res.status(404).json({ error: 'Post not found' })
 
-  const { title, slug, excerpt, content, cover_image, category_id, tags, status, published_at, meta_title, meta_desc } = req.body
+  const { title, slug, excerpt, content, cover_image, gallery, category_id, tags, status, published_at, meta_title, meta_desc } = req.body
   const newSlug = slug || post.slug
 
   const conflict = db.prepare('SELECT id FROM posts WHERE slug = ? AND id != ?').get(newSlug, post.id)
@@ -263,7 +266,7 @@ router.put('/:id', authMiddleware, (req, res) => {
   // 'scheduled' keeps the provided published_at (future date)
 
   db.prepare(`
-    UPDATE posts SET title=?, slug=?, excerpt=?, content=?, cover_image=?, category_id=?,
+    UPDATE posts SET title=?, slug=?, excerpt=?, content=?, cover_image=?, gallery=?, category_id=?,
     tags=?, status=?, published_at=?, meta_title=?, meta_desc=?, access_level=?, updated_at=datetime('now')
     WHERE id=?
   `).run(
@@ -272,6 +275,7 @@ router.put('/:id', authMiddleware, (req, res) => {
     excerpt ?? post.excerpt,
     content ?? post.content,
     cover_image ?? post.cover_image,
+    JSON.stringify(Array.isArray(gallery) ? gallery : parsedExisting.gallery),
     category_id ?? post.category_id,
     JSON.stringify(Array.isArray(tags) ? tags : parsedExisting.tags),
     newStatus, newPublished,

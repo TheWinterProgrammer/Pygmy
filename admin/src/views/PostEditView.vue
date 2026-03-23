@@ -112,6 +112,24 @@
           <img v-if="form.cover_image" :src="form.cover_image" class="cover-preview" alt="cover" />
         </div>
 
+        <!-- Gallery -->
+        <div class="glass section">
+          <h3 style="margin-bottom:1rem;">Post Gallery</h3>
+          <div class="gallery-grid" v-if="form.gallery && form.gallery.length">
+            <div class="gallery-thumb" v-for="(img, i) in form.gallery" :key="i">
+              <img :src="img" :alt="`Gallery ${i+1}`" />
+              <button type="button" class="gallery-remove" @click="form.gallery.splice(i,1)" title="Remove">✕</button>
+            </div>
+          </div>
+          <p v-else style="color:var(--muted);font-size:0.875rem;margin-bottom:0.75rem;">No gallery images yet.</p>
+          <button type="button" class="btn btn-ghost btn-sm" @click="showGalleryPicker = true">🖼️ Add Images</button>
+          <MediaPickerModal
+            :open="showGalleryPicker"
+            @close="showGalleryPicker = false"
+            @select="url => { if (!form.gallery.includes(url)) form.gallery.push(url) }"
+          />
+        </div>
+
         <div class="glass section">
           <h3 style="margin-bottom:1rem;">URL</h3>
           <div class="form-group">
@@ -208,11 +226,12 @@ const tagsInput = ref('')
 
 const form = ref({
   title: '', slug: '', excerpt: '', content: '',
-  cover_image: '', category_id: null,
+  cover_image: '', gallery: [], category_id: null,
   tags: [], status: 'draft',
   meta_title: '', meta_desc: '',
   access_level: 'public'
 })
+const showGalleryPicker = ref(false)
 
 const autoSave = useAutoSave('post', computed(() => isNew.value ? 'new' : route.params.id), form)
 const showDraftBanner = ref(false)
@@ -337,6 +356,10 @@ function discardDraft() {
 .cover-preview { width: 100%; border-radius: var(--radius-sm); margin-top: 0.5rem; max-height: 160px; object-fit: cover; }
 .cover-row { display: flex; gap: 0.5rem; align-items: center; }
 .cover-row .input { flex: 1; }
+.gallery-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 0.75rem; }
+.gallery-thumb { position: relative; border-radius: var(--radius-sm); overflow: hidden; aspect-ratio: 4/3; }
+.gallery-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.gallery-remove { position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.7); color: #fff; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 0.7rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 @media (max-width: 768px) {
   .edit-layout { grid-template-columns: 1fr; }
 }

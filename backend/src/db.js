@@ -2073,4 +2073,165 @@ for (const [key, value] of Object.entries(phase42Defaults)) {
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
 }
 
-console.log('Phase 42 + Phase 43 schema ready')
+// ════════════════════════════════════════════════════════════════════════════
+// Phase 46 — Appointment Booking + Bulk Coupon Campaigns + Automation Rules
+// ════════════════════════════════════════════════════════════════════════════
+
+// Services
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS services (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    name          TEXT    NOT NULL,
+    slug          TEXT    NOT NULL UNIQUE,
+    description   TEXT    DEFAULT '',
+    duration_min  INTEGER NOT NULL DEFAULT 60,
+    price         REAL    NOT NULL DEFAULT 0,
+    buffer_min    INTEGER NOT NULL DEFAULT 0,
+    max_per_slot  INTEGER NOT NULL DEFAULT 1,
+    cover_image   TEXT    DEFAULT '',
+    gallery       TEXT    DEFAULT '[]',
+    category      TEXT    DEFAULT '',
+    sort_order    INTEGER NOT NULL DEFAULT 0,
+    active        INTEGER NOT NULL DEFAULT 1,
+    created_at    TEXT    DEFAULT (datetime('now')),
+    updated_at    TEXT    DEFAULT (datetime('now'))
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_services_active ON services(active)`).run()
+
+// Weekly availability slots per service
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS booking_availability (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    service_id    INTEGER NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+    day_of_week   INTEGER NOT NULL, -- 0=Sun ... 6=Sat
+    start_time    TEXT    NOT NULL DEFAULT '09:00',
+    end_time      TEXT    NOT NULL DEFAULT '17:00',
+    available     INTEGER NOT NULL DEFAULT 1,
+    UNIQUE(service_id, day_of_week, start_time)
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_ba_service ON booking_availability(service_id)`).run()
+
+// Blocked dates (holidays / closures)
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS booking_blocked_dates (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    service_id   INTEGER REFERENCES services(id) ON DELETE CASCADE, -- NULL = all services
+    blocked_date TEXT    NOT NULL,
+    reason       TEXT    DEFAULT '',
+    created_at   TEXT    DEFAULT (datetime('now')),
+    UNIQUE(service_id, blocked_date)
+  )
+`).run()
+
+// Bookings
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS bookings (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    service_id      INTEGER NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+    booking_date    TEXT    NOT NULL,
+    time_slot       TEXT    NOT NULL,
+    duration_min    INTEGER NOT NULL DEFAULT 60,
+    customer_name   TEXT    NOT NULL,
+    customer_email  TEXT    NOT NULL,
+    customer_phone  TEXT    DEFAULT '',
+    notes           TEXT    DEFAULT '',
+    admin_notes     TEXT    DEFAULT '',
+    reference       TEXT    NOT NULL UNIQUE,
+    status          TEXT    NOT NULL DEFAULT 'pending', -- pending, confirmed, completed, cancelled, no_show
+    created_at      TEXT    DEFAULT (datetime('now')),
+    updated_at      TEXT    DEFAULT (datetime('now'))
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_bookings_service ON bookings(service_id)`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_bookings_date ON bookings(booking_date)`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_bookings_email ON bookings(customer_email)`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_bookings_ref ON bookings(reference)`).run()
+
+// Coupon Campaigns (bulk coupon generators)
+// Add campaign_id column to existing coupons table if missing
+const couponCols = db.pragma('table_info(coupons)').map(c => c.name)
+if (!couponCols.includes('campaign_id')) {
+  db.exec(`ALTER TABLE coupons ADD COLUMN campaign_id INTEGER REFERENCES coupon_campaigns(id) ON DELETE SET NULL`)
+}
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS coupon_campaigns (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    name              TEXT    NOT NULL,
+    description       TEXT    DEFAULT '',
+    discount_type     TEXT    NOT NULL DEFAULT 'percentage',
+    discount_value    REAL    NOT NULL DEFAULT 10,
+    expires_at        TEXT,
+    min_order_amount  REAL    NOT NULL DEFAULT 0,
+    max_uses_per_code INTEGER NOT NULL DEFAULT 1,
+    prefix            TEXT    DEFAULT '',
+    code_count        INTEGER NOT NULL DEFAULT 50,
+    code_length       INTEGER NOT NULL DEFAULT 8,
+    codes_generated   INTEGER NOT NULL DEFAULT 0,
+    product_ids       TEXT    DEFAULT '[]',
+    category_ids      TEXT    DEFAULT '[]',
+    active            INTEGER NOT NULL DEFAULT 1,
+    created_at        TEXT    DEFAULT (datetime('now')),
+    updated_at        TEXT    DEFAULT (datetime('now'))
+  )
+`).run()
+
+// Automation Rules
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS automation_rules (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT    NOT NULL,
+    description TEXT    DEFAULT '',
+    trigger     TEXT    NOT NULL,
+    conditions  TEXT    NOT NULL DEFAULT '[]',
+    actions     TEXT    NOT NULL DEFAULT '[]',
+    active      INTEGER NOT NULL DEFAULT 1,
+    sort_order  INTEGER NOT NULL DEFAULT 0,
+    created_at  TEXT    DEFAULT (datetime('now')),
+    updated_at  TEXT    DEFAULT (datetime('now'))
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_auto_trigger ON automation_rules(trigger)`).run()
+
+// Automation Run History
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS automation_runs (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    rule_id         INTEGER NOT NULL REFERENCES automation_rules(id) ON DELETE CASCADE,
+    trigger         TEXT    NOT NULL,
+    context_summary TEXT    DEFAULT '',
+    status          TEXT    NOT NULL DEFAULT 'success', -- success, error
+    error           TEXT,
+    triggered_at    TEXT    DEFAULT (datetime('now'))
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_aruns_rule ON automation_runs(rule_id)`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_aruns_status ON automation_runs(status)`).run()
+
+// Phase 46 settings
+const phase46Defaults = {
+  bookings_enabled:    '0',
+  bookings_page_title: 'Book an Appointment',
+  bookings_intro:      'Choose a service and pick a time that works for you.',
+}
+for (const [key, value] of Object.entries(phase46Defaults)) {
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
+}
+
+// Phase 47 — Post gallery + Bookings confirmation email setting
+try { db.prepare(`ALTER TABLE posts ADD COLUMN gallery TEXT NOT NULL DEFAULT '[]'`).run() } catch {}
+
+const phase47Defaults = {
+  bookings_confirmation_subject:  'Your booking is confirmed – #{reference}',
+  bookings_confirmation_message:  'Thank you for booking with us! We look forward to seeing you.',
+  bookings_cancellation_subject:  'Your booking #{reference} has been cancelled',
+  bookings_reminder_hours:        '24',
+  bookings_reminder_enabled:      '0',
+}
+for (const [key, value] of Object.entries(phase47Defaults)) {
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
+}
+
+console.log('Phase 42 + Phase 43 + Phase 46 + Phase 47 schema ready')

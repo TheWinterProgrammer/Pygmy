@@ -161,6 +161,9 @@ const navItems = [
   { to: '/performance',        icon: '⚡',  label: 'Performance' },
   { to: '/digest',             icon: '📬',  label: 'Digest Emails' },
   { to: '/push-notifications', icon: '🔔',  label: 'Push Notifications' },
+  { to: '/bookings',           icon: '📅',  label: 'Bookings' },
+  { to: '/automation',         icon: '⚡',  label: 'Automation Rules' },
+  { to: '/coupon-campaigns',   icon: '🎟️',  label: 'Coupon Campaigns' },
   { to: '/settings',          icon: '⚙️',  label: 'Settings' },
 ]
 

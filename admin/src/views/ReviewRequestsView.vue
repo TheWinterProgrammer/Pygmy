@@ -118,10 +118,13 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useToast } from 'vue-toastification'
 import api from '../api.js'
 
-const toast = useToast()
+const _feedback = ref(null)
+const toast = {
+  success: (msg) => { _feedback.value = { t: 's', msg }; setTimeout(() => { _feedback.value = null }, 3000) },
+  error:   (msg) => { _feedback.value = { t: 'e', msg }; setTimeout(() => { _feedback.value = null }, 4000) },
+}
 const requests    = ref([])
 const stats       = ref(null)
 const q           = ref('')

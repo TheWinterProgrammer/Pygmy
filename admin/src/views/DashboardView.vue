@@ -265,6 +265,29 @@
         </div>
       </div>
 
+      <!-- Bookings -->
+      <div class="stat-card glass" v-if="stats.bookings?.enabled" :class="{ 'stat-alert': (stats.bookings?.pending ?? 0) > 0 }">
+        <div class="stat-icon">📅</div>
+        <div class="stat-body">
+          <div class="stat-num">{{ stats.bookings?.total ?? 0 }}</div>
+          <div class="stat-label">Bookings</div>
+          <span v-if="(stats.bookings?.pending ?? 0) > 0" style="color:var(--accent);font-weight:600">{{ stats.bookings.pending }} pending</span>
+          <span v-else-if="(stats.bookings?.today ?? 0) > 0" style="color:var(--text-muted);font-size:.8rem;">{{ stats.bookings.today }} today</span>
+          <RouterLink to="/bookings" class="stat-link">→ Bookings</RouterLink>
+        </div>
+      </div>
+
+      <!-- Automation -->
+      <div class="stat-card glass" v-if="(stats.automation?.total ?? 0) > 0">
+        <div class="stat-icon">⚡</div>
+        <div class="stat-body">
+          <div class="stat-num">{{ stats.automation?.active ?? 0 }}</div>
+          <div class="stat-label">Active Automations</div>
+          <span style="color:var(--text-muted);font-size:.8rem;">{{ stats.automation?.runs_today ?? 0 }} ran today</span>
+          <RouterLink to="/automation" class="stat-link">→ Automation</RouterLink>
+        </div>
+      </div>
+
     </div>
 
     <!-- Inventory alerts -->
@@ -306,6 +329,36 @@
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- Recent Bookings -->
+    <div class="section glass" v-if="stats?.recentBookings?.length">
+      <h2 style="margin-bottom:1rem;">📅 Recent Bookings</h2>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Reference</th>
+            <th>Customer</th>
+            <th>Service</th>
+            <th>Date</th>
+            <th>Time</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="b in stats.recentBookings" :key="b.id">
+            <td><code style="font-size:.8rem;">{{ b.reference }}</code></td>
+            <td>{{ b.customer_name }}</td>
+            <td>{{ b.service_name }}</td>
+            <td>{{ b.booking_date }}</td>
+            <td>{{ b.time_slot }}</td>
+            <td>
+              <span :class="['badge', `badge-${b.status}`]">{{ b.status }}</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <RouterLink to="/bookings" class="btn btn-ghost btn-sm" style="margin-top:.75rem;">View all bookings →</RouterLink>
     </div>
 
     <!-- Recent Activity -->
@@ -356,6 +409,10 @@
       <RouterLink to="/email-sequences" class="btn btn-ghost">📧 Email Sequences</RouterLink>
       <RouterLink to="/customer-segments" class="btn btn-ghost">🎯 Segments</RouterLink>
       <RouterLink to="/push-notifications" class="btn btn-ghost">🔔 Push Notifications</RouterLink>
+      <RouterLink to="/bookings" class="btn btn-ghost">📅 Bookings</RouterLink>
+      <RouterLink to="/automation" class="btn btn-ghost">⚡ Automation</RouterLink>
+      <RouterLink to="/coupon-campaigns" class="btn btn-ghost">🎟️ Coupon Campaigns</RouterLink>
+      <RouterLink to="/referral" class="btn btn-ghost">🔗 Referral</RouterLink>
     </div>
 
     <!-- Quick Notes -->

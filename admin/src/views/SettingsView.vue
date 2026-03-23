@@ -576,6 +576,51 @@
         </div>
       </div>
 
+      <!-- Bookings & Appointments -->
+      <div class="glass section" style="grid-column:span 2">
+        <h2 style="margin-bottom:1.25rem;">📅 Bookings &amp; Appointments</h2>
+        <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.25rem;">
+          Control the booking system that lets customers schedule appointments with your services.
+          Manage services, availability, and blocked dates in the
+          <RouterLink to="/bookings" style="color:var(--accent)">📅 Bookings</RouterLink> panel.
+        </p>
+        <label class="toggle-label" style="margin-bottom:1.25rem;">
+          <input type="checkbox" v-model="bookingsEnabled" />
+          <span>Enable booking system</span>
+        </label>
+        <div v-if="bookingsEnabled">
+          <div class="settings-grid">
+            <div class="form-group">
+              <label>Booking Page Title</label>
+              <input v-model="form.bookings_page_title" class="input" placeholder="Book an Appointment" />
+            </div>
+            <div class="form-group">
+              <label>Booking Page Intro</label>
+              <input v-model="form.bookings_intro" class="input" placeholder="Choose a service and pick a time…" />
+            </div>
+            <div class="form-group">
+              <label>Confirmation Email Subject</label>
+              <input v-model="form.bookings_confirmation_subject" class="input" placeholder="Your booking is confirmed – #{reference}" />
+              <small style="color:var(--muted);">Use <code>#{reference}</code> for the booking reference number.</small>
+            </div>
+            <div class="form-group">
+              <label>Confirmation Message</label>
+              <input v-model="form.bookings_confirmation_message" class="input" placeholder="Thank you for booking with us!" />
+            </div>
+            <div class="form-group">
+              <label>Reminder Email (hours before)</label>
+              <div style="display:flex;gap:.75rem;align-items:center;">
+                <input v-model.number="form.bookings_reminder_hours" type="number" min="1" max="72" class="input" style="max-width:120px;" />
+                <label class="toggle-label">
+                  <input type="checkbox" v-model="bookingsReminderEnabled" />
+                  <span>Send reminder emails</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="glass section profile-section">
         <h2 style="margin-bottom:1.25rem;">🔐 My Profile</h2>
         <div class="form-group">
@@ -771,6 +816,15 @@ const form = ref({
   // Affiliate
   affiliate_enabled: '0',
   affiliate_cookie_days: '30',
+  // Bookings
+  bookings_enabled: '0',
+  bookings_page_title: 'Book an Appointment',
+  bookings_intro: 'Choose a service and pick a time that works for you.',
+  bookings_confirmation_subject: 'Your booking is confirmed – #{reference}',
+  bookings_confirmation_message: 'Thank you for booking with us! We look forward to seeing you.',
+  bookings_cancellation_subject: 'Your booking #{reference} has been cancelled',
+  bookings_reminder_hours: 24,
+  bookings_reminder_enabled: '0',
   // Multi-Currency
   multicurrency_enabled: '0',
   base_currency: 'EUR',
@@ -841,6 +895,16 @@ const affiliateEnabled = computed({
 const multicurrencyEnabled = computed({
   get: () => form.value.multicurrency_enabled === '1',
   set: v => { form.value.multicurrency_enabled = v ? '1' : '0' }
+})
+
+const bookingsEnabled = computed({
+  get: () => form.value.bookings_enabled === '1',
+  set: v => { form.value.bookings_enabled = v ? '1' : '0' }
+})
+
+const bookingsReminderEnabled = computed({
+  get: () => form.value.bookings_reminder_enabled === '1',
+  set: v => { form.value.bookings_reminder_enabled = v ? '1' : '0' }
 })
 
 const cookieConsentEnabled = computed({

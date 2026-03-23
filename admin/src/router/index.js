@@ -99,6 +99,9 @@ const routes = [
       { path: 'loyalty-tiers',      name: 'LoyaltyTiers',      component: () => import('../views/LoyaltyTiersView.vue') },
       { path: 'product-subscriptions', name: 'ProductSubscriptions', component: () => import('../views/ProductSubscriptionsView.vue') },
       { path: 'storefront-customizer', name: 'StorefrontCustomizer', component: () => import('../views/StorefrontCustomizerView.vue') },
+      { path: 'bookings',          name: 'Bookings',          component: () => import('../views/BookingsView.vue') },
+      { path: 'automation',        name: 'Automation',        component: () => import('../views/AutomationView.vue') },
+      { path: 'coupon-campaigns',  name: 'CouponCampaigns',   component: () => import('../views/CouponCampaignsView.vue') },
       { path: 'settings',          name: 'Settings',         component: () => import('../views/SettingsView.vue') },
     ]
   },

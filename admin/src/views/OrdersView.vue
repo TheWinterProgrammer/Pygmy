@@ -212,6 +212,7 @@
           <button class="btn btn-ghost" @click="selected = null">Close</button>
           <button class="btn btn-ghost" @click="printInvoice(selected)" title="Open print-ready invoice">🖨️ Invoice</button>
           <button class="btn btn-ghost" @click="printPackingSlip(selected)" title="Open packing slip">📋 Packing Slip</button>
+          <button class="btn btn-ghost" @click="openMessageModal(selected)" title="Send message to customer">📩 Message Customer</button>
           <button class="btn btn-danger" @click="confirmDelete(selected)">Delete order</button>
         </div>
       </div>
@@ -230,6 +231,40 @@
               {{ deleting ? 'Deleting…' : 'Delete' }}
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Message Customer Modal -->
+    <div class="modal-overlay" v-if="messageTarget" @click.self="messageTarget = null">
+      <div class="modal glass" style="max-width:520px;width:95%;">
+        <div class="modal-header">
+          <h2>📩 Message Customer</h2>
+          <button class="btn-close" @click="messageTarget = null">✕</button>
+        </div>
+        <div class="modal-body">
+          <div v-if="messageSentOk" style="text-align:center;padding:1.5rem;color:#5cb85c;font-size:1.1rem;">✓ Message sent successfully!</div>
+          <div v-else>
+            <p style="color:var(--muted);font-size:.875rem;margin-bottom:1rem;">
+              Send an email to <strong>{{ messageTarget.customer_name }}</strong>
+              (<em>{{ messageTarget.customer_email }}</em>) about order
+              <strong>#{{ messageTarget.order_number }}</strong>.
+            </p>
+            <div class="form-group">
+              <label>Subject</label>
+              <input v-model="messageSubject" class="input" placeholder="Email subject…" />
+            </div>
+            <div class="form-group">
+              <label>Message</label>
+              <textarea v-model="messageText" class="input" rows="5" placeholder="Write your message to the customer…"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer" v-if="!messageSentOk">
+          <button class="btn btn-ghost" @click="messageTarget = null">Cancel</button>
+          <button class="btn btn-primary" @click="sendOrderMessage" :disabled="sendingMessage || !messageText.trim()">
+            {{ sendingMessage ? 'Sending…' : '📩 Send Message' }}
+          </button>
         </div>
       </div>
     </div>
@@ -258,6 +293,11 @@ const editTrackingCarrier= ref('')
 const editTrackingUrl    = ref('')
 const editFulfillmentNotes = ref('')
 const deleteTarget = ref(null)
+const messageTarget = ref(null)
+const messageText = ref('')
+const messageSubject = ref('')
+const sendingMessage = ref(false)
+const messageSentOk = ref(false)
 
 const STATUSES = [
   { value: 'pending',    label: '⏳ Pending' },
@@ -411,6 +451,30 @@ function printPackingSlip(order) {
   const API = import.meta.env.VITE_API_URL || 'http://localhost:3200'
   // Open with token in URL query since packing slip is an HTML page
   window.open(`${API}/api/packing-slips/${order.order_number}?token=${encodeURIComponent(token)}`, '_blank')
+}
+
+function openMessageModal(order) {
+  messageTarget.value = order
+  messageText.value = ''
+  messageSubject.value = `Update on your order #${order.order_number}`
+  messageSentOk.value = false
+}
+
+async function sendOrderMessage() {
+  if (!messageText.value.trim()) return
+  sendingMessage.value = true
+  try {
+    await apiFetch(`/orders/${messageTarget.value.id}/message`, {
+      method: 'POST',
+      body: JSON.stringify({ message: messageText.value, subject: messageSubject.value })
+    })
+    messageSentOk.value = true
+    setTimeout(() => { messageTarget.value = null }, 1500)
+  } catch (e) {
+    alert(e.message || 'Failed to send message')
+  } finally {
+    sendingMessage.value = false
+  }
 }
 
 function confirmDelete(order) {

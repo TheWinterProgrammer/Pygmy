@@ -5,6 +5,7 @@ import db from '../db.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { logActivity } from './activity.js'
 import { fireWebhooks } from './webhooks.js'
+import { fireAutomation } from './automation.js'
 import { sendOrderConfirmation, sendOrderStatusUpdate, sendShipmentNotification } from '../email.js'
 import { validateCouponLogic } from './coupons.js'
 import { redeemGiftCard } from './gift_cards.js'
@@ -336,6 +337,8 @@ router.post('/', (req, res) => {
 
   // Send webhook (fire-and-forget)
   try { fireWebhooks('order.created', { order_number: orderNumber, total: computedTotal }) } catch {}
+  // Fire automation rules (async, non-blocking)
+  fireAutomation('order.created', { ...order, id: newId, items: validatedItems, customer_id: linkedCustomer?.id || null }).catch(() => {})
 
   // Record social proof purchase activity (fire-and-forget)
   try {
@@ -552,6 +555,8 @@ router.put('/:id', authMiddleware, (req, res) => {
   // Send status update email to customer (fire-and-forget)
   if (statusChanged) {
     fireWebhooks('order.status_changed', { order_number: updated.order_number, status: updated.status }).catch?.(() => {})
+    fireAutomation('order.status_changed', { ...updated, customer_id: updated.customer_id || null }).catch(() => {})
+    if (status === 'completed') fireAutomation('order.completed', { ...updated, customer_id: updated.customer_id || null }).catch(() => {})
     if (becomingShipped && (tracking_number || tracking_url)) {
       // Send dedicated shipment email with tracking info
       sendShipmentNotification({
@@ -880,6 +885,55 @@ router.get('/:id/packing-slip', authMiddleware, (req, res) => {
 
   res.setHeader('Content-Type', 'text/html')
   res.send(html)
+})
+
+// ─── Admin: Send message to customer ──────────────────────────────────────────
+// POST /api/orders/:id/message
+router.post('/:id/message', authMiddleware, async (req, res) => {
+  const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id)
+  if (!order) return res.status(404).json({ error: 'Order not found' })
+
+  const { message, subject } = req.body
+  if (!message || !message.trim()) return res.status(400).json({ error: 'Message is required' })
+  if (!order.customer_email) return res.status(400).json({ error: 'Order has no customer email' })
+
+  const settings = db.prepare('SELECT key, value FROM settings').all()
+    .reduce((acc, r) => { acc[r.key] = r.value; return acc }, {})
+  const siteName = settings.site_name || 'Pygmy CMS'
+  const emailSubject = (subject || `Message about your order #${order.order_number}`).replace('{order_number}', order.order_number)
+
+  try {
+    const { sendMailTo } = await import('../email.js')
+    await sendMailTo({
+      to: order.customer_email,
+      subject: emailSubject,
+      html: `
+        <div style="font-family:Poppins,sans-serif;max-width:600px;margin:0 auto;background:#1a1a1f;color:#e0e0e0;padding:2rem;border-radius:1rem;">
+          <div style="margin-bottom:1.5rem;">
+            <strong style="font-size:1.2rem;color:#fff;">${siteName}</strong>
+          </div>
+          <p style="color:#aaa;margin-bottom:1rem;">Hi ${order.customer_name || 'there'},</p>
+          <p style="color:#aaa;margin-bottom:0.5rem;">A message regarding your order <strong style="color:#e84a5f">#${order.order_number}</strong>:</p>
+          <div style="background:#222;border-left:3px solid #e84a5f;padding:1rem 1.25rem;border-radius:0.5rem;margin:1rem 0;white-space:pre-line;color:#e0e0e0;">${message}</div>
+          <p style="color:#888;font-size:0.85rem;margin-top:2rem;">— ${siteName} Team</p>
+        </div>
+      `
+    })
+
+    // Log to order timeline
+    try {
+      db.prepare(`
+        INSERT INTO order_timeline (order_id, event, note, actor)
+        VALUES (?, 'message_sent', ?, ?)
+      `).run(order.id, message.substring(0, 500), req.user?.name || 'Admin')
+    } catch {}
+
+    logActivity(req.user, 'message', 'order', order.id, `Message sent to customer for #${order.order_number}`)
+    res.json({ ok: true, message: 'Message sent successfully' })
+  } catch (err) {
+    console.error('[order message]', err)
+    res.status(500).json({ error: 'Failed to send message', detail: err.message })
+  }
 })
 
 // ─── Admin: Stats ─────────────────────────────────────────────────────────────

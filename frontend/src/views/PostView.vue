@@ -58,6 +58,28 @@
         <div class="prose" v-html="post.content"></div>
       </div>
 
+      <!-- Post Gallery -->
+      <div v-if="post.gallery && post.gallery.length" class="post-gallery">
+        <h3 class="gallery-heading">Gallery</h3>
+        <div class="gallery-grid">
+          <div
+            v-for="(img, i) in post.gallery"
+            :key="i"
+            class="gallery-item"
+            @click="lightboxIndex = i"
+          >
+            <img :src="img" :alt="`${post.title} — image ${i+1}`" />
+          </div>
+        </div>
+        <!-- Lightbox -->
+        <div v-if="lightboxIndex !== null" class="lightbox-overlay" @click.self="lightboxIndex = null">
+          <button class="lightbox-close" @click="lightboxIndex = null">✕</button>
+          <button class="lightbox-prev" @click="lightboxIndex = (lightboxIndex - 1 + post.gallery.length) % post.gallery.length" v-if="post.gallery.length > 1">‹</button>
+          <img :src="post.gallery[lightboxIndex]" class="lightbox-img" :alt="`Image ${lightboxIndex+1}`" />
+          <button class="lightbox-next" @click="lightboxIndex = (lightboxIndex + 1) % post.gallery.length" v-if="post.gallery.length > 1">›</button>
+        </div>
+      </div>
+
       <!-- Tags + Share -->
       <div class="post-bottom-row">
         <div class="post-tags" v-if="post.tags?.length">
@@ -221,6 +243,7 @@ import api from '../api.js'
 const site = useSiteStore()
 const route = useRoute()
 const post = ref(null)
+const lightboxIndex = ref(null)
 const loading = ref(true)
 const comments = ref([])
 const related = ref([])
@@ -570,6 +593,21 @@ function formatDate(iso) {
   border-top: 1px solid var(--border);
   margin-bottom: 3rem;
 }
+
+/* Post Gallery */
+.post-gallery { margin: 2rem 0; }
+.gallery-heading { font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; color: var(--text-muted); }
+.gallery-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+.gallery-item { aspect-ratio: 4/3; overflow: hidden; border-radius: 0.75rem; cursor: pointer; }
+.gallery-item img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease; }
+.gallery-item:hover img { transform: scale(1.05); }
+.lightbox-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 9999; display: flex; align-items: center; justify-content: center; }
+.lightbox-img { max-width: 90vw; max-height: 85vh; border-radius: 0.75rem; object-fit: contain; }
+.lightbox-close { position: absolute; top: 1.5rem; right: 1.5rem; background: rgba(255,255,255,0.15); color: #fff; border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 1.1rem; cursor: pointer; z-index: 10000; }
+.lightbox-prev, .lightbox-next { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.15); color: #fff; border: none; border-radius: 50%; width: 48px; height: 48px; font-size: 1.5rem; cursor: pointer; z-index: 10000; }
+.lightbox-prev { left: 1.5rem; }
+.lightbox-next { right: 1.5rem; }
+@media (max-width: 600px) { .gallery-grid { grid-template-columns: repeat(2, 1fr); } }
 
 /* Related posts */
 .related-section { margin-top: 3.5rem; }

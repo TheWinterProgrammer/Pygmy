@@ -96,6 +96,9 @@ import shoppingFeedRoutes from './routes/shopping_feed.js'
 import stockForecastRoutes from './routes/stock_forecast.js'
 import loyaltyTiersRoutes from './routes/loyalty_tiers.js'
 import productSubscriptionsRoutes from './routes/product_subscriptions.js'
+import bookingsRoutes from './routes/bookings.js'
+import couponCampaignsRoutes from './routes/coupon_campaigns.js'
+import automationRoutes, { fireAutomation } from './routes/automation.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -288,6 +291,9 @@ app.use('/api/customer-groups', customerGroupsRoutes)
 app.use('/api/stock-forecast', stockForecastRoutes)
 app.use('/api/loyalty-tiers', loyaltyTiersRoutes)
 app.use('/api/product-subscriptions', productSubscriptionsRoutes)
+app.use('/api/bookings', bookingsRoutes)
+app.use('/api/coupon-campaigns', couponCampaignsRoutes)
+app.use('/api/automation', automationRoutes)
 app.use('/', shoppingFeedRoutes)
 
 // ─── SEO (public) ─────────────────────────────────────────────────────────────

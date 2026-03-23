@@ -51,6 +51,10 @@ const routes = [
     component: () => import('../views/FormView.vue')
   },
   {
+    path: '/booking',
+    component: () => import('../views/BookingView.vue')
+  },
+  {
     path: '/events',
     component: () => import('../views/EventsView.vue')
   },
