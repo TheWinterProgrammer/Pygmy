@@ -1289,3 +1289,65 @@ db.prepare(`
     updated_at TEXT    DEFAULT (datetime('now'))
   )
 `).run()
+
+// ── Phase 34: A/B Testing ─────────────────────────────────────────────────────
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS ab_tests (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    name          TEXT    NOT NULL,
+    description   TEXT    DEFAULT '',
+    entity_type   TEXT    NOT NULL DEFAULT 'page',   -- page | post | product | custom
+    entity_id     INTEGER,
+    status        TEXT    NOT NULL DEFAULT 'draft',  -- draft | running | paused | completed
+    split         INTEGER NOT NULL DEFAULT 50,       -- % sent to variant B (0–100)
+    goal          TEXT    NOT NULL DEFAULT 'click',  -- click | conversion | bounce | time_on_page
+    goal_selector TEXT    DEFAULT '',                -- CSS selector or event name
+    winner        TEXT    DEFAULT NULL,              -- 'a' | 'b' | null
+    started_at    TEXT,
+    ended_at      TEXT,
+    created_by    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at    TEXT    DEFAULT (datetime('now')),
+    updated_at    TEXT    DEFAULT (datetime('now'))
+  )
+`).run()
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS ab_variants (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    test_id     INTEGER NOT NULL REFERENCES ab_tests(id) ON DELETE CASCADE,
+    label       TEXT    NOT NULL DEFAULT 'A',        -- A | B | C …
+    name        TEXT    NOT NULL DEFAULT '',
+    changes     TEXT    NOT NULL DEFAULT '{}',       -- JSON: { field: value } overrides
+    created_at  TEXT    DEFAULT (datetime('now'))
+  )
+`).run()
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS ab_impressions (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    test_id    INTEGER NOT NULL REFERENCES ab_tests(id) ON DELETE CASCADE,
+    variant_id INTEGER NOT NULL REFERENCES ab_variants(id) ON DELETE CASCADE,
+    session_id TEXT    NOT NULL,
+    converted  INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT    DEFAULT (datetime('now'))
+  )
+`).run()
+
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_ab_impressions_test ON ab_impressions(test_id)`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_ab_impressions_session ON ab_impressions(session_id, test_id)`).run()
+
+// ── Phase 34: Search Analytics ───────────────────────────────────────────────
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS search_queries (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    query        TEXT    NOT NULL,
+    results_count INTEGER NOT NULL DEFAULT 0,
+    clicked_slug TEXT    DEFAULT NULL,
+    clicked_type TEXT    DEFAULT NULL,
+    session_id   TEXT    DEFAULT NULL,
+    created_at   TEXT    DEFAULT (datetime('now'))
+  )
+`).run()
+
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_search_queries_query ON search_queries(query)`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_search_queries_date ON search_queries(created_at)`).run()

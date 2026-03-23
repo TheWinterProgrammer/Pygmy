@@ -121,6 +121,15 @@ router.get('/stats', authMiddleware, (req, res) => {
   const openTickets = db.prepare("SELECT COUNT(*) AS c FROM support_tickets WHERE status IN ('open','in_progress')").get()?.c || 0
   const unreadTickets = db.prepare("SELECT COUNT(*) AS c FROM support_tickets WHERE is_read = 0").get()?.c || 0
 
+  // A/B Tests
+  const runningTests = db.prepare("SELECT COUNT(*) AS c FROM ab_tests WHERE status = 'running'").get()?.c || 0
+  const totalTests = db.prepare("SELECT COUNT(*) AS c FROM ab_tests").get()?.c || 0
+
+  // Search analytics (last 7 days)
+  const totalSearches7d = (() => {
+    try { return db.prepare("SELECT COUNT(*) AS c FROM search_queries WHERE created_at >= datetime('now', '-7 days')").get()?.c || 0 } catch { return 0 }
+  })()
+
   // Subscription/Membership stats
   let activeSubs = 0, trialingSubs = 0, subMrr = 0
   try {
@@ -184,6 +193,8 @@ router.get('/stats', authMiddleware, (req, res) => {
     bundles: { total: totalBundles, published: publishedBundles },
     product_qa: { total: qaTotal, pending: qaPending },
     support: { open: openTickets, unread: unreadTickets },
+    ab_tests: { total: totalTests, running: runningTests },
+    search: { searches_7d: totalSearches7d },
     recentPosts,
     recentActivity
   })

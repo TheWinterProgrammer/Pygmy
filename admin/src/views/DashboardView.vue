@@ -351,6 +351,8 @@
       <RouterLink to="/support" class="btn btn-ghost">🎫 Support Tickets</RouterLink>
       <RouterLink to="/content-calendar" class="btn btn-ghost">📅 Content Calendar</RouterLink>
       <RouterLink to="/site-health" class="btn btn-ghost">🩺 Site Health</RouterLink>
+      <RouterLink to="/ab-testing" class="btn btn-ghost">🧪 A/B Tests</RouterLink>
+      <RouterLink to="/search-analytics" class="btn btn-ghost">🔍 Search Analytics</RouterLink>
     </div>
 
     <!-- Quick Notes -->

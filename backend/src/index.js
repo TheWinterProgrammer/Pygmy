@@ -64,6 +64,8 @@ import supportRoutes from './routes/support.js'
 import contentCalendarRoutes from './routes/content_calendar.js'
 import quickNotesRoutes from './routes/quick_notes.js'
 import siteHealthRoutes from './routes/site_health.js'
+import abTestingRoutes from './routes/ab_testing.js'
+import searchAnalyticsRoutes from './routes/search_analytics.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -225,6 +227,8 @@ app.use('/api/support', supportRoutes)
 app.use('/api/content-calendar', contentCalendarRoutes)
 app.use('/api/quick-notes', quickNotesRoutes)
 app.use('/api/site-health', siteHealthRoutes)
+app.use('/api/ab-tests', abTestingRoutes)
+app.use('/api/search-analytics', searchAnalyticsRoutes)
 
 // ─── SEO (public) ─────────────────────────────────────────────────────────────
 app.use('/', seoRoutes)
