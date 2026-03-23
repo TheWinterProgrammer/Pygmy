@@ -353,6 +353,8 @@
       <RouterLink to="/site-health" class="btn btn-ghost">🩺 Site Health</RouterLink>
       <RouterLink to="/ab-testing" class="btn btn-ghost">🧪 A/B Tests</RouterLink>
       <RouterLink to="/search-analytics" class="btn btn-ghost">🔍 Search Analytics</RouterLink>
+      <RouterLink to="/email-sequences" class="btn btn-ghost">📧 Email Sequences</RouterLink>
+      <RouterLink to="/customer-segments" class="btn btn-ghost">🎯 Segments</RouterLink>
     </div>
 
     <!-- Quick Notes -->

@@ -1,7 +1,7 @@
 // Pygmy CMS — Comments routes
-// GET  /api/comments?post_id=  → approved comments for a post (public)
+// GET  /api/comments?post_id=  → approved comments (threaded) for a post (public)
 // GET  /api/comments?status=   → all comments filtered by status (auth)
-// POST /api/comments           → submit a comment (public, creates as pending)
+// POST /api/comments           → submit a comment / reply (public, creates as pending)
 // PUT  /api/comments/:id       → approve / spam / delete-update (auth)
 // DELETE /api/comments/:id     → delete (auth)
 
@@ -13,44 +13,48 @@ import { logActivity } from './activity.js'
 
 const router = Router()
 
-// ─── Public: get approved comments for a post ────────────────────────────────
+// ─── Public: get approved comments for a post (threaded) ──────────────────────
 router.get('/', (req, res) => {
   const { post_id, status, all } = req.query
 
-  // Admin listing — requires auth token in query or handled by client
-  if (status || all) {
-    // We'll validate auth below; skip if public post_id request
-  }
-
   if (post_id) {
-    // Public: only approved
+    // Public: only approved, include parent_id for threading
     const rows = db.prepare(`
-      SELECT id, author_name, content, created_at
+      SELECT id, parent_id, author_name, content, created_at, liked_count
       FROM comments
       WHERE post_id = ? AND status = 'approved'
       ORDER BY created_at ASC
     `).all(Number(post_id))
-    return res.json(rows)
+
+    // Build tree structure: top-level comments + their replies
+    const topLevel = rows.filter(c => !c.parent_id)
+    const replies = rows.filter(c => c.parent_id)
+    const replyMap = {}
+    for (const r of replies) {
+      if (!replyMap[r.parent_id]) replyMap[r.parent_id] = []
+      replyMap[r.parent_id].push(r)
+    }
+    const threaded = topLevel.map(c => ({ ...c, replies: replyMap[c.id] || [] }))
+    return res.json(threaded)
   }
 
-  // No post_id → admin listing (caller should be authenticated, but we expose for simplicity;
-  // the admin UI will always pass the JWT via api interceptor)
-  const where = status ? 'WHERE status = ?' : '1=1'
+  // Admin listing
+  const where = status ? 'WHERE c.status = ?' : ''
   const params = status ? [status] : []
   const rows = db.prepare(`
     SELECT c.*, p.title as post_title, p.slug as post_slug
     FROM comments c
     JOIN posts p ON p.id = c.post_id
-    ${status ? 'WHERE c.status = ?' : ''}
+    ${where}
     ORDER BY c.created_at DESC
     LIMIT 200
   `).all(...params)
   res.json(rows)
 })
 
-// ─── Public: submit comment ───────────────────────────────────────────────────
+// ─── Public: submit comment or reply ─────────────────────────────────────────
 router.post('/', async (req, res) => {
-  const { post_id, author_name, author_email, content } = req.body
+  const { post_id, parent_id, author_name, author_email, content } = req.body
 
   if (!post_id || !author_name?.trim() || !author_email?.trim() || !content?.trim()) {
     return res.status(400).json({ error: 'post_id, author_name, author_email, and content are required' })
@@ -65,10 +69,16 @@ router.post('/', async (req, res) => {
   const post = db.prepare(`SELECT id, title, slug FROM posts WHERE id = ? AND status = 'published'`).get(Number(post_id))
   if (!post) return res.status(404).json({ error: 'Post not found' })
 
+  // Validate parent comment if replying
+  if (parent_id) {
+    const parent = db.prepare(`SELECT id FROM comments WHERE id = ? AND post_id = ? AND status = 'approved'`).get(Number(parent_id), Number(post_id))
+    if (!parent) return res.status(400).json({ error: 'Parent comment not found or not approved' })
+  }
+
   const info = db.prepare(`
-    INSERT INTO comments (post_id, author_name, author_email, content, status)
-    VALUES (?, ?, ?, ?, 'pending')
-  `).run(Number(post_id), author_name.trim(), author_email.trim().toLowerCase(), content.trim())
+    INSERT INTO comments (post_id, parent_id, author_name, author_email, content, status)
+    VALUES (?, ?, ?, ?, ?, 'pending')
+  `).run(Number(post_id), parent_id ? Number(parent_id) : null, author_name.trim(), author_email.trim().toLowerCase(), content.trim())
 
   const comment = db.prepare('SELECT * FROM comments WHERE id = ?').get(info.lastInsertRowid)
 
@@ -80,6 +90,7 @@ router.post('/', async (req, res) => {
     authorEmail: author_email.trim(),
     content: content.trim(),
     postUrl: `${siteUrl}/blog/${post.slug}`,
+    isReply: !!parent_id,
   }).catch(() => {})
 
   res.status(201).json(comment)

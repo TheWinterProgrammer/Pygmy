@@ -135,9 +135,11 @@ const navItems = [
   { to: '/support',            icon: '🎫',  label: 'Support Tickets' },
   { to: '/content-calendar',  icon: '📅',  label: 'Content Calendar' },
   { to: '/site-health',       icon: '🩺',  label: 'Site Health' },
-  { to: '/ab-testing',        icon: '🧪',  label: 'A/B Testing' },
-  { to: '/search-analytics',  icon: '🔍',  label: 'Search Analytics' },
-  { to: '/activity-log',      icon: '🕐',  label: 'Activity Log' },
+  { to: '/ab-testing',         icon: '🧪',  label: 'A/B Testing' },
+  { to: '/search-analytics',   icon: '🔍',  label: 'Search Analytics' },
+  { to: '/email-sequences',    icon: '📧',  label: 'Email Sequences' },
+  { to: '/customer-segments',  icon: '🎯',  label: 'Customer Segments' },
+  { to: '/activity-log',       icon: '🕐',  label: 'Activity Log' },
   { to: '/settings',          icon: '⚙️',  label: 'Settings' },
 ]
 

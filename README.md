@@ -122,6 +122,11 @@ frontend/           ← public website (port 5174)
 - Dynamic CMS page renderer
 - Loading skeletons + 404 states
 
+### Phase 35 — Email Sequences + Customer Segments + Comment Reply Threading ✅
+- **Email Sequences (Drip Campaigns)** — full multi-step email automation: `email_sequences`, `email_sequence_steps`, `email_sequence_enrollments` SQLite tables (pre-created in Phase 35 DB schema); REST API at `GET/POST/PUT/DELETE /api/email-sequences` + `PUT /:id/status` (draft/active/paused); per-sequence step CRUD (`GET/POST/PUT/DELETE /api/email-sequences/:id/steps`) with auto-assigned `step_number`, `delay_days`, `delay_hours` for drip pacing; enrollment management (`GET/POST /api/email-sequences/:id/enrollments`, `DELETE /:id/enrollments/:eid`, bulk enroll via array of `{email, name}` objects); each enrollment tracks `next_step` + `next_send_at` for precise delivery; **background processor** runs every 5 minutes in `index.js` — picks up all due active enrollments, sends via SMTP (using `sendMailTo`), advances to next step or marks completed; `{{name}}` and `{{email}}` placeholder substitution in subject + body; `POST /api/email-sequences/process` manual trigger (admin); `GET /api/email-sequences/stats` returns total/active/enrollment counts; admin **EmailSequencesView** — stats strip, sequence table with trigger type + step count + enrollment counts + status pills, ▶/⏸ status control buttons, ✏️ edit modal, 📝 Steps modal (per-step editor with subject/HTML body/delay fields, add/delete steps, auto-save on blur), 👥 Enrollments modal (enroll textarea for bulk email entry, live enrollment table with status + next-send time + remove button); 📧 Email Sequences sidebar entry + Dashboard quick-action
+- **Customer Segments** — dynamic rule-based customer grouping: `customer_segments` SQLite table with JSON `conditions` array; REST API at `GET/POST/PUT/DELETE /api/customer-segments`; `POST /:id/evaluate` re-runs conditions and updates `member_count`; `POST /:id/enroll` bulk-enrolls all matching customers into an email sequence; **7 condition fields**: `total_orders` (≥/>/≤/=), `total_spent` (€, ≥/>/ ≤), `last_order_days` (within/older_than N days), `has_subscription` (yes/no), `points_balance` (≥/≤), `active` (yes/no), `country` (ISO code, address match); all conditions are AND-combined; segment membership calculated live via SQL subqueries; dynamic flag auto-recalculates count on every update; admin **CustomerSegmentsView** — segment table with condition badge pills + member count + dynamic badge, 🔄 re-evaluate button, 👁️ View modal (member preview up to 100 rows), ✏️ Edit modal (condition builder with field/operator/value selectors, + Add Condition), 📧 Enroll modal (pick email sequence → bulk-enroll all segment members); 🎯 Customer Segments sidebar entry + Dashboard quick-action
+- **Comment Reply Threading** — `parent_id` column added to `comments` table via safe ALTER TABLE migration; public `POST /api/comments` now accepts optional `parent_id` (validated: parent must be approved + same post); public `GET /api/comments?post_id=` returns threaded structure — top-level comments each include a `replies` array of child comments; admin listing unaffected (flat list); public `PostView` updated: each approved comment shows a "↩ Reply" button that opens an inline reply form directly below the comment (hides the main bottom form while replying); reply form has same name/email/content fields; replies are displayed as indented cards with a left border accent; Escape/Cancel button dismisses the reply form; submission sends `parent_id` to backend; moderators approve replies just like regular comments in the admin Comments view
+
 ### Phase 34 — A/B Testing + Search Analytics + Advanced Search ✅
 - **A/B Testing system** — full experiment framework: `ab_tests`, `ab_variants`, `ab_impressions` SQLite tables; CRUD REST API at `GET/POST/PUT/DELETE /api/ab-tests`; tests are scoped to an entity type (page, post, product, custom) and optional entity ID; configurable traffic split (10–90% to variant B via slider); 4 goal types: click, conversion, bounce reduction, time on page; optional CSS selector / event name per goal; status lifecycle: draft → running → paused → completed with automatic `started_at` / `ended_at` timestamps; `POST /api/ab-tests/:id/assign` assigns a session to a variant using the configured split ratio, remembers assignment so the same visitor always sees the same variant; `POST /api/ab-tests/:id/convert` records a conversion for that session; per-variant impression + conversion counts + conversion rate calculated live; admin can declare a winner per test (stored as `winner` field); admin **AbTestingView** — stats strip (total / running / completed / draft), status filter, full test table with impression/conversion counts + status pills + winner badge, ▶ Start / ⏸ Pause / ✅ End quick-action buttons, create/edit modal with all fields + traffic split slider + variant name + JSON changes editor; 📊 Stats modal shows variant cards with conversion rate bars + winner declaration buttons; 🧪 A/B Testing sidebar entry + Dashboard quick-action
 - **Search Analytics** — every search request to `GET /api/search` is auto-tracked into the new `search_queries` SQLite table (query, results count, session ID, clicked slug/type, timestamp); `POST /api/search-analytics/track` (public) for manual tracking; `POST /api/search-analytics/click` records which result was clicked for a query; admin analytics endpoints: `GET /summary` (total searches, unique queries, CTR%, zero-result rate), `GET /top` (top queries by search volume with click count and avg result count), `GET /zero-results` (zero-result queries grouped and sorted — content creation hints), `GET /daily` (day-by-day volume with zero-result overlay, gaps filled), `GET /clicks` (most clicked search results); `GET /api/search-analytics/suggestions` (public) returns autocomplete suggestions from historical queries that had results; admin **SearchAnalyticsView** — period selector (7/30/60/90 days), 5 summary stat cards (total searches, unique queries, CTR%, zero-result rate, zero-result count), filled bar chart (daily volume + zero-result overlay), Top Queries table (searches / clicks / CTR / avg results), Zero-Result Queries table with count badges (content creation hints), Most Clicked Results table; 🔍 Search Analytics sidebar entry + Dashboard quick-action
@@ -686,6 +691,37 @@ Font: **Poppins** via Google Fonts
 | GET    | `/api/ab-tests/active` | — | Running tests for entity (`?entity_type=&entity_id=`) |
 | POST   | `/api/ab-tests/:id/assign` | — | Assign session to variant `{session_id}` → `{variant_id, label, changes}` |
 | POST   | `/api/ab-tests/:id/convert` | — | Record conversion `{session_id}` |
+
+### Email Sequences (Phase 35)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET    | `/api/email-sequences` | ✓ | List all sequences with counts |
+| POST   | `/api/email-sequences` | ✓ | Create sequence |
+| GET    | `/api/email-sequences/stats` | ✓ | Overview stats |
+| GET    | `/api/email-sequences/:id` | ✓ | Sequence detail + steps |
+| PUT    | `/api/email-sequences/:id` | ✓ | Update sequence |
+| PUT    | `/api/email-sequences/:id/status` | ✓ | Change status `{status: draft|active|paused}` |
+| DELETE | `/api/email-sequences/:id` | ✓ | Delete sequence |
+| GET    | `/api/email-sequences/:id/steps` | ✓ | List steps |
+| POST   | `/api/email-sequences/:id/steps` | ✓ | Add step `{subject, body, delay_days, delay_hours}` |
+| PUT    | `/api/email-sequences/:id/steps/:sid` | ✓ | Update step |
+| DELETE | `/api/email-sequences/:id/steps/:sid` | ✓ | Delete step (auto-renumbers) |
+| POST   | `/api/email-sequences/:id/steps/reorder` | ✓ | Reorder steps `{order: [id…]}` |
+| GET    | `/api/email-sequences/:id/enrollments` | ✓ | List enrollments (`?status=`, `?limit=`, `?offset=`) |
+| POST   | `/api/email-sequences/:id/enroll` | ✓ | Enroll `{emails: [{email, name?}]}` |
+| DELETE | `/api/email-sequences/:id/enrollments/:eid` | ✓ | Remove enrollment |
+| POST   | `/api/email-sequences/process` | ✓ | Manually trigger due email processing |
+
+### Customer Segments (Phase 35)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET    | `/api/customer-segments` | ✓ | List all segments |
+| POST   | `/api/customer-segments` | ✓ | Create segment `{name, conditions[], dynamic?}` |
+| GET    | `/api/customer-segments/:id` | ✓ | Segment + conditions + member preview |
+| PUT    | `/api/customer-segments/:id` | ✓ | Update segment |
+| DELETE | `/api/customer-segments/:id` | ✓ | Delete segment |
+| POST   | `/api/customer-segments/:id/evaluate` | ✓ | Re-evaluate dynamic membership |
+| POST   | `/api/customer-segments/:id/enroll` | ✓ | Enroll all members into sequence `{sequence_id}` |
 
 ### Search Analytics (Phase 34)
 | Method | Path | Auth | Description |

@@ -66,6 +66,8 @@ import quickNotesRoutes from './routes/quick_notes.js'
 import siteHealthRoutes from './routes/site_health.js'
 import abTestingRoutes from './routes/ab_testing.js'
 import searchAnalyticsRoutes from './routes/search_analytics.js'
+import emailSequencesRoutes from './routes/email_sequences.js'
+import customerSegmentsRoutes from './routes/customer_segments.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -229,6 +231,8 @@ app.use('/api/quick-notes', quickNotesRoutes)
 app.use('/api/site-health', siteHealthRoutes)
 app.use('/api/ab-tests', abTestingRoutes)
 app.use('/api/search-analytics', searchAnalyticsRoutes)
+app.use('/api/email-sequences', emailSequencesRoutes)
+app.use('/api/customer-segments', customerSegmentsRoutes)
 
 // ─── SEO (public) ─────────────────────────────────────────────────────────────
 app.use('/', seoRoutes)
@@ -298,3 +302,61 @@ function runScheduler() {
 
 runScheduler() // run once on boot
 setInterval(runScheduler, 60_000) // then every minute
+
+// ─── Email Sequence Processor (every 5 minutes) ────────────────────────────
+import { sendMailTo as sendMail } from './email.js'
+
+async function runEmailSequenceProcessor() {
+  const now = new Date().toISOString()
+  try {
+    const due = db.prepare(`
+      SELECT e.*, s.status as seq_status
+      FROM email_sequence_enrollments e
+      JOIN email_sequences s ON s.id = e.sequence_id
+      WHERE e.status = 'active' AND e.next_send_at <= ? AND s.status = 'active'
+      LIMIT 50
+    `).all(now)
+
+    if (!due.length) return
+
+    let sent = 0
+    for (const enrollment of due) {
+      const step = db.prepare(`
+        SELECT * FROM email_sequence_steps WHERE sequence_id = ? AND step_number = ?
+      `).get(enrollment.sequence_id, enrollment.next_step)
+
+      if (!step) {
+        db.prepare(`UPDATE email_sequence_enrollments SET status = 'completed', completed_at = datetime('now') WHERE id = ?`).run(enrollment.id)
+        continue
+      }
+
+      try {
+        const subject = step.subject.replace(/\{\{name\}\}/g, enrollment.name || 'there')
+        const html = step.body.replace(/\{\{name\}\}/g, enrollment.name || 'there').replace(/\{\{email\}\}/g, enrollment.email)
+        await sendMail({ to: enrollment.email, subject, html })
+
+        const nextStep = db.prepare(`
+          SELECT * FROM email_sequence_steps WHERE sequence_id = ? AND step_number > ? ORDER BY step_number ASC LIMIT 1
+        `).get(enrollment.sequence_id, step.step_number)
+
+        if (nextStep) {
+          const nextSendAt = new Date()
+          nextSendAt.setDate(nextSendAt.getDate() + nextStep.delay_days)
+          nextSendAt.setHours(nextSendAt.getHours() + nextStep.delay_hours)
+          db.prepare(`UPDATE email_sequence_enrollments SET next_step = ?, next_send_at = ? WHERE id = ?`).run(nextStep.step_number, nextSendAt.toISOString(), enrollment.id)
+        } else {
+          db.prepare(`UPDATE email_sequence_enrollments SET status = 'completed', completed_at = datetime('now') WHERE id = ?`).run(enrollment.id)
+        }
+        sent++
+      } catch {
+        db.prepare(`UPDATE email_sequence_enrollments SET status = 'failed' WHERE id = ?`).run(enrollment.id)
+      }
+    }
+
+    if (sent > 0) console.log(`📧 Email sequences: sent ${sent} email(s)`)
+  } catch (e) {
+    console.warn('Email sequence processor error:', e.message)
+  }
+}
+
+setInterval(runEmailSequenceProcessor, 5 * 60_000) // every 5 minutes

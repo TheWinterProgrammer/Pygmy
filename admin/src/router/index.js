@@ -74,9 +74,11 @@ const routes = [
       { path: 'support',          name: 'Support',        component: () => import('../views/SupportView.vue') },
       { path: 'content-calendar', name: 'ContentCalendar', component: () => import('../views/ContentCalendarView.vue') },
       { path: 'site-health',      name: 'SiteHealth',     component: () => import('../views/SiteHealthView.vue') },
-      { path: 'ab-testing',       name: 'AbTesting',      component: () => import('../views/AbTestingView.vue') },
-      { path: 'search-analytics', name: 'SearchAnalytics', component: () => import('../views/SearchAnalyticsView.vue') },
-      { path: 'settings',         name: 'Settings',       component: () => import('../views/SettingsView.vue') },
+      { path: 'ab-testing',         name: 'AbTesting',        component: () => import('../views/AbTestingView.vue') },
+      { path: 'search-analytics',  name: 'SearchAnalytics',  component: () => import('../views/SearchAnalyticsView.vue') },
+      { path: 'email-sequences',   name: 'EmailSequences',   component: () => import('../views/EmailSequencesView.vue') },
+      { path: 'customer-segments', name: 'CustomerSegments', component: () => import('../views/CustomerSegmentsView.vue') },
+      { path: 'settings',          name: 'Settings',         component: () => import('../views/SettingsView.vue') },
     ]
   },
   { path: '/:pathMatch(.*)*', redirect: '/' }

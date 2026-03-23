@@ -93,6 +93,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS comments (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     post_id     INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+    parent_id   INTEGER REFERENCES comments(id) ON DELETE CASCADE,
     author_name TEXT    NOT NULL,
     author_email TEXT   NOT NULL,
     content     TEXT    NOT NULL,
@@ -1351,3 +1352,69 @@ db.prepare(`
 
 db.prepare(`CREATE INDEX IF NOT EXISTS idx_search_queries_query ON search_queries(query)`).run()
 db.prepare(`CREATE INDEX IF NOT EXISTS idx_search_queries_date ON search_queries(created_at)`).run()
+
+// ── Phase 35: Customer Segments ───────────────────────────────────────────────
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS customer_segments (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT    NOT NULL,
+    description TEXT    DEFAULT '',
+    conditions  TEXT    NOT NULL DEFAULT '[]',   -- JSON array of {field, operator, value}
+    dynamic     INTEGER NOT NULL DEFAULT 1,      -- 1 = auto-recalculate, 0 = manual
+    member_count INTEGER NOT NULL DEFAULT 0,
+    created_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at  TEXT    DEFAULT (datetime('now')),
+    updated_at  TEXT    DEFAULT (datetime('now'))
+  )
+`).run()
+
+// ── Phase 35: Email Sequences (Drip Campaigns) ────────────────────────────────
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS email_sequences (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT    NOT NULL,
+    description TEXT    DEFAULT '',
+    trigger_type TEXT   NOT NULL DEFAULT 'manual', -- manual | subscriber_join | order_placed | customer_register | segment_enter | date_anniversary
+    trigger_config TEXT NOT NULL DEFAULT '{}',     -- JSON: segment_id, product_id, etc.
+    status      TEXT    NOT NULL DEFAULT 'draft',  -- draft | active | paused
+    created_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at  TEXT    DEFAULT (datetime('now')),
+    updated_at  TEXT    DEFAULT (datetime('now'))
+  )
+`).run()
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS email_sequence_steps (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    sequence_id INTEGER NOT NULL REFERENCES email_sequences(id) ON DELETE CASCADE,
+    step_number INTEGER NOT NULL DEFAULT 1,
+    subject     TEXT    NOT NULL DEFAULT '',
+    body        TEXT    NOT NULL DEFAULT '',       -- HTML body
+    delay_days  INTEGER NOT NULL DEFAULT 0,        -- days after previous step (or trigger for step 1)
+    delay_hours INTEGER NOT NULL DEFAULT 0,
+    created_at  TEXT    DEFAULT (datetime('now'))
+  )
+`).run()
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS email_sequence_enrollments (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    sequence_id  INTEGER NOT NULL REFERENCES email_sequences(id) ON DELETE CASCADE,
+    email        TEXT    NOT NULL,
+    name         TEXT    DEFAULT '',
+    next_step    INTEGER NOT NULL DEFAULT 1,        -- step_number of next email to send
+    next_send_at TEXT    NOT NULL,                 -- datetime to send next email
+    status       TEXT    NOT NULL DEFAULT 'active', -- active | completed | unsubscribed | failed
+    enrolled_at  TEXT    DEFAULT (datetime('now')),
+    completed_at TEXT
+  )
+`).run()
+
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_seq_enrollments_next ON email_sequence_enrollments(next_send_at, status)`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_seq_enrollments_seq ON email_sequence_enrollments(sequence_id, status)`).run()
+
+// ── Phase 35 migrations ───────────────────────────────────────────────────────
+// Add parent_id to comments for reply threading (safe if column already exists)
+try { db.prepare(`ALTER TABLE comments ADD COLUMN parent_id INTEGER REFERENCES comments(id) ON DELETE CASCADE`).run() } catch {}
+// Add liked_count to comments for future social proof
+try { db.prepare(`ALTER TABLE comments ADD COLUMN liked_count INTEGER NOT NULL DEFAULT 0`).run() } catch {}

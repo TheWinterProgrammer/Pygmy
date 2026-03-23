@@ -117,7 +117,7 @@
           <span class="comment-count" v-if="comments.length">({{ comments.length }})</span>
         </h2>
 
-        <!-- Approved comments -->
+        <!-- Approved comments (threaded) -->
         <div class="comments-list" v-if="comments.length">
           <div class="comment glass" v-for="c in comments" :key="c.id">
             <div class="comment-avatar">{{ c.author_name[0].toUpperCase() }}</div>
@@ -127,13 +127,50 @@
                 <span class="comment-date">{{ formatDate(c.created_at) }}</span>
               </div>
               <p class="comment-text">{{ c.content }}</p>
+              <button class="reply-btn" @click="startReply(c)">↩ Reply</button>
+
+              <!-- Inline reply form -->
+              <div class="reply-form" v-if="replyingTo === c.id">
+                <form @submit.prevent="submitComment">
+                  <div class="form-row">
+                    <div class="form-group">
+                      <input v-model="form.author_name" type="text" placeholder="Your name *" required maxlength="80" class="input-sm" />
+                    </div>
+                    <div class="form-group">
+                      <input v-model="form.author_email" type="email" placeholder="your@email.com *" required maxlength="120" class="input-sm" />
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <textarea v-model="form.content" rows="3" placeholder="Write your reply…" required maxlength="2000" class="input-sm"></textarea>
+                  </div>
+                  <div style="display:flex;gap:0.5rem;align-items:center">
+                    <button class="btn btn-primary btn-sm" type="submit" :disabled="submitting">{{ submitting ? 'Sending…' : 'Post Reply' }}</button>
+                    <button class="btn btn-ghost btn-sm" type="button" @click="replyingTo = null">Cancel</button>
+                    <span class="text-error small" v-if="submitError">{{ submitError }}</span>
+                  </div>
+                </form>
+              </div>
+
+              <!-- Nested replies -->
+              <div class="replies" v-if="c.replies && c.replies.length">
+                <div class="comment reply glass" v-for="r in c.replies" :key="r.id">
+                  <div class="comment-avatar small">{{ r.author_name[0].toUpperCase() }}</div>
+                  <div class="comment-inner">
+                    <div class="comment-header">
+                      <span class="comment-author">{{ r.author_name }}</span>
+                      <span class="comment-date">{{ formatDate(r.created_at) }}</span>
+                    </div>
+                    <p class="comment-text">{{ r.content }}</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
         <p class="no-comments text-muted" v-else>No comments yet. Be the first!</p>
 
-        <!-- Submit form -->
-        <div class="comment-form glass">
+        <!-- Submit new top-level comment -->
+        <div class="comment-form glass" v-if="replyingTo === null">
           <h3 class="form-heading">Leave a comment</h3>
           <form @submit.prevent="submitComment" v-if="!submitSuccess">
             <div class="form-row">
@@ -195,6 +232,14 @@ const form = ref({ author_name: '', author_email: '', content: '' })
 const submitting = ref(false)
 const submitSuccess = ref(false)
 const submitError = ref('')
+const replyingTo = ref(null) // null = top-level form, or comment ID
+
+function startReply(comment) {
+  replyingTo.value = comment.id
+  submitSuccess.value = false
+  submitError.value = ''
+  form.value.content = ''
+}
 
 // Reading time (avg 200 wpm)
 const readingTime = computed(() => {
@@ -286,11 +331,13 @@ async function submitComment() {
   try {
     await api.post('/comments', {
       post_id: post.value.id,
+      parent_id: replyingTo.value || undefined,
       author_name: form.value.author_name,
       author_email: form.value.author_email,
       content: form.value.content,
     })
     submitSuccess.value = true
+    replyingTo.value = null
     form.value = { author_name: form.value.author_name, author_email: form.value.author_email, content: '' }
   } catch (err) {
     submitError.value = err?.response?.data?.error || 'Failed to post comment. Please try again.'
@@ -644,6 +691,50 @@ function formatDate(iso) {
   font-size: 0.9rem;
   line-height: 1.65;
   white-space: pre-wrap;
+}
+
+.reply-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 0.78rem;
+  cursor: pointer;
+  padding: 0.2rem 0;
+  margin-top: 0.4rem;
+  transition: color 0.2s;
+}
+.reply-btn:hover { color: var(--accent); }
+
+.replies {
+  margin-top: 1rem;
+  padding-left: 1.5rem;
+  border-left: 2px solid rgba(255,255,255,0.08);
+}
+.comment.reply {
+  margin-bottom: 0.75rem;
+  padding: 0.75rem 1rem;
+}
+.comment-avatar.small {
+  width: 28px;
+  height: 28px;
+  font-size: 0.75rem;
+  flex-shrink: 0;
+}
+
+.reply-form {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: rgba(255,255,255,0.04);
+  border-radius: 0.75rem;
+}
+.reply-form .input-sm {
+  width: 100%;
+  padding: 0.4rem 0.75rem;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 0.5rem;
+  color: var(--fg);
+  font-size: 0.85rem;
 }
 
 .no-comments {
