@@ -102,6 +102,7 @@ const routes = [
       { path: 'bookings',          name: 'Bookings',          component: () => import('../views/BookingsView.vue') },
       { path: 'automation',        name: 'Automation',        component: () => import('../views/AutomationView.vue') },
       { path: 'coupon-campaigns',  name: 'CouponCampaigns',   component: () => import('../views/CouponCampaignsView.vue') },
+      { path: 'sms',               name: 'Sms',              component: () => import('../views/SmsView.vue') },
       { path: 'settings',          name: 'Settings',         component: () => import('../views/SettingsView.vue') },
     ]
   },

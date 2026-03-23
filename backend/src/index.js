@@ -99,6 +99,7 @@ import productSubscriptionsRoutes from './routes/product_subscriptions.js'
 import bookingsRoutes from './routes/bookings.js'
 import couponCampaignsRoutes from './routes/coupon_campaigns.js'
 import automationRoutes, { fireAutomation } from './routes/automation.js'
+import smsRoutes from './routes/sms.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -294,6 +295,7 @@ app.use('/api/product-subscriptions', productSubscriptionsRoutes)
 app.use('/api/bookings', bookingsRoutes)
 app.use('/api/coupon-campaigns', couponCampaignsRoutes)
 app.use('/api/automation', automationRoutes)
+app.use('/api/sms', smsRoutes)
 app.use('/', shoppingFeedRoutes)
 
 // ─── SEO (public) ─────────────────────────────────────────────────────────────

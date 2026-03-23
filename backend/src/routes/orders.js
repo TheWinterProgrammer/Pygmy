@@ -7,6 +7,7 @@ import { logActivity } from './activity.js'
 import { fireWebhooks } from './webhooks.js'
 import { fireAutomation } from './automation.js'
 import { sendOrderConfirmation, sendOrderStatusUpdate, sendShipmentNotification } from '../email.js'
+import { sendOrderConfirmSms, sendShippedSms } from '../sms.js'
 import { validateCouponLogic } from './coupons.js'
 import { redeemGiftCard } from './gift_cards.js'
 import { issueDownloadTokensForOrder } from './digital_downloads.js'
@@ -72,6 +73,8 @@ router.post('/', (req, res) => {
     store_credit_amount = 0,
     gift_wrap = 0,
     gift_message = '',
+    payment_method = 'manual',
+    payment_reference = '',
   } = req.body
 
   if (!customer_name || !customer_email) {
@@ -201,8 +204,9 @@ router.post('/', (req, res) => {
         shipping_address, billing_address, billing_same_as_shipping,
         items, subtotal, discount_amount, shipping_cost, shipping_zone, shipping_method,
         shipping_country, shipping_rate_name, total, coupon_code, notes, customer_id, tax_amount, tax_rate_name,
-        gift_card_code, gift_card_discount, gift_wrap, gift_message, gift_wrap_cost, store_credit_used)
-      VALUES (?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        gift_card_code, gift_card_discount, gift_wrap, gift_message, gift_wrap_cost, store_credit_used,
+        payment_method, payment_status, payment_reference)
+      VALUES (?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       orderNumber,
       customer_name.trim(),
@@ -230,7 +234,10 @@ router.post('/', (req, res) => {
       applyGiftWrap,
       (gift_message || '').trim(),
       giftWrapCost,
-      storeCreditDiscount
+      storeCreditDiscount,
+      (payment_method || 'manual').trim(),
+      'unpaid',
+      (payment_reference || '').trim()
     )
 
     const newOrderId = result.lastInsertRowid
@@ -362,6 +369,8 @@ router.post('/', (req, res) => {
 
   // Send order confirmation email (fire-and-forget)
   sendOrderConfirmation({ ...order, items: validatedItems, downloadTokens }).catch(() => {})
+  // Send order confirmation SMS (fire-and-forget)
+  sendOrderConfirmSms(order).catch(() => {})
 
   res.status(201).json({
     id: order.id,
@@ -500,6 +509,7 @@ router.put('/:id', authMiddleware, (req, res) => {
   const {
     status, notes,
     tracking_number, tracking_carrier, tracking_url, fulfillment_notes,
+    payment_method, payment_status, payment_reference,
   } = req.body
   if (status && !ORDER_STATUSES.includes(status)) {
     return res.status(400).json({ error: `Invalid status. Must be one of: ${ORDER_STATUSES.join(', ')}` })
@@ -507,7 +517,6 @@ router.put('/:id', authMiddleware, (req, res) => {
 
   // Auto-set shipped_at when transitioning to 'shipped'
   const becomingShipped = status === 'shipped' && order.status !== 'shipped'
-  const shippedAt = becomingShipped ? "datetime('now')" : 'shipped_at'
 
   db.prepare(`
     UPDATE orders SET
@@ -517,6 +526,9 @@ router.put('/:id', authMiddleware, (req, res) => {
       tracking_carrier   = COALESCE(?, tracking_carrier),
       tracking_url       = COALESCE(?, tracking_url),
       fulfillment_notes  = COALESCE(?, fulfillment_notes),
+      payment_method     = COALESCE(?, payment_method),
+      payment_status     = COALESCE(?, payment_status),
+      payment_reference  = COALESCE(?, payment_reference),
       shipped_at         = ${becomingShipped ? "datetime('now')" : 'shipped_at'},
       updated_at         = datetime('now')
     WHERE id = ?
@@ -527,6 +539,9 @@ router.put('/:id', authMiddleware, (req, res) => {
     tracking_carrier ?? null,
     tracking_url ?? null,
     fulfillment_notes ?? null,
+    payment_method ?? null,
+    payment_status ?? null,
+    payment_reference ?? null,
     order.id
   )
 
@@ -558,11 +573,12 @@ router.put('/:id', authMiddleware, (req, res) => {
     fireAutomation('order.status_changed', { ...updated, customer_id: updated.customer_id || null }).catch(() => {})
     if (status === 'completed') fireAutomation('order.completed', { ...updated, customer_id: updated.customer_id || null }).catch(() => {})
     if (becomingShipped && (tracking_number || tracking_url)) {
-      // Send dedicated shipment email with tracking info
+      // Send dedicated shipment email + SMS with tracking info
       sendShipmentNotification({
         ...updated,
         items: JSON.parse(updated.items || '[]'),
       }).catch(() => {})
+      sendShippedSms(updated).catch(() => {})
     } else {
       sendOrderStatusUpdate({ ...updated, items: JSON.parse(updated.items || '[]') }).catch(() => {})
     }

@@ -37,6 +37,9 @@
           <span class="topbar-page">{{ currentLabel }}</span>
         </div>
         <div class="topbar-right">
+          <button class="topbar-btn topbar-search-btn" title="Command Palette (Ctrl+K)" @click="palette?.open()">
+            🔍 <kbd>⌘K</kbd>
+          </button>
           <NotificationBell />
           <a href="http://localhost:5174" target="_blank" class="topbar-btn" title="View site">🌐</a>
         </div>
@@ -46,6 +49,9 @@
       </main>
     </div>
   </div>
+
+  <!-- Command Palette (global, outside layout so it can teleport to body) -->
+  <CommandPalette ref="palette" />
 </template>
 
 <script setup>
@@ -53,6 +59,9 @@ import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from '../stores/auth.js'
 import { useRouter, useRoute } from 'vue-router'
 import NotificationBell from '../components/NotificationBell.vue'
+import CommandPalette from '../components/CommandPalette.vue'
+
+const palette = ref(null)
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -164,6 +173,7 @@ const navItems = [
   { to: '/bookings',           icon: '📅',  label: 'Bookings' },
   { to: '/automation',         icon: '⚡',  label: 'Automation Rules' },
   { to: '/coupon-campaigns',   icon: '🎟️',  label: 'Coupon Campaigns' },
+  { to: '/sms',                icon: '📱',  label: 'SMS Notifications' },
   { to: '/settings',          icon: '⚙️',  label: 'Settings' },
 ]
 
@@ -286,6 +296,19 @@ function handleLogout() {
   transition: background 0.2s;
 }
 .topbar-btn:hover { background: var(--glass-bg); }
+.topbar-search-btn {
+  display: flex; align-items: center; gap: 0.35rem;
+  color: rgba(255,255,255,0.55); font-size: 0.82rem;
+  padding: 4px 10px;
+}
+.topbar-search-btn kbd {
+  background: rgba(255,255,255,0.1);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 0.72rem;
+  font-family: monospace;
+  color: rgba(255,255,255,0.4);
+}
 
 .admin-main {
   flex: 1;

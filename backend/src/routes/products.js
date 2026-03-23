@@ -54,6 +54,7 @@ function parseProduct(row) {
     stock_quantity: row.stock_quantity ?? 0,
     low_stock_threshold: row.low_stock_threshold ?? 5,
     is_digital: Boolean(row.is_digital),
+    video_url: row.video_url || '',
     in_stock: !row.track_stock || row.stock_quantity > 0 || Boolean(row.allow_backorder),
     low_stock: Boolean(row.track_stock) && (row.stock_quantity ?? 0) <= (row.low_stock_threshold ?? 5) && (row.stock_quantity ?? 0) > 0,
   }
@@ -219,6 +220,7 @@ router.post('/', authMiddleware, (req, res) => {
     track_stock = false, stock_quantity = 0,
     allow_backorder = false, low_stock_threshold = 5,
     is_digital = false,
+    video_url = '',
   } = req.body
 
   if (!name?.trim()) return res.status(400).json({ error: 'name required' })
@@ -237,8 +239,8 @@ router.post('/', authMiddleware, (req, res) => {
     INSERT INTO products
       (name, slug, excerpt, description, price, sale_price, sku, cover_image, gallery,
        category_id, tags, status, featured, meta_title, meta_desc, publish_at,
-       track_stock, stock_quantity, allow_backorder, low_stock_threshold, is_digital)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+       track_stock, stock_quantity, allow_backorder, low_stock_threshold, is_digital, video_url)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `).run(
     name.trim(), slug, excerpt, description,
     price, sale_price, sku, cover_image,
@@ -250,6 +252,7 @@ router.post('/', authMiddleware, (req, res) => {
     allow_backorder ? 1 : 0,
     parseInt(low_stock_threshold) || 5,
     is_digital ? 1 : 0,
+    (video_url || '').trim(),
   )
 
   const product = db.prepare('SELECT * FROM products WHERE id = ?').get(info.lastInsertRowid)
@@ -270,6 +273,7 @@ router.put('/:id', authMiddleware, (req, res) => {
     meta_title, meta_desc, publish_at,
     track_stock, stock_quantity, allow_backorder, low_stock_threshold,
     is_digital,
+    video_url,
   } = req.body
 
   // only regenerate slug if name changed and no slug conflict
@@ -293,7 +297,7 @@ router.put('/:id', authMiddleware, (req, res) => {
       tags = ?, status = ?, featured = ?,
       meta_title = ?, meta_desc = ?, publish_at = ?,
       track_stock = ?, stock_quantity = ?, allow_backorder = ?, low_stock_threshold = ?,
-      is_digital = ?,
+      is_digital = ?, video_url = ?,
       updated_at = datetime('now')
     WHERE id = ?
   `).run(
@@ -318,6 +322,7 @@ router.put('/:id', authMiddleware, (req, res) => {
     allow_backorder !== undefined ? (allow_backorder ? 1 : 0) : existing.allow_backorder,
     low_stock_threshold !== undefined ? (parseInt(low_stock_threshold) || 5) : existing.low_stock_threshold,
     is_digital !== undefined ? (is_digital ? 1 : 0) : existing.is_digital,
+    video_url !== undefined ? (video_url || '').trim() : (existing.video_url || ''),
     existing.id
   )
 

@@ -2235,3 +2235,47 @@ for (const [key, value] of Object.entries(phase47Defaults)) {
 }
 
 console.log('Phase 42 + Phase 43 + Phase 46 + Phase 47 schema ready')
+
+// ── Phase 48 schema migrations ────────────────────────────────────────────────
+
+// Payment tracking on orders
+try { db.prepare(`ALTER TABLE orders ADD COLUMN payment_method TEXT NOT NULL DEFAULT 'manual'`).run() } catch {}
+try { db.prepare(`ALTER TABLE orders ADD COLUMN payment_status TEXT NOT NULL DEFAULT 'unpaid'`).run() } catch {}
+try { db.prepare(`ALTER TABLE orders ADD COLUMN payment_reference TEXT NOT NULL DEFAULT ''`).run() } catch {}
+
+// Product video
+try { db.prepare(`ALTER TABLE products ADD COLUMN video_url TEXT NOT NULL DEFAULT ''`).run() } catch {}
+
+// SMS notifications log
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS sms_log (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    to_number   TEXT    NOT NULL,
+    message     TEXT    NOT NULL,
+    status      TEXT    NOT NULL DEFAULT 'sent',  -- sent | failed
+    error       TEXT,
+    entity_type TEXT,
+    entity_id   TEXT,
+    created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+  )
+`).run()
+
+// Phase 48 settings
+const phase48Defaults = {
+  sms_enabled:          '0',
+  sms_provider:         'twilio',
+  sms_account_sid:      '',
+  sms_auth_token:       '',
+  sms_from_number:      '',
+  sms_order_confirm:    '1',
+  sms_order_shipped:    '1',
+  sms_order_message:    'Hi {{name}}, your order {{order_number}} has been placed! Total: {{total}}',
+  sms_shipped_message:  'Hi {{name}}, your order {{order_number}} has shipped! Track: {{tracking_url}}',
+  sms_notify_admin:     '0',
+  sms_admin_number:     '',
+}
+for (const [key, value] of Object.entries(phase48Defaults)) {
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
+}
+
+console.log('Phase 48 schema ready')
