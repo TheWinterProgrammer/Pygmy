@@ -131,6 +131,7 @@ const navItems = [
   { to: '/collections',   icon: '🗂️',  label: 'Collections' },
   { to: '/upsell',        icon: '🎯',  label: 'Post-Purchase Upsell' },
   { to: '/suppliers',     icon: '🏭',  label: 'Suppliers' },
+  { to: '/waitlist',      icon: '📋',  label: 'Waitlist' },
   { to: '/currency',      icon: '💱',  label: 'Multi-Currency' },
   { to: '/bundles',       icon: '🪄',  label: 'Bundles' },
   { to: '/product-qa',    icon: '❓',  label: 'Product Q&A' },

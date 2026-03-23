@@ -407,7 +407,10 @@ function printInvoice(order) {
 }
 
 function printPackingSlip(order) {
-  window.open(`http://localhost:3200/api/orders/${order.id}/packing-slip`, '_blank')
+  const token = localStorage.getItem('pygmy_token') || ''
+  const API = import.meta.env.VITE_API_URL || 'http://localhost:3200'
+  // Open with token in URL query since packing slip is an HTML page
+  window.open(`${API}/api/packing-slips/${order.order_number}?token=${encodeURIComponent(token)}`, '_blank')
 }
 
 function confirmDelete(order) {

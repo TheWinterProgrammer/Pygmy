@@ -90,6 +90,7 @@ const routes = [
       { path: 'collections',       name: 'Collections',      component: () => import('../views/CollectionsView.vue') },
       { path: 'upsell',            name: 'Upsell',           component: () => import('../views/UpsellView.vue') },
       { path: 'suppliers',         name: 'Suppliers',        component: () => import('../views/SuppliersView.vue') },
+      { path: 'waitlist',          name: 'Waitlist',         component: () => import('../views/WaitlistView.vue') },
       { path: 'settings',          name: 'Settings',         component: () => import('../views/SettingsView.vue') },
     ]
   },

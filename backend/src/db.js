@@ -1776,3 +1776,60 @@ const phase39Defaults = {
 for (const [key, value] of Object.entries(phase39Defaults)) {
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
 }
+
+// ── Phase 40: Waitlist ────────────────────────────────────────────────────────
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS product_waitlist (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id  INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    email       TEXT    NOT NULL,
+    name        TEXT    DEFAULT '',
+    variant_key TEXT    DEFAULT '',
+    notified    INTEGER NOT NULL DEFAULT 0,
+    notified_at TEXT    DEFAULT NULL,
+    created_at  TEXT    DEFAULT (datetime('now')),
+    UNIQUE(product_id, email, variant_key)
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_waitlist_product ON product_waitlist(product_id)`).run()
+
+// ── Phase 40: Volume / Tiered Pricing ────────────────────────────────────────
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS volume_pricing (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id  INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    min_qty     INTEGER NOT NULL DEFAULT 2,
+    price       REAL    NOT NULL,
+    label       TEXT    DEFAULT '',
+    created_at  TEXT    DEFAULT (datetime('now'))
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_vol_price_product ON volume_pricing(product_id)`).run()
+
+// ── Phase 40: Product Customization Options ───────────────────────────────────
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS product_custom_options (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id  INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    field_type  TEXT    NOT NULL DEFAULT 'text',  -- text | textarea | select | checkbox | color
+    label       TEXT    NOT NULL,
+    placeholder TEXT    DEFAULT '',
+    options     TEXT    DEFAULT '[]',   -- JSON for select/checkbox
+    required    INTEGER NOT NULL DEFAULT 0,
+    price_add   REAL    NOT NULL DEFAULT 0,
+    sort_order  INTEGER NOT NULL DEFAULT 0,
+    created_at  TEXT    DEFAULT (datetime('now'))
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_custom_opts_product ON product_custom_options(product_id)`).run()
+
+// Add customizations column to orders items (stored in order JSON items)
+// (no schema change needed — customizations stored in the items JSON array)
+
+const phase40Defaults = {
+  waitlist_enabled: '1',
+  waitlist_notify_email_subject: 'Good news! {{product}} is back in stock',
+}
+for (const [key, value] of Object.entries(phase40Defaults)) {
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
+}

@@ -75,6 +75,24 @@
           </div>
           <div class="price-free" v-else>Free</div>
 
+          <!-- Volume Pricing Tiers -->
+          <div class="volume-pricing" v-if="volumeTiers.length">
+            <div class="volume-title">💰 Volume Discounts</div>
+            <table class="volume-table">
+              <thead><tr><th>Qty</th><th>Unit Price</th><th>Label</th></tr></thead>
+              <tbody>
+                <tr v-for="tier in volumeTiers" :key="tier.id" :class="{ 'active-tier': qty >= tier.min_qty }">
+                  <td>{{ tier.min_qty }}+</td>
+                  <td class="tier-price">{{ fmt(tier.price) }}</td>
+                  <td>{{ tier.label || '' }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="tier-hint" v-if="activeTier">
+              🎉 You qualify for <strong>{{ activeTier.label || ('bulk pricing at ' + fmt(activeTier.price)) }}</strong>
+            </div>
+          </div>
+
           <!-- SKU -->
           <div class="sku" v-if="product.sku">
             <span class="sku-label">SKU:</span> {{ product.sku }}
@@ -124,6 +142,51 @@
               </div>
             </div>
             <div class="variant-error" v-if="variantError">{{ variantError }}</div>
+          </div>
+
+          <!-- Custom Options -->
+          <div class="custom-options" v-if="customOptions.length">
+            <div class="custom-opt-item" v-for="opt in customOptions" :key="opt.id">
+              <label class="custom-opt-label">
+                {{ opt.label }}
+                <span v-if="opt.required" class="req-star">*</span>
+                <span v-if="opt.price_add > 0" class="opt-price-add">+{{ fmt(opt.price_add) }}</span>
+              </label>
+              <input
+                v-if="opt.field_type === 'text'"
+                v-model="customOptionValues[opt.id]"
+                type="text"
+                :placeholder="opt.placeholder || ''"
+                class="opt-input"
+              />
+              <textarea
+                v-else-if="opt.field_type === 'textarea'"
+                v-model="customOptionValues[opt.id]"
+                :placeholder="opt.placeholder || ''"
+                class="opt-input"
+                rows="3"
+              ></textarea>
+              <select
+                v-else-if="opt.field_type === 'select'"
+                v-model="customOptionValues[opt.id]"
+                class="opt-input"
+              >
+                <option value="">{{ opt.placeholder || 'Select…' }}</option>
+                <option v-for="o in opt.options" :key="o" :value="o">{{ o }}</option>
+              </select>
+              <div v-else-if="opt.field_type === 'checkbox'" class="opt-checkboxes">
+                <label v-for="o in opt.options" :key="o" class="opt-check-item">
+                  <input type="checkbox" :value="o" v-model="customOptionValues[opt.id]" />
+                  {{ o }}
+                </label>
+              </div>
+              <input
+                v-else-if="opt.field_type === 'color'"
+                v-model="customOptionValues[opt.id]"
+                type="color"
+                class="opt-color"
+              />
+            </div>
           </div>
 
           <!-- Back-in-Stock Alert Sign-up -->
@@ -405,6 +468,9 @@ const recommendations = ref([])
 
 // Variants
 const variants         = ref([])    // [{ id, name, options: [{ id, label, price_adj, sku_suffix, stock }] }]
+const volumeTiers      = ref([])
+const customOptions    = ref([])
+const customOptionValues = ref({})
 const selectedVariants = ref({})    // { variantGroupId: optionId }
 const selectedOptMap   = ref({})    // { variantGroupId: option object }
 const variantError     = ref('')
@@ -545,6 +611,13 @@ const allImages = computed(() => {
   return imgs
 })
 
+const activeTier = computed(() => {
+  if (!volumeTiers.value.length) return null
+  // find highest applicable tier (largest min_qty still <= current qty)
+  const matching = volumeTiers.value.filter(t => qty.value >= t.min_qty)
+  return matching.length ? matching[matching.length - 1] : null
+})
+
 const discountPct = computed(() => {
   if (!product.value?.price || !product.value?.sale_price) return 0
   return Math.round((1 - product.value.sale_price / product.value.price) * 100)
@@ -590,6 +663,21 @@ async function load() {
       selectedOptMap.value = {}
     } catch {
       variants.value = []
+    }
+    // Load volume pricing tiers
+    try {
+      const { data: vols } = await api.get('/volume-pricing', { params: { product_id: data.id } })
+      volumeTiers.value = vols || []
+    } catch {
+      volumeTiers.value = []
+    }
+    // Load custom options
+    try {
+      const { data: opts } = await api.get('/product-options', { params: { product_id: data.id } })
+      customOptions.value = opts || []
+      customOptionValues.value = {}
+    } catch {
+      customOptions.value = []
     }
   } catch {
     product.value = null

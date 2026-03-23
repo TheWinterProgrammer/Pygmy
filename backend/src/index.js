@@ -84,6 +84,10 @@ import collectionsRoutes from './routes/collections.js'
 import upsellRoutes from './routes/upsell.js'
 import suppliersRoutes from './routes/suppliers.js'
 import invoicesRoutes from './routes/invoices.js'
+import waitlistRoutes from './routes/waitlist.js'
+import volumePricingRoutes from './routes/volume_pricing.js'
+import productOptionsRoutes from './routes/product_options.js'
+import packingSlipsRoutes from './routes/packing_slips.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -265,6 +269,10 @@ app.use('/api/collections', collectionsRoutes)
 app.use('/api/upsell', upsellRoutes)
 app.use('/api/suppliers', suppliersRoutes)
 app.use('/api/invoices', invoicesRoutes)
+app.use('/api/waitlist', waitlistRoutes)
+app.use('/api/volume-pricing', volumePricingRoutes)
+app.use('/api/product-options', productOptionsRoutes)
+app.use('/api/packing-slips', packingSlipsRoutes)
 
 // ─── SEO (public) ─────────────────────────────────────────────────────────────
 app.use('/', seoRoutes)

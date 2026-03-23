@@ -123,6 +123,59 @@
           </div>
         </div>
 
+        <!-- Volume Pricing -->
+        <div class="glass section" v-if="!isNew">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+            <h3 style="margin:0">📊 Volume / Tiered Pricing</h3>
+            <button type="button" class="btn btn-ghost btn-sm" @click="addVolumeTier">+ Add Tier</button>
+          </div>
+          <p class="text-muted" style="font-size:.84rem;margin-bottom:1rem;" v-if="!volumeTiers.length">
+            Offer lower prices for bulk purchases (e.g. buy 5+ for €9.99 each).
+          </p>
+          <div v-for="(tier, ti) in volumeTiers" :key="ti" class="vg-option" style="margin-bottom:8px">
+            <input class="input opt-adj" v-model.number="tier.min_qty" type="number" min="2" placeholder="Min qty" title="Minimum quantity" />
+            <input class="input opt-adj" v-model.number="tier.price" type="number" step="0.01" min="0" placeholder="Unit price" title="Price per unit" />
+            <input class="input opt-label" v-model="tier.label" placeholder="Label (e.g. Bulk)" />
+            <button type="button" class="btn-icon" title="Save tier" @click="saveVolumeTier(ti)">💾</button>
+            <button type="button" class="btn-icon" title="Delete tier" @click="deleteVolumeTier(ti)">✕</button>
+          </div>
+        </div>
+
+        <!-- Custom Options -->
+        <div class="glass section" v-if="!isNew">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+            <h3 style="margin:0">✏️ Custom Options</h3>
+            <button type="button" class="btn btn-ghost btn-sm" @click="addCustomOption">+ Add Option</button>
+          </div>
+          <p class="text-muted" style="font-size:.84rem;margin-bottom:1rem;" v-if="!customOptions.length">
+            Let customers personalize — add text fields, dropdowns, etc. (e.g. "Engraving text", "Gift message").
+          </p>
+          <div v-for="(opt, oi) in customOptions" :key="opt.id || 'new-' + oi" class="custom-option-row" style="margin-bottom:12px;padding:12px;background:rgba(255,255,255,0.04);border-radius:8px;border:1px solid rgba(255,255,255,0.07)">
+            <div style="display:flex;gap:8px;margin-bottom:8px">
+              <select class="input" v-model="opt.field_type" style="width:120px">
+                <option value="text">Text</option>
+                <option value="textarea">Textarea</option>
+                <option value="select">Select</option>
+                <option value="checkbox">Checkbox</option>
+                <option value="color">Color Picker</option>
+              </select>
+              <input class="input" v-model="opt.label" placeholder="Label (e.g. Engraving)" style="flex:1" />
+              <input class="input opt-adj" v-model.number="opt.price_add" type="number" step="0.01" placeholder="+price" title="Extra charge for this option" />
+              <label style="display:flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap">
+                <input type="checkbox" v-model="opt.required"> Required
+              </label>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input class="input" v-model="opt.placeholder" placeholder="Placeholder text" style="flex:1" />
+              <div v-if="opt.field_type === 'select' || opt.field_type === 'checkbox'" style="flex:1">
+                <input class="input" :value="(opt.options||[]).join(',')" @change="opt.options = $event.target.value.split(',').map(s=>s.trim()).filter(Boolean)" placeholder="Options, comma-separated" />
+              </div>
+              <button type="button" class="btn btn-ghost btn-sm" @click="saveCustomOption(oi)">💾 Save</button>
+              <button type="button" class="btn-icon" @click="deleteCustomOption(oi, opt.id)">✕</button>
+            </div>
+          </div>
+        </div>
+
         <!-- SEO -->
         <div class="glass section">
           <h3 style="margin-bottom:1rem">SEO</h3>
@@ -371,6 +424,8 @@ onMounted(async () => {
 
   if (!isNew.value) {
     loadVariants()
+    loadVolumeTiers()
+    loadCustomOptions()
     try {
       const { data: product } = await api.get(`/products/id/${route.params.id}`)
       form.value = {
@@ -479,6 +534,73 @@ async function save(status) {
 }
 
 const saveScheduled = () => save('scheduled')
+
+// ─── Volume Pricing ────────────────────────────────────────────────────────────
+const volumeTiers = ref([])
+async function loadVolumeTiers() {
+  if (isNew.value) return
+  try {
+    const { data } = await api.get('/volume-pricing', { params: { product_id: route.params.id } })
+    volumeTiers.value = data
+  } catch {}
+}
+function addVolumeTier() {
+  volumeTiers.value.push({ min_qty: 2, price: 0, label: '' })
+}
+async function saveVolumeTier(ti) {
+  const tier = volumeTiers.value[ti]
+  try {
+    if (tier.id) {
+      const { data } = await api.put(`/volume-pricing/${tier.id}`, tier)
+      volumeTiers.value[ti] = data
+    } else {
+      const { data } = await api.post('/volume-pricing', { ...tier, product_id: route.params.id })
+      volumeTiers.value[ti] = data
+    }
+    toast.success('Tier saved')
+  } catch { toast.error('Save failed') }
+}
+async function deleteVolumeTier(ti) {
+  const tier = volumeTiers.value[ti]
+  if (tier.id) {
+    try { await api.delete(`/volume-pricing/${tier.id}`) } catch { toast.error('Delete failed'); return }
+  }
+  volumeTiers.value.splice(ti, 1)
+  toast.success('Tier removed')
+}
+
+// ─── Custom Options ─────────────────────────────────────────────────────────────
+const customOptions = ref([])
+async function loadCustomOptions() {
+  if (isNew.value) return
+  try {
+    const { data } = await api.get('/product-options', { params: { product_id: route.params.id } })
+    customOptions.value = data
+  } catch {}
+}
+function addCustomOption() {
+  customOptions.value.push({ field_type: 'text', label: '', placeholder: '', options: [], required: false, price_add: 0, sort_order: customOptions.value.length })
+}
+async function saveCustomOption(oi) {
+  const opt = customOptions.value[oi]
+  try {
+    if (opt.id) {
+      const { data } = await api.put(`/product-options/${opt.id}`, opt)
+      customOptions.value[oi] = data
+    } else {
+      const { data } = await api.post('/product-options', { ...opt, product_id: route.params.id })
+      customOptions.value[oi] = data
+    }
+    toast.success('Option saved')
+  } catch { toast.error('Save failed') }
+}
+async function deleteCustomOption(oi, id) {
+  if (id) {
+    try { await api.delete(`/product-options/${id}`) } catch { toast.error('Delete failed'); return }
+  }
+  customOptions.value.splice(oi, 1)
+  toast.success('Option removed')
+}
 </script>
 
 <style scoped>
