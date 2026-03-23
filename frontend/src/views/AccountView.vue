@@ -166,6 +166,43 @@
           </template>
         </div>
 
+        <!-- ── Subscriptions Tab ── -->
+        <div v-if="activeTab === 'subscriptions'">
+          <h2 class="tab-title">🔁 My Subscriptions</h2>
+          <div v-if="subsLoading" class="loading-state"><div class="loading-bar"></div></div>
+          <div v-else-if="!mySubs.length" class="empty-state">
+            <p>No active subscriptions.</p>
+            <p style="font-size:.85rem;color:#888">Subscribe to products on their product pages to get recurring deliveries with a discount.</p>
+            <router-link to="/shop" class="btn btn-primary">Browse Products</router-link>
+          </div>
+          <div v-else class="subs-list">
+            <div v-for="s in mySubs" :key="s.id" class="sub-card glass">
+              <div class="sub-img" v-if="s.cover_image">
+                <img :src="`http://localhost:3200${s.cover_image}`" :alt="s.product_name" />
+              </div>
+              <div class="sub-info">
+                <div class="sub-product">
+                  <router-link :to="`/shop/${s.product_slug}`">{{ s.product_name }}</router-link>
+                </div>
+                <div class="sub-meta">
+                  <span class="sub-plan">{{ s.interval_label }}</span>
+                  <span v-if="s.discount_pct > 0" class="sub-discount">{{ s.discount_pct }}% off</span>
+                </div>
+                <div class="sub-next" v-if="s.next_order_date">
+                  Next order: {{ fmtDate(s.next_order_date) }}
+                </div>
+                <div class="sub-price">{{ currency }}{{ parseFloat(s.unit_price).toFixed(2) }} × {{ s.quantity }}</div>
+              </div>
+              <div class="sub-actions">
+                <span :class="['status-badge', 'status-' + s.status]">{{ s.status }}</span>
+                <button v-if="s.status === 'active'" class="btn btn-sm btn-ghost" @click="updateSub(s, 'paused')">⏸ Pause</button>
+                <button v-if="s.status === 'paused'" class="btn btn-sm btn-primary" @click="updateSub(s, 'active')">▶ Resume</button>
+                <button v-if="s.status !== 'cancelled'" class="btn btn-sm btn-danger" @click="cancelSub(s)">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- ── Saved Cart Tab ── -->
         <div v-if="activeTab === 'cart'">
           <div class="tab-header">
@@ -468,6 +505,7 @@ const tabs = [
   { id: 'addresses', icon: '📍', label: 'Addresses' },
   { id: 'profile', icon: '✏️', label: 'Profile' },
   { id: 'points', icon: '🏆', label: 'Points' },
+  { id: 'subscriptions', icon: '🔁', label: 'Subscriptions' },
   { id: 'cart', icon: '🛒', label: 'Saved Cart' },
   { id: 'credit', icon: '💳', label: 'Store Credit' },
   { id: 'referral', icon: '🔗', label: 'Referral' },
@@ -613,6 +651,35 @@ async function loadLoyalty() {
   }
 }
 
+// ── Product Subscriptions ─────────────────────────────────────────────────────
+const mySubs = ref([])
+const subsLoading = ref(false)
+
+async function loadSubs() {
+  subsLoading.value = true
+  try {
+    const { data } = await api.get('/product-subscriptions/me', {
+      headers: { Authorization: `Bearer ${store.token}` }
+    })
+    mySubs.value = data || []
+  } catch { mySubs.value = [] }
+  finally { subsLoading.value = false }
+}
+
+async function updateSub(s, status) {
+  try {
+    await api.put(`/product-subscriptions/me/${s.id}`, { status }, {
+      headers: { Authorization: `Bearer ${store.token}` }
+    })
+    loadSubs()
+  } catch {}
+}
+
+async function cancelSub(s) {
+  if (!confirm(`Cancel your ${s.interval_label} subscription for ${s.product_name}?`)) return
+  await updateSub(s, 'cancelled')
+}
+
 // ── Saved Cart ────────────────────────────────────────────────────────────────
 const cartStore = useCartStore()
 const savedCartItems = ref([])
@@ -711,6 +778,7 @@ onMounted(async () => {
   loadSavedCart()
   loadCredit()
   loadReferral()
+  loadSubs()
   profile.first_name = store.customer?.first_name || ''
   profile.last_name = store.customer?.last_name || ''
   profile.phone = store.customer?.phone || ''
@@ -886,6 +954,24 @@ onMounted(async () => {
 .tx-amount { font-weight: 700; font-size: 1rem; }
 .tx-amount.positive { color: hsl(120,50%,60%); }
 .tx-amount.negative { color: hsl(355,70%,58%); }
+
+/* Subscriptions Tab */
+.subs-list { display: flex; flex-direction: column; gap: .75rem; }
+.sub-card { display: flex; gap: 1rem; align-items: flex-start; padding: 1rem; border-radius: 1rem; border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.05); }
+.sub-img img { width: 60px; height: 60px; object-fit: cover; border-radius: .5rem; }
+.sub-info { flex: 1; min-width: 0; }
+.sub-product { font-weight: 600; margin-bottom: .25rem; }
+.sub-product a { color: inherit; text-decoration: none; }
+.sub-product a:hover { color: hsl(355,70%,58%); }
+.sub-meta { display: flex; gap: .5rem; align-items: center; margin-bottom: .25rem; }
+.sub-plan { font-size: .82rem; color: #aaa; }
+.sub-discount { background: rgba(34,197,94,.15); color: #22c55e; border: 1px solid rgba(34,197,94,.25); padding: .1rem .4rem; border-radius: 1rem; font-size: .72rem; font-weight: 700; }
+.sub-next { font-size: .8rem; color: #aaa; margin-bottom: .2rem; }
+.sub-price { font-size: .85rem; color: hsl(355,70%,58%); font-weight: 600; }
+.sub-actions { display: flex; flex-direction: column; gap: .3rem; align-items: flex-end; }
+.btn-sm { padding: .3rem .7rem; font-size: .78rem; }
+.btn-ghost { background: transparent; border: 1px solid rgba(255,255,255,.1); }
+.btn-danger { background: rgba(239,68,68,.15); color: #ef4444; border: 1px solid rgba(239,68,68,.25); }
 
 /* Referral Tab */
 .referral-card { padding: 1.5rem; border-radius: 1.5rem; margin-bottom: 1.5rem; }

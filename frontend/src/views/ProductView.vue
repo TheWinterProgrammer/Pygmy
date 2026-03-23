@@ -93,6 +93,32 @@
             </div>
           </div>
 
+          <!-- Subscribe & Save -->
+          <div class="subscribe-save" v-if="subPlans.length">
+            <div class="sub-header">
+              <span class="sub-icon">🔁</span>
+              <span class="sub-title">Subscribe &amp; Save</span>
+            </div>
+            <div class="sub-plans">
+              <button v-for="plan in subPlans" :key="plan.id"
+                :class="['sub-plan-btn glass', selectedPlan === plan.id && 'active']"
+                @click="selectedPlan = selectedPlan === plan.id ? null : plan.id">
+                <span class="plan-label">{{ plan.interval_label }}</span>
+                <span v-if="plan.discount_pct > 0" class="plan-discount">Save {{ plan.discount_pct }}%</span>
+              </button>
+            </div>
+            <div v-if="selectedPlan && customerToken" class="sub-cta">
+              <button class="btn btn-sub" @click="subscribeToPlan" :disabled="subBusy">
+                {{ subBusy ? '⏳ Subscribing…' : '🔁 Subscribe Now' }}
+              </button>
+              <div v-if="subSuccess" class="sub-success">✓ {{ subSuccess }}</div>
+              <div v-if="subError" class="sub-error">{{ subError }}</div>
+            </div>
+            <div v-else-if="selectedPlan && !customerToken" class="sub-login-hint">
+              <router-link to="/account/login">Sign in</router-link> to subscribe
+            </div>
+          </div>
+
           <!-- SKU -->
           <div class="sku" v-if="product.sku">
             <span class="sku-label">SKU:</span> {{ product.sku }}
@@ -466,6 +492,33 @@ async function subscribeBackInStock() {
 // Recommendations
 const recommendations = ref([])
 
+// Subscribe & Save
+const subPlans = ref([])
+const selectedPlan = ref(null)
+const subBusy = ref(false)
+const subSuccess = ref('')
+const subError = ref('')
+const customerToken = computed(() => {
+  try { return localStorage.getItem('pygmy_customer_token') || '' } catch { return '' }
+})
+
+async function subscribeToPlan() {
+  if (!selectedPlan.value || !customerToken.value) return
+  subBusy.value = true
+  subError.value = ''
+  subSuccess.value = ''
+  try {
+    await api.post('/product-subscriptions/subscribe', { subscription_id: selectedPlan.value, quantity: qty.value }, {
+      headers: { Authorization: `Bearer ${customerToken.value}` }
+    })
+    subSuccess.value = 'Subscribed! You will receive this product on a recurring basis.'
+    selectedPlan.value = null
+  } catch (e) {
+    subError.value = e.response?.data?.error || 'Failed to subscribe. Please try again.'
+  }
+  subBusy.value = false
+}
+
 // Variants
 const variants         = ref([])    // [{ id, name, options: [{ id, label, price_adj, sku_suffix, stock }] }]
 const volumeTiers      = ref([])
@@ -671,6 +724,17 @@ async function load() {
     } catch {
       volumeTiers.value = []
     }
+    // Load subscription plans (if product has them)
+    if (data.subscription_enabled) {
+      try {
+        const { data: plans } = await api.get('/product-subscriptions/plans/public', { params: { product_id: data.id } })
+        subPlans.value = plans || []
+      } catch {
+        subPlans.value = []
+      }
+    } else {
+      subPlans.value = []
+    }
     // Load custom options
     try {
       const { data: opts } = await api.get('/product-options', { params: { product_id: data.id } })
@@ -808,6 +872,21 @@ function fmt(n) {
 
 .sku { font-size: 0.82rem; color: var(--text-muted); }
 .sku-label { font-weight: 600; }
+
+/* Subscribe & Save */
+.subscribe-save { border: 1px solid rgba(255,255,255,.12); border-radius: 1rem; padding: 1rem; background: rgba(255,255,255,.04); margin: .75rem 0; }
+.sub-header { display: flex; align-items: center; gap: .5rem; margin-bottom: .75rem; font-weight: 600; font-size: .9rem; }
+.sub-icon { font-size: 1rem; }
+.sub-plans { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: .75rem; }
+.sub-plan-btn { padding: .4rem .85rem; border-radius: 2rem; border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.06); cursor: pointer; font-size: .82rem; color: inherit; display: flex; gap: .4rem; align-items: center; transition: all .2s; }
+.sub-plan-btn.active { border-color: var(--accent); background: rgba(var(--accent-rgb,.83,.32,.376),.15); color: var(--accent); }
+.plan-discount { background: var(--accent); color: #fff; padding: .1rem .4rem; border-radius: 1rem; font-size: .72rem; font-weight: 700; }
+.btn-sub { background: var(--accent); color: #fff; border: none; border-radius: .6rem; padding: .5rem 1.25rem; cursor: pointer; font-size: .88rem; font-weight: 600; }
+.btn-sub:disabled { opacity: .5; cursor: not-allowed; }
+.sub-success { color: #22c55e; font-size: .83rem; margin-top: .5rem; }
+.sub-error { color: var(--accent); font-size: .83rem; margin-top: .5rem; }
+.sub-login-hint { font-size: .82rem; color: #888; }
+.sub-login-hint a { color: var(--accent); }
 
 /* Stock status */
 .stock-status { margin: .5rem 0 .75rem; }
