@@ -50,7 +50,7 @@ function getSetting(key) {
 router.post('/', (req, res) => {
   const {
     customer_name, customer_email, customer_phone,
-    shipping_address, items, subtotal, total, notes,
+    shipping_address, billing_address, billing_same_as_shipping = 1, items, subtotal, total, notes,
     coupon_code = '',
     gift_card_code = '',
     shipping_cost = 0, shipping_zone = '', shipping_method = '',
@@ -168,16 +168,19 @@ router.post('/', (req, res) => {
   const placeOrder = db.transaction(() => {
     const result = db.prepare(`
       INSERT INTO orders (order_number, status, customer_name, customer_email, customer_phone,
-        shipping_address, items, subtotal, discount_amount, shipping_cost, shipping_zone, shipping_method,
+        shipping_address, billing_address, billing_same_as_shipping,
+        items, subtotal, discount_amount, shipping_cost, shipping_zone, shipping_method,
         shipping_country, shipping_rate_name, total, coupon_code, notes, customer_id, tax_amount, tax_rate_name,
         gift_card_code, gift_card_discount)
-      VALUES (?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       orderNumber,
       customer_name.trim(),
       customer_email.trim().toLowerCase(),
       (customer_phone || '').trim(),
       (shipping_address || '').trim(),
+      billing_same_as_shipping ? null : (billing_address || '').trim(),
+      billing_same_as_shipping ? 1 : 0,
       JSON.stringify(validatedItems),
       computedSubtotal,
       discountAmount + loyaltyDiscount,

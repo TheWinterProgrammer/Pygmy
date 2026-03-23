@@ -143,6 +143,7 @@ const navItems = [
   { to: '/languages',          icon: '🌐',  label: 'Languages' },
   { to: '/performance',        icon: '⚡',  label: 'Performance' },
   { to: '/digest',             icon: '📬',  label: 'Digest Emails' },
+  { to: '/push-notifications', icon: '🔔',  label: 'Push Notifications' },
   { to: '/settings',          icon: '⚙️',  label: 'Settings' },
 ]
 

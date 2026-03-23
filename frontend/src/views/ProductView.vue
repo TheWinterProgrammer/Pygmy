@@ -326,12 +326,16 @@
       </div>
 
     </article>
+
+    <!-- Recently Viewed -->
+    <RecentlyViewed :exclude-id="product?.id ?? null" />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, reactive, onMounted, watch } from 'vue'
 import FlashSaleBanner from '../components/FlashSaleBanner.vue'
+import RecentlyViewed from '../components/RecentlyViewed.vue'
 import { useRoute } from 'vue-router'
 import { useHead } from '@vueuse/head'
 import api from '../api.js'
@@ -543,6 +547,12 @@ async function load() {
       entity_slug: data.slug,
       entity_title: data.name
     }).catch(() => {})
+    // Track recently viewed
+    try {
+      let sid = localStorage.getItem('pygmy_sid')
+      if (!sid) { sid = Math.random().toString(36).slice(2); localStorage.setItem('pygmy_sid', sid) }
+      api.post('/recently-viewed', { session_id: sid, product_id: data.id }).catch(() => {})
+    } catch {}
     // Load reviews + Q&A
     loadReviews(data.id)
     loadQa(data.id)

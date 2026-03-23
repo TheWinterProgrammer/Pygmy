@@ -1481,5 +1481,72 @@ db.prepare(`CREATE INDEX IF NOT EXISTS idx_web_vitals_date ON web_vitals(created
 // ── Phase 36: Digest Email Preferences ───────────────────────────────────────
 // Stored in settings table, no new tables needed
 
+// ── Phase 37: Customer Notes ───────────────────────────────────────────────────
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS customer_notes (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+    admin_id    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    admin_name  TEXT    NOT NULL DEFAULT 'Admin',
+    note        TEXT    NOT NULL,
+    type        TEXT    NOT NULL DEFAULT 'note',  -- 'note' | 'call' | 'email' | 'meeting' | 'flag'
+    pinned      INTEGER NOT NULL DEFAULT 0,
+    created_at  TEXT    DEFAULT (datetime('now'))
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_customer_notes_customer ON customer_notes(customer_id)`).run()
+
+// ── Phase 37: Recently Viewed Products (per session) ──────────────────────────
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS recently_viewed (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id  TEXT    NOT NULL,
+    product_id  INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    viewed_at   TEXT    DEFAULT (datetime('now')),
+    UNIQUE(session_id, product_id)
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_recently_viewed_session ON recently_viewed(session_id)`).run()
+
+// ── Phase 37: Web Push Notifications ─────────────────────────────────────────
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    endpoint    TEXT    NOT NULL UNIQUE,
+    p256dh      TEXT    NOT NULL DEFAULT '',
+    auth        TEXT    NOT NULL DEFAULT '',
+    session_id  TEXT    DEFAULT NULL,
+    page_path   TEXT    DEFAULT '/',
+    active      INTEGER NOT NULL DEFAULT 1,
+    created_at  TEXT    DEFAULT (datetime('now')),
+    updated_at  TEXT    DEFAULT (datetime('now'))
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_push_subs_active ON push_subscriptions(active)`).run()
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS push_campaigns (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    title       TEXT    NOT NULL,
+    body        TEXT    NOT NULL,
+    icon        TEXT    DEFAULT NULL,
+    image       TEXT    DEFAULT NULL,
+    url         TEXT    DEFAULT NULL,
+    badge       TEXT    DEFAULT NULL,
+    schedule_at TEXT    DEFAULT NULL,
+    status      TEXT    NOT NULL DEFAULT 'draft', -- draft | scheduled | sent
+    sent_at     TEXT    DEFAULT NULL,
+    sent_count  INTEGER NOT NULL DEFAULT 0,
+    fail_count  INTEGER NOT NULL DEFAULT 0,
+    created_at  TEXT    DEFAULT (datetime('now'))
+  )
+`).run()
+
+// ── Phase 37: Default VAPID keys seed in settings ─────────────────────────────
+// (generated via POST /api/push/generate-vapid, not seeded with values)
+
 // Migrations (safe)
 try { db.prepare(`ALTER TABLE activity_log ADD COLUMN metadata TEXT DEFAULT NULL`).run() } catch {}
+// Phase 37: billing address on orders
+try { db.prepare(`ALTER TABLE orders ADD COLUMN billing_address TEXT DEFAULT NULL`).run() } catch {}
+try { db.prepare(`ALTER TABLE orders ADD COLUMN billing_same_as_shipping INTEGER DEFAULT 1`).run() } catch {}

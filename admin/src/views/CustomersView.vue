@@ -153,6 +153,49 @@
             <div v-if="adjustError" class="muted" style="color:#f87171;font-size:.8rem;margin-top:.4rem;">{{ adjustError }}</div>
             <div v-if="adjustSuccess" class="muted" style="color:#4ade80;font-size:.8rem;margin-top:.4rem;">{{ adjustSuccess }}</div>
           </div>
+
+          <!-- CRM Notes -->
+          <h3 style="margin-top:1.5rem;">📋 CRM Notes</h3>
+          <div class="crm-notes-list">
+            <div v-if="crmNotes.length === 0" class="muted" style="font-size:.85rem;">No notes yet.</div>
+            <div
+              v-for="n in crmNotes" :key="n.id"
+              class="crm-note-card glass-sm"
+              :class="{ 'crm-note-pinned': n.pinned }"
+            >
+              <div class="crm-note-header">
+                <span class="crm-note-type">{{ crmNoteTypeIcon(n.type) }} {{ n.type }}</span>
+                <span class="muted" style="font-size:.75rem;">{{ formatDate(n.created_at) }} · {{ n.admin_name }}</span>
+                <div class="crm-note-actions">
+                  <button class="btn btn-ghost btn-xs" @click="togglePinNote(n)" :title="n.pinned ? 'Unpin' : 'Pin'">{{ n.pinned ? '📌' : '📍' }}</button>
+                  <button class="btn btn-ghost btn-xs btn-danger" @click="deleteNote(n.id)" title="Delete">✕</button>
+                </div>
+              </div>
+              <div class="crm-note-body">{{ n.note }}</div>
+            </div>
+          </div>
+          <!-- Add Note -->
+          <div class="crm-add-note glass-sm" style="margin-top:.75rem;">
+            <div style="font-size:.82rem;font-weight:600;margin-bottom:.5rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Add Note</div>
+            <div style="display:flex;gap:.5rem;margin-bottom:.5rem;flex-wrap:wrap;">
+              <select v-model="newNoteType" class="input" style="width:130px;font-size:.85rem;">
+                <option value="note">📝 Note</option>
+                <option value="call">📞 Call</option>
+                <option value="email">📧 Email</option>
+                <option value="meeting">🤝 Meeting</option>
+                <option value="flag">🚩 Flag</option>
+              </select>
+              <label style="display:flex;align-items:center;gap:.35rem;font-size:.82rem;cursor:pointer;">
+                <input type="checkbox" v-model="newNotePinned" style="accent-color:var(--accent);"> Pin
+              </label>
+            </div>
+            <textarea v-model="newNoteText" class="input" rows="2" style="width:100%;resize:vertical;font-size:.85rem;" placeholder="Write a note about this customer…"></textarea>
+            <div style="display:flex;justify-content:flex-end;margin-top:.5rem;">
+              <button class="btn btn-primary btn-sm" @click="addNote" :disabled="!newNoteText.trim() || addingNote">
+                {{ addingNote ? '…' : 'Add Note' }}
+              </button>
+            </div>
+          </div>
         </div>
         <div v-else class="loading-state">Loading…</div>
       </div>
@@ -230,6 +273,13 @@ const adjusting = ref(false)
 const adjustError = ref('')
 const adjustSuccess = ref('')
 
+// CRM Notes state
+const crmNotes = ref([])
+const newNoteText = ref('')
+const newNoteType = ref('note')
+const newNotePinned = ref(false)
+const addingNote = ref(false)
+
 let debounceTimer = null
 function debouncedFetch() {
   clearTimeout(debounceTimer)
@@ -259,6 +309,10 @@ async function openDetail(c) {
   detailCustomer.value = c
   detailData.value = null
   loyaltyTxns.value = []
+  crmNotes.value = []
+  newNoteText.value = ''
+  newNoteType.value = 'note'
+  newNotePinned.value = false
   adjustPoints.value = 0
   adjustNote.value = ''
   adjustError.value = ''
@@ -270,6 +324,64 @@ async function openDetail(c) {
     const txRes = await fetch(`/api/loyalty/admin/transactions/${c.id}`, { headers: { Authorization: `Bearer ${auth.token}` } })
     if (txRes.ok) loyaltyTxns.value = await txRes.json()
   } catch {}
+  // Load CRM notes
+  fetchCrmNotes(c.id)
+}
+
+async function fetchCrmNotes(customerId) {
+  try {
+    const res = await fetch(`/api/customer-notes/${customerId}`, { headers: { Authorization: `Bearer ${auth.token}` } })
+    if (res.ok) crmNotes.value = await res.json()
+  } catch {}
+}
+
+async function addNote() {
+  if (!newNoteText.value.trim() || !detailCustomer.value) return
+  addingNote.value = true
+  try {
+    const res = await fetch('/api/customer-notes', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${auth.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customer_id: detailCustomer.value.id,
+        note: newNoteText.value.trim(),
+        type: newNoteType.value,
+        pinned: newNotePinned.value ? 1 : 0,
+      })
+    })
+    if (res.ok) {
+      const note = await res.json()
+      // Re-sort: pinned first
+      crmNotes.value = [note, ...crmNotes.value].sort((a, b) => b.pinned - a.pinned)
+      newNoteText.value = ''
+      newNotePinned.value = false
+    }
+  } finally {
+    addingNote.value = false
+  }
+}
+
+async function togglePinNote(n) {
+  const res = await fetch(`/api/customer-notes/${n.id}`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${auth.token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pinned: n.pinned ? 0 : 1 })
+  })
+  if (res.ok) {
+    n.pinned = n.pinned ? 0 : 1
+    // Re-sort
+    crmNotes.value = [...crmNotes.value].sort((a, b) => b.pinned - a.pinned)
+  }
+}
+
+async function deleteNote(id) {
+  if (!confirm('Delete this note?')) return
+  const res = await fetch(`/api/customer-notes/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${auth.token}` } })
+  if (res.ok) crmNotes.value = crmNotes.value.filter(n => n.id !== id)
+}
+
+function crmNoteTypeIcon(type) {
+  return { note: '📝', call: '📞', email: '📧', meeting: '🤝', flag: '🚩' }[type] || '📝'
 }
 
 async function doAdjust() {
@@ -392,4 +504,17 @@ h3 { font-size: 0.95rem; font-weight: 600; color: var(--muted); text-transform: 
 .loyalty-pts { font-size: 1.5rem; font-weight: 700; color: #fbbf24; }
 .loyalty-lbl { font-size: 0.8rem; color: var(--muted); }
 .loyalty-adjust { border-radius: 0.75rem; padding: 0.875rem 1rem; margin-top: 0.75rem; }
+
+/* CRM Notes */
+.crm-notes-list { display: flex; flex-direction: column; gap: 0.6rem; }
+.crm-note-card { border-radius: 0.75rem; padding: 0.75rem 1rem; }
+.crm-note-pinned { border-color: rgba(251,191,36,0.4) !important; background: rgba(251,191,36,0.06) !important; }
+.crm-note-header { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.4rem; flex-wrap: wrap; }
+.crm-note-type { font-size: 0.78rem; font-weight: 600; text-transform: capitalize; color: var(--accent); flex: 1; }
+.crm-note-actions { display: flex; gap: 0.25rem; margin-left: auto; }
+.crm-note-body { font-size: 0.875rem; line-height: 1.5; white-space: pre-wrap; }
+.crm-add-note { border-radius: 0.75rem; padding: 0.875rem 1rem; margin-top: 0.5rem; }
+.btn-xs { padding: 0.15rem 0.4rem; font-size: 0.75rem; border-radius: 0.4rem; }
+.btn-ghost { background: none; border: 1px solid transparent; color: var(--muted); cursor: pointer; transition: border-color 0.15s; }
+.btn-ghost:hover { border-color: var(--border); color: var(--text); }
 </style>

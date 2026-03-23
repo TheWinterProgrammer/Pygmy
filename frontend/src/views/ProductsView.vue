@@ -98,6 +98,13 @@
               @click.prevent="openQuickView(p)"
               title="Quick view"
             >👁️</button>
+            <!-- Compare -->
+            <button
+              class="quick-compare"
+              @click.prevent="compare.toggle(p)"
+              :class="{ comparing: compare.isAdded(p.id) }"
+              :title="compare.isAdded(p.id) ? 'Remove from compare' : 'Add to compare'"
+            >⚖️</button>
           </div>
         </div>
       </RouterLink>
@@ -256,12 +263,14 @@ import { useRoute, useRouter } from 'vue-router'
 import api from '../api.js'
 import { useCartStore } from '../stores/cart.js'
 import { useWishlistStore } from '../stores/wishlist.js'
+import { useCompareStore } from '../stores/compare.js'
 import FlashSaleBanner from '../components/FlashSaleBanner.vue'
 
 const route    = useRoute()
 const router   = useRouter()
 const cart     = useCartStore()
 const wishlist = useWishlistStore()
+const compare  = useCompareStore()
 
 const products       = ref([])
 const categories     = ref([])
@@ -640,6 +649,21 @@ function fmt(n) {
   transition: all .2s;
 }
 .quick-view:hover { border-color: var(--accent); color: var(--accent); background: rgba(var(--accent-rgb),.1); }
+
+/* Compare button */
+.quick-compare {
+  align-self: flex-end;
+  background: rgba(255,255,255,.07);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: .5rem;
+  padding: .3rem .6rem;
+  font-size: .85rem;
+  cursor: pointer;
+  transition: all .2s;
+}
+.quick-compare:hover { border-color: hsl(40,80%,50%); color: hsl(40,80%,60%); background: rgba(251,191,36,.1); }
+.quick-compare.comparing { border-color: hsl(40,80%,50%); color: hsl(40,80%,60%); background: rgba(251,191,36,.15); }
 
 /* ── Quick View Modal ──────────────────────────────────────────────────── */
 .qv-overlay {

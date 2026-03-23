@@ -355,6 +355,7 @@
       <RouterLink to="/search-analytics" class="btn btn-ghost">🔍 Search Analytics</RouterLink>
       <RouterLink to="/email-sequences" class="btn btn-ghost">📧 Email Sequences</RouterLink>
       <RouterLink to="/customer-segments" class="btn btn-ghost">🎯 Segments</RouterLink>
+      <RouterLink to="/push-notifications" class="btn btn-ghost">🔔 Push Notifications</RouterLink>
     </div>
 
     <!-- Quick Notes -->

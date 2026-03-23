@@ -99,6 +99,11 @@
               <span class="label">Shipping address</span>
               <pre style="white-space:pre-wrap;margin:.25rem 0 0;font-size:.85rem;font-family:inherit;">{{ selected.shipping_address }}</pre>
             </div>
+            <div v-if="selected.billing_address && !selected.billing_same_as_shipping" style="margin-top:.5rem;">
+              <span class="label">Billing address</span>
+              <pre style="white-space:pre-wrap;margin:.25rem 0 0;font-size:.85rem;font-family:inherit;">{{ selected.billing_address }}</pre>
+            </div>
+            <div v-else-if="selected.shipping_address" style="margin-top:.35rem;font-size:.82rem;color:var(--muted);">Billing same as shipping</div>
           </div>
 
           <!-- Items -->

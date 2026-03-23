@@ -31,7 +31,7 @@
         </div>
         <div class="tpl-subject">📧 {{ tpl.subject }}</div>
         <div class="tpl-vars" v-if="tpl.variables && tpl.variables.length">
-          <span v-for="v in tpl.variables.slice(0, 4)" :key="v.key" class="var-pill">{{{{ v.key }}}}</span>
+          <span v-for="v in tpl.variables.slice(0, 4)" :key="v.key" class="var-pill">{{ '{{' + v.key + '}}' }}</span>
           <span class="var-more" v-if="tpl.variables.length > 4">+{{ tpl.variables.length - 4 }} more</span>
         </div>
         <div class="tpl-actions">
@@ -90,7 +90,7 @@
             <div class="vars-ref-title">📋 Available Variables</div>
             <div class="vars-ref-grid">
               <div v-for="v in editModal.form.variables" :key="v.key" class="var-ref-item">
-                <code>{{{{ v.key }}}}</code>
+                <code>{{ '{{' + v.key + '}}' }}</code>
                 <span>{{ v.description }}</span>
               </div>
             </div>

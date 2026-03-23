@@ -18,6 +18,8 @@
     <CookieBanner v-if="site.settings?.cookie_consent_enabled === '1'" :settings="site.settings" />
     <SitePopup />
     <SupportWidget />
+    <CompareDrawer />
+    <PushPrompt />
   </div>
 
   <!-- Loading screen -->
@@ -36,6 +38,8 @@ import CookieBanner from './components/CookieBanner.vue'
 import AnnouncementBar from './components/AnnouncementBar.vue'
 import SitePopup from './components/SitePopup.vue'
 import SupportWidget from './components/SupportWidget.vue'
+import CompareDrawer from './components/CompareDrawer.vue'
+import PushPrompt from './components/PushPrompt.vue'
 import { useAffiliate } from './composables/useAffiliate.js'
 
 const site = useSiteStore()

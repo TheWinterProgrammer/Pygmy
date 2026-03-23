@@ -164,6 +164,13 @@ router.get('/stats', authMiddleware, (req, res) => {
     qaPending = db.prepare(`SELECT COUNT(*) as c FROM product_qa WHERE status='pending'`).get()?.c ?? 0
   } catch {}
 
+  // Push Notification stats
+  let pushSubscribers = 0, pushCampaigns = 0
+  try {
+    pushSubscribers = db.prepare(`SELECT COUNT(*) as c FROM push_subscriptions WHERE active = 1`).get()?.c ?? 0
+    pushCampaigns   = db.prepare(`SELECT COUNT(*) as c FROM push_campaigns WHERE status = 'sent'`).get()?.c ?? 0
+  } catch {}
+
   res.json({
     pages: { total: pages, published: publishedPages },
     posts: { total: posts, published: publishedPosts, scheduled: scheduledPosts },
@@ -192,6 +199,7 @@ router.get('/stats', authMiddleware, (req, res) => {
     affiliates: { total: totalAffiliates, pending_commissions: Math.round(pendingCommissions * 100) / 100 },
     bundles: { total: totalBundles, published: publishedBundles },
     product_qa: { total: qaTotal, pending: qaPending },
+    push: { subscribers: pushSubscribers, sent_campaigns: pushCampaigns },
     support: { open: openTickets, unread: unreadTickets },
     ab_tests: { total: totalTests, running: runningTests },
     search: { searches_7d: totalSearches7d },

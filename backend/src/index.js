@@ -71,6 +71,9 @@ import customerSegmentsRoutes from './routes/customer_segments.js'
 import languagesRoutes from './routes/languages.js'
 import webVitalsRoutes from './routes/web_vitals.js'
 import digestRoutes, { processDigest } from './routes/digest.js'
+import customerNotesRoutes from './routes/customer_notes.js'
+import recentlyViewedRoutes from './routes/recently_viewed.js'
+import pushNotificationsRoutes from './routes/push_notifications.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -239,6 +242,9 @@ app.use('/api/customer-segments', customerSegmentsRoutes)
 app.use('/api/languages', languagesRoutes)
 app.use('/api/web-vitals', webVitalsRoutes)
 app.use('/api/digest', digestRoutes)
+app.use('/api/customer-notes', customerNotesRoutes)
+app.use('/api/recently-viewed', recentlyViewedRoutes)
+app.use('/api/push', pushNotificationsRoutes)
 
 // ─── SEO (public) ─────────────────────────────────────────────────────────────
 app.use('/', seoRoutes)
