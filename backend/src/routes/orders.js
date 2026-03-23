@@ -12,6 +12,7 @@ import { issueDownloadTokensForOrder } from './digital_downloads.js'
 import { recordReferral } from './affiliates.js'
 import { addOrderEvent } from './order_timeline.js'
 import { processReferralReward } from './referral.js'
+import { queueReviewRequest } from './review_requests.js'
 
 const CUSTOMER_JWT_SECRET = process.env.CUSTOMER_JWT_SECRET || 'pygmy-customer-secret-change-in-production'
 
@@ -542,6 +543,11 @@ router.put('/:id', authMiddleware, (req, res) => {
   }
 
   const updated = db.prepare('SELECT * FROM orders WHERE id = ?').get(order.id)
+
+  // Queue review request when order completes (fire-and-forget)
+  if (statusChanged && (status === 'completed' || status === 'delivered')) {
+    try { queueReviewRequest(updated) } catch {}
+  }
 
   // Send status update email to customer (fire-and-forget)
   if (statusChanged) {

@@ -1,7 +1,7 @@
 // product_options.js — Product Customization Options (Phase 40)
 import { Router } from 'express'
 import db from '../db.js'
-import auth from '../middleware/auth.js'
+import { authMiddleware as auth } from '../middleware/auth.js'
 
 const r = Router()
 

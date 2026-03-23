@@ -309,6 +309,27 @@
               </template>
             </div>
 
+            <!-- Order Bumps -->
+            <div class="order-bumps-section" v-if="orderBumps.length">
+              <h3 class="sub-section">🎁 Special Add-On Offers</h3>
+              <div class="order-bump-card glass-sm" v-for="bump in orderBumps" :key="bump.id">
+                <label class="bump-label">
+                  <input type="checkbox" v-model="selectedBumps[bump.id]" @change="onBumpChange(bump)" />
+                  <img v-if="bump.cover_image" :src="API_URL + bump.cover_image" class="bump-img" />
+                  <div class="bump-info">
+                    <div class="bump-headline">{{ bump.headline }}</div>
+                    <div class="bump-sub" v-if="bump.subtext">{{ bump.subtext }}</div>
+                    <div class="bump-product">{{ bump.product_name }}</div>
+                  </div>
+                  <div class="bump-price">
+                    <span class="bump-new-price">{{ bump.currency_symbol }}{{ bump.price.toFixed(2) }}</span>
+                    <span class="bump-old-price" v-if="bump.discount_pct > 0">{{ bump.currency_symbol }}{{ bump.original_price.toFixed(2) }}</span>
+                    <span class="bump-badge" v-if="bump.discount_pct > 0">{{ bump.discount_pct }}% off</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+
             <div class="field-error global-error" v-if="submitError">{{ submitError }}</div>
 
             <div class="step-actions">
@@ -727,12 +748,44 @@ onMounted(async () => {
 })
 
 // ── Place Order ───────────────────────────────────────────────────────────────
+// ── Order Bumps ───────────────────────────────────────────────────────────────
+const orderBumps   = ref([])
+const selectedBumps = ref({})
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3200'
+
+async function loadOrderBumps() {
+  try {
+    const { data } = await api.get('/order-bumps/active')
+    orderBumps.value = data || []
+  } catch { orderBumps.value = [] }
+}
+
+function onBumpChange(bump) {
+  if (selectedBumps.value[bump.id]) {
+    // Track conversion
+    api.post(`/order-bumps/${bump.id}/convert`).catch(() => {})
+  }
+}
+
+// Load bumps when user reaches step 3
+watch(() => step.value, (s) => {
+  if (s === 3 && !orderBumps.value.length) loadOrderBumps()
+})
+
 async function placeOrder() {
   submitError.value = ''
   placing.value = true
   try {
     const shippingAddressStr = buildShippingAddressString()
     const billingAddressStr  = buildBillingAddressString()
+
+    // Include selected bumps as additional items
+    const bumpItems = orderBumps.value
+      .filter(b => selectedBumps.value[b.id])
+      .map(b => ({ product_id: b.product_id, quantity: 1, unit_price: b.price, name: b.product_name }))
+
+    const allItems = [...cart.items, ...bumpItems]
+    const bumpSubtotal = bumpItems.reduce((s, i) => s + i.unit_price, 0)
 
     const payload = {
       customer_name:          form.customer_name.trim(),
@@ -742,9 +795,9 @@ async function placeOrder() {
       billing_address:        billingAddressStr,
       billing_same_as_shipping: billingSame.value ? 1 : 0,
       notes:                  form.notes.trim(),
-      items: cart.items.map(i => ({ product_id: i.product_id, quantity: i.quantity })),
-      subtotal:               cart.subtotal,
-      total:                  orderTotal.value,
+      items: allItems.map(i => ({ product_id: i.product_id, quantity: i.quantity })),
+      subtotal:               cart.subtotal + bumpSubtotal,
+      total:                  orderTotal.value + bumpSubtotal,
       coupon_code:            appliedCoupon.value?.code || '',
       shipping_country:       shippingCountry.value || '',
       shipping_rate_name:     selectedRate.value?.name || '',
@@ -1007,4 +1060,20 @@ async function placeOrder() {
 }
 .summary-total { font-size: 1rem; margin-bottom: 0; }
 .discount-row span:last-child { font-weight: 600; }
+
+/* Order Bumps */
+.order-bumps-section { margin: 1.5rem 0 0; }
+.order-bump-card { border-radius: 12px; margin-bottom: .75rem; padding: 1rem 1.25rem; border: 1px solid rgba(255,255,255,0.12); transition: border-color .2s; }
+.order-bump-card:has(input:checked) { border-color: var(--accent); background: rgba(176,48,58,0.08); }
+.bump-label { display: flex; align-items: center; gap: 1rem; cursor: pointer; width: 100%; }
+.bump-label input[type="checkbox"] { width: 18px; height: 18px; flex-shrink: 0; accent-color: var(--accent); cursor: pointer; }
+.bump-img { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; flex-shrink: 0; }
+.bump-info { flex: 1; min-width: 0; }
+.bump-headline { font-size: .95rem; font-weight: 700; color: #e2e2e8; }
+.bump-sub { font-size: .82rem; color: #999; margin-top: .15rem; }
+.bump-product { font-size: .8rem; color: #888; margin-top: .2rem; }
+.bump-price { text-align: right; flex-shrink: 0; }
+.bump-new-price { display: block; font-size: 1.1rem; font-weight: 700; color: #e2e2e8; }
+.bump-old-price { display: block; font-size: .82rem; color: #888; text-decoration: line-through; }
+.bump-badge { display: inline-block; background: rgba(76,175,80,0.2); color: #4caf50; border-radius: 20px; font-size: .75rem; font-weight: 700; padding: .1rem .5rem; margin-top: .2rem; }
 </style>

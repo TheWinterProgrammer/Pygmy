@@ -88,6 +88,14 @@ import waitlistRoutes from './routes/waitlist.js'
 import volumePricingRoutes from './routes/volume_pricing.js'
 import productOptionsRoutes from './routes/product_options.js'
 import packingSlipsRoutes from './routes/packing_slips.js'
+import orderBumpsRoutes from './routes/order_bumps.js'
+import reviewRequestsRoutes, { processReviewRequests } from './routes/review_requests.js'
+import inventoryLocationsRoutes from './routes/inventory_locations.js'
+import customerGroupsRoutes from './routes/customer_groups.js'
+import shoppingFeedRoutes from './routes/shopping_feed.js'
+import stockForecastRoutes from './routes/stock_forecast.js'
+import loyaltyTiersRoutes from './routes/loyalty_tiers.js'
+import productSubscriptionsRoutes from './routes/product_subscriptions.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -273,6 +281,14 @@ app.use('/api/waitlist', waitlistRoutes)
 app.use('/api/volume-pricing', volumePricingRoutes)
 app.use('/api/product-options', productOptionsRoutes)
 app.use('/api/packing-slips', packingSlipsRoutes)
+app.use('/api/order-bumps', orderBumpsRoutes)
+app.use('/api/review-requests', reviewRequestsRoutes)
+app.use('/api/inventory-locations', inventoryLocationsRoutes)
+app.use('/api/customer-groups', customerGroupsRoutes)
+app.use('/api/stock-forecast', stockForecastRoutes)
+app.use('/api/loyalty-tiers', loyaltyTiersRoutes)
+app.use('/api/product-subscriptions', productSubscriptionsRoutes)
+app.use('/', shoppingFeedRoutes)
 
 // ─── SEO (public) ─────────────────────────────────────────────────────────────
 app.use('/', seoRoutes)
@@ -400,6 +416,9 @@ async function runEmailSequenceProcessor() {
 }
 
 setInterval(runEmailSequenceProcessor, 5 * 60_000) // every 5 minutes
+
+// ─── Review Request Processor ────────────────────────────────────────────────
+setInterval(() => processReviewRequests().catch(console.error), 10 * 60_000) // every 10 minutes
 
 // ─── Digest Email Scheduler ───────────────────────────────────────────────────
 // Check once per hour if a digest is due

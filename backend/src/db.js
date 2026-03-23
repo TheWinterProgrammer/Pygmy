@@ -1833,3 +1833,235 @@ const phase40Defaults = {
 for (const [key, value] of Object.entries(phase40Defaults)) {
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
 }
+
+// ── Phase 41: Checkout Order Bumps ───────────────────────────────────────────
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS order_bumps (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    name           TEXT    NOT NULL,
+    product_id     INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    headline       TEXT    NOT NULL DEFAULT 'Special One-Time Offer!',
+    subtext        TEXT    DEFAULT '',
+    discount_pct   REAL    NOT NULL DEFAULT 0,
+    active         INTEGER NOT NULL DEFAULT 1,
+    sort_order     INTEGER NOT NULL DEFAULT 0,
+    impressions    INTEGER NOT NULL DEFAULT 0,
+    conversions    INTEGER NOT NULL DEFAULT 0,
+    created_at     TEXT    DEFAULT (datetime('now'))
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_order_bumps_product ON order_bumps(product_id)`).run()
+
+// ── Phase 41: Review Request Queue ───────────────────────────────────────────
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS review_requests (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id     INTEGER NOT NULL,
+    order_number TEXT    NOT NULL,
+    customer_email TEXT  NOT NULL,
+    customer_name  TEXT  DEFAULT '',
+    product_ids    TEXT  DEFAULT '[]',  -- JSON array of product ids to review
+    status       TEXT    NOT NULL DEFAULT 'pending',  -- pending | sent | skipped
+    send_after   TEXT    NOT NULL,  -- datetime when to send
+    sent_at      TEXT    DEFAULT NULL,
+    created_at   TEXT    DEFAULT (datetime('now')),
+    UNIQUE(order_number)
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_review_requests_status ON review_requests(status, send_after)`).run()
+
+// ── Phase 41: Multi-location Inventory ───────────────────────────────────────
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS inventory_locations (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT    NOT NULL,
+    code        TEXT    NOT NULL UNIQUE,
+    address     TEXT    DEFAULT '',
+    active      INTEGER NOT NULL DEFAULT 1,
+    is_default  INTEGER NOT NULL DEFAULT 0,
+    created_at  TEXT    DEFAULT (datetime('now'))
+  )
+`).run()
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS inventory_stock (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id     INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    location_id    INTEGER NOT NULL REFERENCES inventory_locations(id) ON DELETE CASCADE,
+    quantity       INTEGER NOT NULL DEFAULT 0,
+    reserved       INTEGER NOT NULL DEFAULT 0,
+    low_threshold  INTEGER NOT NULL DEFAULT 5,
+    updated_at     TEXT    DEFAULT (datetime('now')),
+    UNIQUE(product_id, location_id)
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_inv_stock_product ON inventory_stock(product_id)`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_inv_stock_location ON inventory_stock(location_id)`).run()
+
+// Seed default inventory location if none exists
+const defaultLocExists = db.prepare('SELECT id FROM inventory_locations WHERE is_default = 1').get()
+if (!defaultLocExists) {
+  db.prepare(`INSERT OR IGNORE INTO inventory_locations (name, code, is_default, active) VALUES ('Main Warehouse', 'MAIN', 1, 1)`).run()
+}
+
+const phase41Defaults = {
+  order_bumps_enabled:        '1',
+  review_requests_enabled:    '1',
+  review_request_delay_days:  '7',
+  review_request_subject:     'How was your order from {{site_name}}?',
+  multi_location_enabled:     '0',
+}
+for (const [key, value] of Object.entries(phase41Defaults)) {
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
+}
+
+// ── Phase 41: Customer Groups ─────────────────────────────────────────────────
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS customer_groups (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    name           TEXT    NOT NULL UNIQUE,
+    slug           TEXT    NOT NULL UNIQUE,
+    description    TEXT    DEFAULT '',
+    discount_pct   REAL    NOT NULL DEFAULT 0,
+    active         INTEGER NOT NULL DEFAULT 1,
+    color          TEXT    DEFAULT '#6366f1',
+    created_at     TEXT    DEFAULT (datetime('now'))
+  )
+`).run()
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS customer_group_members (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    group_id     INTEGER NOT NULL REFERENCES customer_groups(id) ON DELETE CASCADE,
+    customer_id  INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+    added_at     TEXT    DEFAULT (datetime('now')),
+    UNIQUE(group_id, customer_id)
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_cgm_customer ON customer_group_members(customer_id)`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_cgm_group ON customer_group_members(group_id)`).run()
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS customer_group_pricing (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    group_id     INTEGER NOT NULL REFERENCES customer_groups(id) ON DELETE CASCADE,
+    product_id   INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    price        REAL    NOT NULL,
+    created_at   TEXT    DEFAULT (datetime('now')),
+    UNIQUE(group_id, product_id)
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_cgp_product ON customer_group_pricing(product_id)`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_cgp_group ON customer_group_pricing(group_id)`).run()
+
+const phase41bDefaults = {
+  customer_groups_enabled: '1',
+  google_shopping_feed_enabled: '1',
+  google_merchant_id: '',
+}
+for (const [key, value] of Object.entries(phase41bDefaults)) {
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Phase 42 — Loyalty Tiers + Product Subscriptions + Order Timeline UI + Storefront Customizer
+// ════════════════════════════════════════════════════════════════════════════
+
+// Loyalty Tiers
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS loyalty_tiers (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name            TEXT    NOT NULL,
+    slug            TEXT    NOT NULL UNIQUE,
+    min_points      INTEGER NOT NULL DEFAULT 0,
+    earn_multiplier REAL    NOT NULL DEFAULT 1.0,
+    color           TEXT    NOT NULL DEFAULT '#888888',
+    icon            TEXT    NOT NULL DEFAULT '⭐',
+    perks           TEXT    NOT NULL DEFAULT '[]',
+    sort_order      INTEGER NOT NULL DEFAULT 0,
+    active          INTEGER NOT NULL DEFAULT 1,
+    created_at      TEXT    DEFAULT (datetime('now'))
+  )
+`).run()
+
+// Default tiers (only if none exist)
+const tierCount = db.prepare('SELECT COUNT(*) as n FROM loyalty_tiers').get().n
+if (tierCount === 0) {
+  const defaultTiers = [
+    { name: 'Bronze', slug: 'bronze', min_points: 0,    earn_multiplier: 1.0, color: '#cd7f32', icon: '🥉', perks: '["Free shipping on orders over €50","Birthday bonus points"]',                      sort_order: 1 },
+    { name: 'Silver', slug: 'silver', min_points: 500,  earn_multiplier: 1.5, color: '#a8a9ad', icon: '🥈', perks: '["1.5× earn rate","Free shipping on orders over €30","Priority support"]',         sort_order: 2 },
+    { name: 'Gold',   slug: 'gold',   min_points: 2000, earn_multiplier: 2.0, color: '#ffd700', icon: '🥇', perks: '["2× earn rate","Free shipping always","Exclusive member discounts","Early access"]', sort_order: 3 },
+  ]
+  for (const t of defaultTiers) {
+    db.prepare(`INSERT OR IGNORE INTO loyalty_tiers (name, slug, min_points, earn_multiplier, color, icon, perks, sort_order) VALUES (?,?,?,?,?,?,?,?)`)
+      .run(t.name, t.slug, t.min_points, t.earn_multiplier, t.color, t.icon, t.perks, t.sort_order)
+  }
+}
+
+// Add tier_id column to customers if missing
+const customerColsP42 = db.pragma('table_info(customers)').map(c => c.name)
+if (!customerColsP42.includes('loyalty_tier_id')) {
+  db.exec(`ALTER TABLE customers ADD COLUMN loyalty_tier_id INTEGER REFERENCES loyalty_tiers(id)`)
+}
+if (!customerColsP42.includes('loyalty_tier_updated_at')) {
+  db.exec(`ALTER TABLE customers ADD COLUMN loyalty_tier_updated_at TEXT`)
+}
+
+// Product Subscriptions
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS product_subscriptions (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id        INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    interval_days     INTEGER NOT NULL DEFAULT 30,
+    interval_label    TEXT    NOT NULL DEFAULT 'Monthly',
+    discount_pct      REAL    NOT NULL DEFAULT 0,
+    active            INTEGER NOT NULL DEFAULT 1,
+    created_at        TEXT    DEFAULT (datetime('now'))
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_ps_product ON product_subscriptions(product_id)`).run()
+
+// Customer Subscription Orders (recurring)
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS customer_subscriptions_orders (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id       INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+    product_id        INTEGER NOT NULL REFERENCES products(id),
+    subscription_id   INTEGER NOT NULL REFERENCES product_subscriptions(id) ON DELETE CASCADE,
+    status            TEXT    NOT NULL DEFAULT 'active',
+    quantity          INTEGER NOT NULL DEFAULT 1,
+    unit_price        REAL    NOT NULL DEFAULT 0,
+    next_order_date   TEXT    NOT NULL,
+    last_order_date   TEXT,
+    last_order_number TEXT,
+    total_orders      INTEGER NOT NULL DEFAULT 0,
+    notes             TEXT    NOT NULL DEFAULT '',
+    created_at        TEXT    DEFAULT (datetime('now')),
+    cancelled_at      TEXT
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_cso_customer ON customer_subscriptions_orders(customer_id)`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_cso_product ON customer_subscriptions_orders(product_id)`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_cso_status ON customer_subscriptions_orders(status)`).run()
+
+// Add subscription columns to products
+const productColsP42 = db.pragma('table_info(products)').map(c => c.name)
+if (!productColsP42.includes('subscription_enabled')) {
+  db.exec(`ALTER TABLE products ADD COLUMN subscription_enabled INTEGER NOT NULL DEFAULT 0`)
+}
+
+// Phase 42 settings
+const phase42Defaults = {
+  loyalty_tiers_enabled: '1',
+  product_subscriptions_enabled: '0',
+  theme_font:           'Poppins',
+  theme_button_radius:  '0.5rem',
+  theme_card_style:     'glass',
+  theme_nav_style:      'floating',
+  theme_hero_layout:    'centered',
+}
+for (const [key, value] of Object.entries(phase42Defaults)) {
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
+}
+
+console.log('Phase 42 schema ready')
