@@ -2905,3 +2905,54 @@ db.prepare(`CREATE INDEX IF NOT EXISTS idx_shared_wishlists_code ON shared_wishl
 db.prepare(`CREATE INDEX IF NOT EXISTS idx_shared_wishlists_customer ON shared_wishlists(customer_id)`).run()
 
 console.log('Phase 62 schema ready')
+
+// ─── Phase 66 Schema ──────────────────────────────────────────────────────────
+
+// Knowledge Base Tables
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS kb_categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    slug TEXT UNIQUE NOT NULL,
+    description TEXT DEFAULT '',
+    icon TEXT DEFAULT '📖',
+    color TEXT DEFAULT '#e05562',
+    sort_order INTEGER DEFAULT 0,
+    active INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  )
+`).run()
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS kb_articles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    category_id INTEGER REFERENCES kb_categories(id) ON DELETE SET NULL,
+    title TEXT NOT NULL,
+    slug TEXT UNIQUE NOT NULL,
+    excerpt TEXT DEFAULT '',
+    content TEXT DEFAULT '',
+    status TEXT DEFAULT 'draft',
+    views INTEGER DEFAULT 0,
+    helpful_yes INTEGER DEFAULT 0,
+    helpful_no INTEGER DEFAULT 0,
+    sort_order INTEGER DEFAULT 0,
+    author_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    meta_title TEXT,
+    meta_desc TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  )
+`).run()
+
+const phase66Defaults = {
+  kb_enabled: '1',
+  kb_title: 'Help Center',
+  kb_subtitle: 'Find answers to your questions',
+  kb_search_placeholder: 'Search for answers…',
+}
+for (const [key, value] of Object.entries(phase66Defaults)) {
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
+}
+
+console.log('Phase 66 schema ready')

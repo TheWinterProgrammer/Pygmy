@@ -138,6 +138,9 @@ const routes = [
       { path: 'live-chat',         name: 'LiveChat',         component: () => import('../views/LiveChatView.vue') },
       { path: 'loyalty-rewards',   name: 'LoyaltyRewards',   component: () => import('../views/LoyaltyRewardsView.vue') },
       { path: 'custom-404',        name: 'Custom404',        component: () => import('../views/Custom404View.vue') },
+      { path: 'knowledge-base',    name: 'KnowledgeBase',    component: () => import('../views/KnowledgeBaseView.vue') },
+      { path: 'knowledge-base/new', name: 'KbArticleNew',   component: () => import('../views/KbArticleEditView.vue') },
+      { path: 'knowledge-base/:id/edit', name: 'KbArticleEdit', component: () => import('../views/KbArticleEditView.vue') },
       { path: 'settings',          name: 'Settings',         component: () => import('../views/SettingsView.vue') },
     ]
   },

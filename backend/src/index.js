@@ -137,6 +137,7 @@ import heatmapRoutes from './routes/heatmap.js'
 import liveChatRoutes from './routes/live_chat.js'
 import loyaltyRewardsRoutes from './routes/loyalty_rewards.js'
 import custom404Routes from './routes/custom_404.js'
+import kbRoutes from './routes/kb.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -388,6 +389,7 @@ app.use('/api/heatmap', heatmapRoutes)
 app.use('/api/live-chat', liveChatRoutes)
 app.use('/api/loyalty-rewards', loyaltyRewardsRoutes)
 app.use('/api/custom-404', custom404Routes)
+app.use('/api/kb', kbRoutes)
 app.use('/api/sitemap', seoRoutes)
 app.use('/', shoppingFeedRoutes)
 

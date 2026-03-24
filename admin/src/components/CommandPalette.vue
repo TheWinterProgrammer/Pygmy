@@ -129,6 +129,7 @@ const ALL_ITEMS = [
   // ── Site ─────────────────────────────────────────────────────────────────
   { icon: '✉️', label: 'Contact',   path: '/contact',       group: 'Site' },
   { icon: '🎫', label: 'Support Tickets', path: '/support', group: 'Site' },
+  { icon: '📚', label: 'Knowledge Base', path: '/knowledge-base', group: 'Site' },
   { icon: '📋', label: 'Forms',     path: '/forms',          group: 'Site' },
   { icon: '🌐', label: 'Languages', path: '/languages',     group: 'Site' },
   { icon: '🔀', label: 'Redirects', path: '/redirects',     group: 'Site' },

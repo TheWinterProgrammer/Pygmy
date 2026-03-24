@@ -164,6 +164,21 @@
             </div>
           </div>
 
+          <!-- Order History Timeline -->
+          <div class="timeline-section" v-if="orderTimeline.length">
+            <h3 class="items-title" style="margin-top:1.5rem;">📋 Order History</h3>
+            <div class="timeline">
+              <div class="timeline-item" v-for="(evt, idx) in orderTimeline" :key="idx">
+                <div class="timeline-icon">{{ timelineIcon(evt.event) }}</div>
+                <div class="timeline-body">
+                  <div class="timeline-label">{{ formatEventType(evt.event) }}</div>
+                  <div class="timeline-desc text-muted" v-if="evt.description || evt.note">{{ evt.description || evt.note }}</div>
+                  <div class="timeline-time text-muted">{{ timeAgo(evt.created_at) }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Track again -->
           <button class="btn btn-ghost btn-full" style="margin-top:1.25rem;" @click="reset">
             ← Track another order
@@ -186,6 +201,7 @@ const looking = ref(false)
 const result  = ref(null)
 const form    = reactive({ order_number: '', email: '' })
 const errors  = reactive({ order_number: '', email: '', global: '' })
+const orderTimeline = ref([])
 
 // Cancel order
 const showCancelForm = ref(false)
@@ -265,6 +281,16 @@ async function lookup() {
     })
     data.items = typeof data.items === 'string' ? JSON.parse(data.items || '[]') : (data.items || [])
     result.value = data
+    // Fetch order timeline
+    try {
+      const tl = await api.post('/orders/timeline-lookup', {
+        order_number: data.order_number,
+        email: form.email.trim().toLowerCase(),
+      })
+      orderTimeline.value = (tl.data?.timeline || []).sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+    } catch {
+      orderTimeline.value = []
+    }
   } catch (err) {
     errors.global = err.response?.data?.error || 'Order not found. Please check your order number and email.'
   } finally {
@@ -277,6 +303,35 @@ function reset() {
   form.order_number = ''
   form.email = ''
   errors.global = ''
+  orderTimeline.value = []
+}
+
+function timelineIcon(event_type) {
+  const icons = {
+    order_placed: '🛍️',
+    status_changed: '🔄',
+    note_added: '📝',
+    message_sent: '📩',
+    tracking_updated: '📦',
+    customer_note: '👤',
+  }
+  return icons[event_type] || 'ℹ️'
+}
+
+function formatEventType(event_type) {
+  return (event_type || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
+
+function timeAgo(d) {
+  const diff = Date.now() - new Date(d).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  const days = Math.floor(hrs / 24)
+  if (days < 30) return `${days}d ago`
+  return formatDate(d)
 }
 
 function statusLabel(s) {
@@ -410,4 +465,41 @@ function fmt(v) {
 .cancel-actions { display: flex; gap: .5rem; justify-content: flex-end; }
 .cancel-error { font-size: .85rem; color: #f56565; background: rgba(245,101,101,.1); padding: .5rem .75rem; border-radius: .5rem; }
 .cancel-success { padding: .75rem 1rem; border-radius: .75rem; color: #48bb78; background: rgba(72,187,120,.1); font-size: .9rem; }
+
+/* Timeline */
+.timeline { display: flex; flex-direction: column; gap: 0; margin-top: .75rem; }
+.timeline-item {
+  display: flex;
+  gap: .875rem;
+  align-items: flex-start;
+  position: relative;
+  padding-bottom: 1.25rem;
+}
+.timeline-item:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 1rem;
+  top: 2rem;
+  bottom: 0;
+  width: 2px;
+  background: rgba(255,255,255,.08);
+}
+.timeline-icon {
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 50%;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+.timeline-body { flex: 1; min-width: 0; padding-top: .2rem; }
+.timeline-label { font-weight: 700; font-size: .88rem; margin-bottom: .2rem; }
+.timeline-desc { font-size: .82rem; margin-bottom: .2rem; line-height: 1.4; }
+.timeline-time { font-size: .75rem; }
 </style>

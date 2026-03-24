@@ -160,6 +160,7 @@ const navItems = [
   { to: '/announcement-bars', icon: '📢', label: 'Announcement Bars' },
   { to: '/popups',        icon: '💬',  label: 'Pop-up Builder' },
   { to: '/support',            icon: '🎫',  label: 'Support Tickets' },
+  { to: '/knowledge-base',     icon: '📚',  label: 'Knowledge Base' },
   { to: '/content-calendar',  icon: '📅',  label: 'Content Calendar' },
   { to: '/site-health',       icon: '🩺',  label: 'Site Health' },
   { to: '/ab-testing',         icon: '🧪',  label: 'A/B Testing' },

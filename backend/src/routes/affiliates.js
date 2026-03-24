@@ -3,6 +3,20 @@ import { Router } from 'express'
 import db from '../db.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { logActivity } from './activity.js'
+import jwt from 'jsonwebtoken'
+
+const AFFILIATE_JWT_SECRET = process.env.AFFILIATE_JWT_SECRET || 'affiliate-portal-secret'
+
+function affiliateAuthMiddleware(req, res, next) {
+  const token = req.headers.authorization?.split(' ')[1]
+  if (!token) return res.status(401).json({ error: 'Unauthorized' })
+  try {
+    req.affiliate = jwt.verify(token, AFFILIATE_JWT_SECRET)
+    next()
+  } catch {
+    res.status(401).json({ error: 'Invalid token' })
+  }
+}
 
 const router = Router()
 
@@ -165,6 +179,72 @@ router.post('/admin/payouts', authMiddleware, (req, res) => {
   `).run(affiliate_id, amount, method, notes)
   logActivity(req.user.id, 'affiliate.payout', `Payout of ${amount} to affiliate ${affiliate_id}`)
   res.status(201).json({ id: result.lastInsertRowid, ok: true })
+})
+
+// ─── Affiliate Self-Service Portal ────────────────────────────────────────────
+
+router.post('/portal/login', (req, res) => {
+  const { email, referral_code } = req.body
+  if (!email || !referral_code) return res.status(400).json({ error: 'email and referral_code required' })
+  const affiliate = db.prepare(`SELECT * FROM affiliates WHERE email = ? AND code = ?`).get(email.trim().toLowerCase(), referral_code.trim().toUpperCase())
+  if (!affiliate) return res.status(401).json({ error: 'Invalid email or referral code' })
+
+  const stats = db.prepare(`
+    SELECT
+      (SELECT COUNT(*) FROM affiliate_referrals WHERE affiliate_id = ?) AS total_referrals,
+      (SELECT COALESCE(SUM(commission_amount),0) FROM affiliate_referrals WHERE affiliate_id = ? AND status = 'approved') AS total_earned,
+      (SELECT COALESCE(SUM(amount),0) FROM affiliate_payouts WHERE affiliate_id = ? AND status = 'paid') AS total_paid
+  `).get(affiliate.id, affiliate.id, affiliate.id)
+
+  const token = jwt.sign(
+    { id: affiliate.id, name: affiliate.name, email: affiliate.email, code: affiliate.code, status: affiliate.status },
+    AFFILIATE_JWT_SECRET,
+    { expiresIn: '30d' }
+  )
+  res.json({ token, affiliate: { ...affiliate, ...stats } })
+})
+
+router.get('/portal/me', affiliateAuthMiddleware, (req, res) => {
+  const affiliate = db.prepare('SELECT * FROM affiliates WHERE id = ?').get(req.affiliate.id)
+  if (!affiliate) return res.status(404).json({ error: 'Not found' })
+  const stats = db.prepare(`
+    SELECT
+      (SELECT COUNT(*) FROM affiliate_referrals WHERE affiliate_id = ?) AS total_referrals,
+      (SELECT COALESCE(SUM(commission_amount),0) FROM affiliate_referrals WHERE affiliate_id = ? AND status = 'approved') AS total_earned,
+      (SELECT COALESCE(SUM(amount),0) FROM affiliate_payouts WHERE affiliate_id = ? AND status = 'paid') AS total_paid
+  `).get(affiliate.id, affiliate.id, affiliate.id)
+  res.json({ ...affiliate, ...stats })
+})
+
+router.get('/portal/referrals', affiliateAuthMiddleware, (req, res) => {
+  const { limit = 20, offset = 0 } = req.query
+  const referrals = db.prepare(`
+    SELECT r.*, o.order_number
+    FROM affiliate_referrals r
+    LEFT JOIN orders o ON r.order_id = o.id
+    WHERE r.affiliate_id = ?
+    ORDER BY r.created_at DESC
+    LIMIT ? OFFSET ?
+  `).all(req.affiliate.id, parseInt(limit), parseInt(offset))
+  const total = db.prepare('SELECT COUNT(*) AS n FROM affiliate_referrals WHERE affiliate_id = ?').get(req.affiliate.id).n
+  res.json({ referrals, total })
+})
+
+router.get('/portal/payouts', affiliateAuthMiddleware, (req, res) => {
+  const payouts = db.prepare(`
+    SELECT * FROM affiliate_payouts WHERE affiliate_id = ?
+    ORDER BY created_at DESC
+  `).all(req.affiliate.id)
+  res.json(payouts)
+})
+
+router.put('/portal/profile', affiliateAuthMiddleware, (req, res) => {
+  const { name, payout_info } = req.body
+  const affiliate = db.prepare('SELECT * FROM affiliates WHERE id = ?').get(req.affiliate.id)
+  if (!affiliate) return res.status(404).json({ error: 'Not found' })
+  db.prepare(`UPDATE affiliates SET name = ?, payout_info = ?, updated_at = datetime('now') WHERE id = ?`)
+    .run(name ?? affiliate.name, payout_info ?? affiliate.payout_info, affiliate.id)
+  res.json(db.prepare('SELECT * FROM affiliates WHERE id = ?').get(affiliate.id))
 })
 
 // ─── Internal: Record a referral (called by orders route) ─────────────────────

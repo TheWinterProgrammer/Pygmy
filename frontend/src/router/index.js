@@ -79,6 +79,22 @@ const routes = [
     component: () => import('../views/OrderLookupView.vue')
   },
   {
+    path: '/help',
+    component: () => import('../views/HelpView.vue')
+  },
+  {
+    path: '/help/category/:slug',
+    component: () => import('../views/HelpCategoryView.vue')
+  },
+  {
+    path: '/help/:slug',
+    component: () => import('../views/HelpArticleView.vue')
+  },
+  {
+    path: '/affiliate-portal',
+    component: () => import('../views/AffiliatePortalView.vue')
+  },
+  {
     path: '/order/downloads',
     component: () => import('../views/OrderDownloadsView.vue')
   },
