@@ -2743,3 +2743,108 @@ for (const [key, value] of Object.entries(phase58Defaults)) {
 }
 
 console.log('Phase 58 schema ready')
+
+// ─── Phase 59 Schema ──────────────────────────────────────────────────────────
+
+// Survey Builder
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS surveys (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    title          TEXT NOT NULL,
+    slug           TEXT NOT NULL UNIQUE,
+    description    TEXT NOT NULL DEFAULT '',
+    status         TEXT NOT NULL DEFAULT 'draft',
+    show_progress  INTEGER NOT NULL DEFAULT 1,
+    allow_multiple INTEGER NOT NULL DEFAULT 0,
+    success_message TEXT NOT NULL DEFAULT 'Thank you for your response!',
+    created_at     TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at     TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`).run()
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS survey_questions (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    survey_id   INTEGER NOT NULL REFERENCES surveys(id) ON DELETE CASCADE,
+    text        TEXT NOT NULL,
+    type        TEXT NOT NULL DEFAULT 'text',
+    options     TEXT NOT NULL DEFAULT '[]',
+    required    INTEGER NOT NULL DEFAULT 1,
+    sort_order  INTEGER NOT NULL DEFAULT 0,
+    placeholder TEXT NOT NULL DEFAULT ''
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_survey_questions_survey ON survey_questions(survey_id, sort_order)`).run()
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS survey_responses (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    survey_id        INTEGER NOT NULL REFERENCES surveys(id) ON DELETE CASCADE,
+    respondent_id    TEXT NOT NULL,
+    respondent_email TEXT,
+    submitted_at     TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_survey_responses_survey ON survey_responses(survey_id)`).run()
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS survey_answers (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    response_id  INTEGER NOT NULL REFERENCES survey_responses(id) ON DELETE CASCADE,
+    question_id  INTEGER NOT NULL REFERENCES survey_questions(id) ON DELETE CASCADE,
+    answer_text  TEXT NOT NULL DEFAULT '',
+    answer_value TEXT NOT NULL DEFAULT ''
+  )
+`).run()
+
+// Customer Tags
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS customer_tag_definitions (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL UNIQUE,
+    color      TEXT NOT NULL DEFAULT '#6366f1',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`).run()
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS customer_tag_assignments (
+    customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+    tag_id      INTEGER NOT NULL REFERENCES customer_tag_definitions(id) ON DELETE CASCADE,
+    assigned_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (customer_id, tag_id)
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_customer_tags_tag ON customer_tag_assignments(tag_id)`).run()
+
+// Custom Order Statuses
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS custom_order_statuses (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    slug             TEXT NOT NULL UNIQUE,
+    name             TEXT NOT NULL,
+    color            TEXT NOT NULL DEFAULT '#6366f1',
+    description      TEXT NOT NULL DEFAULT '',
+    sort_order       INTEGER NOT NULL DEFAULT 0,
+    active           INTEGER NOT NULL DEFAULT 1,
+    notify_customer  INTEGER NOT NULL DEFAULT 0,
+    email_subject    TEXT NOT NULL DEFAULT '',
+    email_body       TEXT NOT NULL DEFAULT '',
+    created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`).run()
+
+// Survey slug auto-generate trigger (for surveys without explicit slug)
+// We'll handle this in the route instead.
+
+const phase59Defaults = {
+  surveys_enabled: '1',
+  customer_tags_enabled: '1',
+  custom_order_statuses_enabled: '1',
+}
+for (const [key, value] of Object.entries(phase59Defaults)) {
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
+}
+
+console.log('Phase 59 schema ready')

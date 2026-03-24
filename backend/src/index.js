@@ -120,6 +120,9 @@ import geoAnalyticsRoutes from './routes/geo_analytics.js'
 import productSpecsRoutes from './routes/product_specs.js'
 import scheduledReportsRoutes, { processScheduledReports } from './routes/scheduled_reports.js'
 import shippingLabelsRoutes from './routes/shipping_labels.js'
+import surveysRoutes from './routes/surveys.js'
+import customerTagsRoutes from './routes/customer_tags.js'
+import orderStatusesRoutes from './routes/order_statuses.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -336,6 +339,9 @@ app.use('/api/geo-analytics', geoAnalyticsRoutes)
 app.use('/api/product-specs', productSpecsRoutes)
 app.use('/api/scheduled-reports', scheduledReportsRoutes)
 app.use('/api/shipping-labels', shippingLabelsRoutes)
+app.use('/api/surveys', surveysRoutes)
+app.use('/api/customer-tags', customerTagsRoutes)
+app.use('/api/order-statuses', orderStatusesRoutes)
 app.use('/', shoppingFeedRoutes)
 
 // ─── SEO (public) ─────────────────────────────────────────────────────────────

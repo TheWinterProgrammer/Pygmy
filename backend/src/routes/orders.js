@@ -689,7 +689,25 @@ router.put('/:id', authMiddleware, (req, res) => {
       }).catch(() => {})
       sendShippedSms(updated).catch(() => {})
     } else {
-      sendOrderStatusUpdate({ ...updated, items: JSON.parse(updated.items || '[]') }).catch(() => {})
+      // Check if this is a custom status with its own notification
+      const customStatus = db.prepare(`SELECT * FROM custom_order_statuses WHERE slug = ? AND notify_customer = 1 AND email_subject != ''`).get(status)
+      if (customStatus) {
+        // Send custom status email
+        const subject = customStatus.email_subject
+          .replace(/#{order_number}/g, updated.order_number)
+          .replace(/#{customer_name}/g, updated.customer_name || '')
+          .replace(/#{status_name}/g, customStatus.name)
+        const body = customStatus.email_body
+          .replace(/#{order_number}/g, updated.order_number)
+          .replace(/#{customer_name}/g, updated.customer_name || '')
+          .replace(/#{status_name}/g, customStatus.name)
+        if (updated.customer_email) {
+          const { sendMailTo } = await import('../email.js')
+          sendMailTo(updated.customer_email, subject, body).catch(() => {})
+        }
+      } else {
+        sendOrderStatusUpdate({ ...updated, items: JSON.parse(updated.items || '[]') }).catch(() => {})
+      }
     }
   }
 

@@ -484,6 +484,9 @@
       <RouterLink to="/customer-ltv" class="btn btn-ghost">📊 Customer LTV</RouterLink>
       <RouterLink to="/changelog" class="btn btn-ghost">📋 Changelog</RouterLink>
       <RouterLink to="/nps" class="btn btn-ghost">🌟 NPS Surveys</RouterLink>
+      <RouterLink to="/surveys" class="btn btn-ghost">📝 Surveys</RouterLink>
+      <RouterLink to="/customer-tags" class="btn btn-ghost">🏷️ Customer Tags</RouterLink>
+      <RouterLink to="/order-statuses" class="btn btn-ghost">🔖 Order Statuses</RouterLink>
     </div>
 
     <!-- Quick Notes -->

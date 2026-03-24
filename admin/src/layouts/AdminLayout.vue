@@ -191,6 +191,9 @@ const navItems = [
   { to: '/customer-import',          icon: '📥',  label: 'Customer Import' },
   { to: '/changelog',                icon: '📋',  label: 'Changelog' },
   { to: '/nps',                      icon: '🌟',  label: 'NPS Surveys' },
+  { to: '/surveys',                  icon: '📝',  label: 'Survey Builder' },
+  { to: '/customer-tags',            icon: '🏷️',  label: 'Customer Tags' },
+  { to: '/order-statuses',           icon: '🔖',  label: 'Order Statuses' },
   { to: '/settings',          icon: '⚙️',  label: 'Settings' },
 ]
 

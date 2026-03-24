@@ -122,6 +122,9 @@ const routes = [
       { path: 'recommendations',    name: 'Recommendations',  component: () => import('../views/RecommendationsView.vue') },
       { path: 'customer-import',    name: 'CustomerImport',   component: () => import('../views/CustomerImportView.vue') },
       { path: 'order-analytics',    name: 'OrderAnalytics',   component: () => import('../views/OrderAnalyticsView.vue') },
+      { path: 'surveys',            name: 'Surveys',          component: () => import('../views/SurveysView.vue') },
+      { path: 'customer-tags',     name: 'CustomerTags',     component: () => import('../views/CustomerTagsView.vue') },
+      { path: 'order-statuses',    name: 'OrderStatuses',    component: () => import('../views/OrderStatusesView.vue') },
       { path: 'settings',          name: 'Settings',         component: () => import('../views/SettingsView.vue') },
     ]
   },
