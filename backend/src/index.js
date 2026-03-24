@@ -103,6 +103,11 @@ import smsRoutes from './routes/sms.js'
 import giftRegistryRoutes from './routes/gift_registry.js'
 import autoDiscountsRoutes from './routes/auto_discounts.js'
 import customerLtvRoutes, { computeAndStoreLtv } from './routes/customer_ltv.js'
+import orderTagsRoutes from './routes/order_tags.js'
+import inventoryAdjustmentsRoutes from './routes/inventory_adjustments.js'
+import taxReportRoutes from './routes/tax_report.js'
+import customerImportRoutes from './routes/customer_import.js'
+import vendorsRoutes from './routes/vendors.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -302,6 +307,11 @@ app.use('/api/sms', smsRoutes)
 app.use('/api/gift-registry', giftRegistryRoutes)
 app.use('/api/auto-discounts', autoDiscountsRoutes)
 app.use('/api/customer-ltv', customerLtvRoutes)
+app.use('/api/order-tags', orderTagsRoutes)
+app.use('/api/inventory-adjustments', inventoryAdjustmentsRoutes)
+app.use('/api/tax-report', taxReportRoutes)
+app.use('/api/customer-import', customerImportRoutes)
+app.use('/api/vendors', vendorsRoutes)
 app.use('/', shoppingFeedRoutes)
 
 // ─── SEO (public) ─────────────────────────────────────────────────────────────

@@ -115,6 +115,10 @@ const routes = [
     component: () => import('../views/PostView.vue')
   },
   {
+    path: '/compare',
+    component: () => import('../views/CompareView.vue')
+  },
+  {
     path: '/:slug',
     component: () => import('../views/PageView.vue')
   }

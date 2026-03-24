@@ -2389,3 +2389,118 @@ console.log('Phase 50 schema ready')
 // Phase 50 order column
 try { db.prepare(`ALTER TABLE orders ADD COLUMN auto_discount_amount REAL NOT NULL DEFAULT 0`).run() } catch {}
 
+
+// ─── Phase 51: Order Tags + Inventory Adjustment Log ────────────────────────
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS order_tags (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id   INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    tag        TEXT    NOT NULL,
+    created_at TEXT    NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(order_id, tag)
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_order_tags_order ON order_tags(order_id)`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_order_tags_tag   ON order_tags(tag)`).run()
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS inventory_adjustments (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id   INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    user_id      INTEGER,
+    reason       TEXT    NOT NULL DEFAULT 'manual', -- manual|sale|return|import|restock
+    qty_before   INTEGER NOT NULL,
+    qty_change   INTEGER NOT NULL,
+    qty_after    INTEGER NOT NULL,
+    note         TEXT,
+    created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_inv_adj_product ON inventory_adjustments(product_id)`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_inv_adj_created ON inventory_adjustments(created_at)`).run()
+
+// Phase 51: add tags column to orders as a cached JSON array for fast listing
+try { db.prepare(`ALTER TABLE orders ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'`).run() } catch {}
+
+// Phase 51 settings
+const phase51Defaults = {
+  order_tags_enabled:       '1',
+  inventory_log_enabled:    '1',
+}
+for (const [key, value] of Object.entries(phase51Defaults)) {
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
+}
+
+console.log('Phase 51 schema ready')
+
+// ─── Phase 52: Multi-Vendor Marketplace ──────────────────────────────────────
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS vendors (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    name             TEXT    NOT NULL,
+    slug             TEXT    UNIQUE NOT NULL,
+    email            TEXT    UNIQUE NOT NULL,
+    password         TEXT    NOT NULL,
+    description      TEXT    DEFAULT '',
+    logo             TEXT,
+    banner           TEXT,
+    status           TEXT    NOT NULL DEFAULT 'pending',
+    commission_rate  REAL    NOT NULL DEFAULT 10,
+    total_sales      REAL    NOT NULL DEFAULT 0,
+    total_commission REAL    NOT NULL DEFAULT 0,
+    payout_info      TEXT    DEFAULT '{}',
+    created_at       TEXT    NOT NULL DEFAULT (datetime('now')),
+    updated_at       TEXT    NOT NULL DEFAULT (datetime('now'))
+  )
+`).run()
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS vendor_payouts (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    vendor_id   INTEGER NOT NULL REFERENCES vendors(id) ON DELETE CASCADE,
+    amount      REAL    NOT NULL,
+    status      TEXT    NOT NULL DEFAULT 'pending',
+    note        TEXT,
+    paid_at     TEXT,
+    created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+  )
+`).run()
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS vendor_order_items (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    vendor_id         INTEGER NOT NULL REFERENCES vendors(id) ON DELETE CASCADE,
+    order_id          INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    order_number      TEXT    NOT NULL,
+    product_id        INTEGER,
+    product_name      TEXT    NOT NULL,
+    quantity          INTEGER NOT NULL DEFAULT 1,
+    unit_price        REAL    NOT NULL,
+    subtotal          REAL    NOT NULL,
+    commission_rate   REAL    NOT NULL,
+    commission_amount REAL    NOT NULL,
+    vendor_amount     REAL    NOT NULL,
+    payout_id         INTEGER REFERENCES vendor_payouts(id),
+    created_at        TEXT    NOT NULL DEFAULT (datetime('now'))
+  )
+`).run()
+
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_vendor_items_vendor ON vendor_order_items(vendor_id)`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_vendor_items_order  ON vendor_order_items(order_id)`).run()
+
+try { db.prepare(`ALTER TABLE products ADD COLUMN vendor_id INTEGER REFERENCES vendors(id) ON DELETE SET NULL`).run() } catch {}
+
+const phase52Defaults = {
+  marketplace_enabled:        '0',
+  marketplace_name:           'Marketplace',
+  marketplace_commission:     '10',
+  marketplace_auto_approve:   '0',
+  product_comparison_enabled: '1',
+  product_comparison_max:     '4',
+}
+for (const [key, value] of Object.entries(phase52Defaults)) {
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
+}
+
+console.log('Phase 52 schema ready')

@@ -191,6 +191,19 @@ router.post('/bulk', authMiddleware, (req, res) => {
   res.status(400).json({ error: 'Unknown action' })
 })
 
+// GET /api/products/compare?ids=1,2,3,4
+router.get('/compare', async (req, res) => {
+  try {
+    const ids = (req.query.ids || '').split(',').filter(Boolean).slice(0, 4)
+    if (!ids.length) return res.json([])
+    const placeholders = ids.map(() => '?').join(',')
+    const rows = db.prepare(`SELECT * FROM products WHERE id IN (${placeholders})`).all(...ids)
+    res.json(rows)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
 // GET /api/products/:slug — draft visible with valid admin JWT
 router.get('/:slug', (req, res) => {
   const isAdmin = hasValidAuth(req)

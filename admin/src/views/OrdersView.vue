@@ -67,6 +67,7 @@
             <th>Total</th>
             <th>Status</th>
             <th>Date</th>
+            <th>Tags</th>
             <th style="width:80px;"></th>
           </tr>
         </thead>
@@ -91,6 +92,15 @@
               </span>
             </td>
             <td class="text-muted" style="font-size:.82rem;">{{ fmtDate(order.created_at) }}</td>
+            <td @click.stop>
+              <div style="display:flex;flex-wrap:wrap;gap:3px;max-width:160px;">
+                <span v-for="tag in parseTags(order.tags)" :key="tag"
+                  :style="tagStyle(tag)"
+                  style="display:inline-block;padding:1px 6px;border-radius:999px;font-size:0.68rem;font-weight:600;border:1px solid;">
+                  {{ tag }}
+                </span>
+              </div>
+            </td>
             <td @click.stop>
               <button class="btn btn-ghost btn-sm" @click="openOrder(order)">View</button>
             </td>
@@ -294,6 +304,7 @@
           <button class="btn btn-ghost" @click="printInvoice(selected)" title="Open print-ready invoice">🖨️ Invoice</button>
           <button class="btn btn-ghost" @click="printPackingSlip(selected)" title="Open packing slip">📋 Packing Slip</button>
           <button class="btn btn-ghost" @click="openMessageModal(selected)" title="Send message to customer">📩 Message Customer</button>
+          <button class="btn btn-ghost" @click="openTagsModal(selected)" title="Manage order tags">🏷️ Tags</button>
           <button class="btn btn-danger" @click="confirmDelete(selected)">Delete order</button>
         </div>
       </div>
@@ -348,6 +359,46 @@
           </button>
         </div>
       </div>
+    <!-- Order Tags Modal -->
+    <div class="modal-overlay" v-if="tagsOrder" @click.self="tagsOrder = null">
+      <div class="modal glass" style="max-width:480px;width:95%;">
+        <div class="modal-header">
+          <h2>🏷️ Tags for {{ tagsOrder.order_number }}</h2>
+          <button class="modal-close" @click="tagsOrder = null">✕</button>
+        </div>
+        <div class="modal-body">
+          <div style="display:flex;flex-wrap:wrap;gap:6px;min-height:36px;margin-bottom:1rem;padding:0.5rem;background:rgba(255,255,255,0.03);border-radius:0.5rem;">
+            <span v-for="tag in editingTags" :key="tag"
+              :style="tagStyle(tag)"
+              style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:999px;font-size:0.78rem;font-weight:600;border:1px solid;cursor:default;">
+              {{ tag }}
+              <button @click="editingTags = editingTags.filter(t => t !== tag)"
+                style="background:none;border:none;cursor:pointer;opacity:0.6;font-size:0.7rem;color:inherit;" title="Remove">✕</button>
+            </span>
+            <span v-if="!editingTags.length" style="color:var(--text-muted,#aaa);font-size:0.875rem;align-self:center;">No tags yet</span>
+          </div>
+
+          <div style="display:flex;gap:0.5rem;margin-bottom:0.75rem;">
+            <input v-model="newTagInput" placeholder="Add tag..." style="flex:1;background:var(--surface);border:1px solid rgba(255,255,255,0.1);border-radius:0.5rem;color:inherit;padding:0.4rem 0.75rem;font-size:0.875rem;" @keydown.enter="addTagToEditing(newTagInput)" />
+            <button class="btn btn-ghost" @click="addTagToEditing(newTagInput)" :disabled="!newTagInput.trim()">Add</button>
+          </div>
+
+          <div v-if="allTagsList.length" style="display:flex;flex-wrap:wrap;gap:4px;">
+            <span style="font-size:0.75rem;color:var(--text-muted,#aaa);width:100%;margin-bottom:4px;">Existing tags:</span>
+            <button v-for="t in allTagsList" :key="t.tag"
+              @click="addTagToEditing(t.tag)" :disabled="editingTags.includes(t.tag)"
+              style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:999px;padding:2px 10px;cursor:pointer;font-size:0.75rem;color:inherit;">
+              {{ t.tag }} ({{ t.usage_count }})
+            </button>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" @click="tagsOrder = null">Cancel</button>
+          <button class="btn btn-accent" @click="saveTags">💾 Save</button>
+        </div>
+      </div>
+    </div>
+
     </div>
   </div>
 </template>
@@ -456,6 +507,17 @@ const statCards = computed(() => [
 function statusBadge(s) {
   const map = { pending: 'badge-draft', processing: 'badge-scheduled', shipped: 'badge-scheduled', completed: 'badge-published', cancelled: 'badge-draft', refunded: 'badge-draft' }
   return map[s] || 'badge-draft'
+}
+
+function parseTags(raw) {
+  try { return JSON.parse(raw || '[]') } catch { return [] }
+}
+
+const TAG_COLORS = ['#e05a6e','#5a9ee0','#5ae07e','#e0c45a','#9e5ae0','#5ae0d4','#e07a5a','#a0a0a0']
+function tagStyle(tag) {
+  const idx = [...tag].reduce((n, c) => n + c.charCodeAt(0), 0) % TAG_COLORS.length
+  const c = TAG_COLORS[idx]
+  return { backgroundColor: c + '22', color: c, borderColor: c + '66' }
 }
 
 function fmtCurrency(v) {

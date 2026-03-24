@@ -251,8 +251,8 @@ async function importCsv(evt) {
   const fd = new FormData()
   fd.append('file', file)
   try {
-    const { data } = await api.post('/customers/import/csv', fd)
-    importResult.value = `✅ Import complete — ${data.created} created, ${data.skipped} skipped${data.errors?.length ? `, ${data.errors.length} errors` : ''}`
+    const { data } = await api.post('/customer-import?mode=merge', fd)
+    importResult.value = `✅ Import complete — ${data.created} created, ${data.updated} updated, ${data.skipped} skipped${data.errors?.length ? `, ${data.errors.length} errors` : ''}`
     fetchCustomers()
   } catch (e) {
     importResult.value = `❌ Import failed: ${e.response?.data?.error || e.message}`

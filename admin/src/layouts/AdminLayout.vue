@@ -101,6 +101,7 @@ const navItems = [
   { to: '/pages',      icon: '📄', label: 'Pages' },
   { to: '/posts',      icon: '✍️',  label: 'Posts' },
   { to: '/orders',     icon: '📦',  label: 'Orders' },
+  { to: '/vendors',    icon: '🏪',  label: 'Vendors' },
   { to: '/fulfillment', icon: '🚢', label: 'Fulfillment' },
   { to: '/coupons',    icon: '🎟️',  label: 'Coupons' },
   { to: '/shipping',   icon: '🚚',  label: 'Shipping' },
@@ -176,7 +177,10 @@ const navItems = [
   { to: '/sms',                icon: '📱',  label: 'SMS Notifications' },
   { to: '/gift-registry',      icon: '🎁',  label: 'Gift Registries' },
   { to: '/auto-discounts',     icon: '⚡',  label: 'Auto Discounts' },
-  { to: '/customer-ltv',       icon: '📊',  label: 'Customer LTV' },
+  { to: '/customer-ltv',             icon: '📊',  label: 'Customer LTV' },
+  { to: '/order-tags',               icon: '🏷️',  label: 'Order Tags' },
+  { to: '/inventory-adjustments',    icon: '📦',  label: 'Inventory Log' },
+  { to: '/tax-report',               icon: '🧮',  label: 'Tax Report' },
   { to: '/settings',          icon: '⚙️',  label: 'Settings' },
 ]
 

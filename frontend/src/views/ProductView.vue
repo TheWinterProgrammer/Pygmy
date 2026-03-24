@@ -266,6 +266,13 @@
             >
               {{ wishlist.isWishlisted(product.id) ? '♥' : '♡' }}
             </button>
+            <button
+              class="compare-toggle-btn"
+              @click="toggleCompare"
+              :class="{ active: compareStore.isAdded(product.id) }"
+            >
+              {{ compareStore.isAdded(product.id) ? '✓ Added to Comparison' : '⚖️ Compare' }}
+            </button>
           </div>
 
           <!-- Social Proof: live viewers -->
@@ -469,11 +476,13 @@ import api from '../api.js'
 import { useSiteStore } from '../stores/site.js'
 import { useCartStore } from '../stores/cart.js'
 import { useWishlistStore } from '../stores/wishlist.js'
+import { useCompareStore } from '../stores/compare.js'
 
 const route   = useRoute()
 const site    = useSiteStore()
 const cart      = useCartStore()
 const wishlist  = useWishlistStore()
+const compareStore = useCompareStore()
 const product   = ref(null)
 const loading   = ref(true)
 const isPreview = ref(false)
@@ -661,6 +670,19 @@ async function submitReview() {
     reviewErrors.global = err.response?.data?.error || 'Something went wrong. Please try again.'
   } finally {
     submittingReview.value = false
+  }
+}
+
+function toggleCompare() {
+  if (!product.value) return
+  if (compareStore.isAdded(product.value.id)) {
+    compareStore.remove(product.value.id)
+  } else {
+    if (compareStore.isFull) {
+      alert('Max 4 products in comparison. Remove one first.')
+    } else {
+      compareStore.toggle(product.value)
+    }
   }
 }
 
@@ -992,6 +1014,9 @@ function fmt(n) {
 }
 .wishlist-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(255,60,60,.1); }
 .wishlist-btn.wished { border-color: var(--accent); color: var(--accent); background: rgba(255,60,60,.15); }
+.compare-toggle-btn { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.15); color: rgba(255,255,255,.7); border-radius: .5rem; padding: .6rem 1rem; font-size: .85rem; cursor: pointer; font-family: Poppins, sans-serif; transition: all .2s; }
+.compare-toggle-btn:hover { border-color: hsl(40,80%,50%); color: hsl(40,80%,60%); }
+.compare-toggle-btn.active { background: rgba(251,191,36,.15); border-color: hsl(40,80%,50%); color: hsl(40,80%,60%); }
 
 /* Add to cart */
 .atc-row {

@@ -16,6 +16,7 @@ import { recordReferral } from './affiliates.js'
 import { addOrderEvent } from './order_timeline.js'
 import { processReferralReward } from './referral.js'
 import { queueReviewRequest } from './review_requests.js'
+import { recordVendorSale } from './vendors.js'
 
 const CUSTOMER_JWT_SECRET = process.env.CUSTOMER_JWT_SECRET || 'pygmy-customer-secret-change-in-production'
 
@@ -369,6 +370,9 @@ router.post('/', (req, res) => {
       if (oldest.length) db.prepare(`DELETE FROM purchase_activity WHERE id IN (${oldest.map(() => '?').join(',')})`).run(...oldest)
     }
   } catch (e) { /* non-critical */ }
+
+  // Record vendor sales (fire-and-forget)
+  try { await recordVendorSale(newId, orderNumber, validatedItems.map(i => ({ product_id: i.product_id || i.id, name: i.name, quantity: i.quantity, unit_price: i.unit_price || i.price }))) } catch {}
 
   // Send order confirmation email (fire-and-forget)
   sendOrderConfirmation({ ...order, items: validatedItems, downloadTokens }).catch(() => {})

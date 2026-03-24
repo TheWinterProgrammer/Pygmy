@@ -359,11 +359,14 @@
             >📥 Access Downloads</RouterLink>
           </div>
 
-          <!-- Invoice download -->
+          <!-- Invoice download + Reorder -->
           <div class="invoice-row">
             <a :href="`/api/invoices/${selectedOrder.order_number}?email=${encodeURIComponent(store.customer?.email||'')}`" target="_blank" class="btn btn-ghost btn-sm" style="display:inline-flex;align-items:center;gap:.4rem;">
               🧾 Download Invoice
             </a>
+            <button @click="reorder(selectedOrder)" class="btn btn-accent btn-sm" style="display:inline-flex;align-items:center;gap:.4rem;">
+              🔁 Reorder
+            </button>
           </div>
 
           <!-- Tracking info -->
@@ -617,6 +620,21 @@ function handleLogout() {
 
 function formatDate(d) {
   return new Date(d).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
+// Reorder: add all items from a previous order into the cart and go to checkout
+function reorder(order) {
+  if (!order?.items?.length) return
+  for (const item of order.items) {
+    cartStore.addItem({
+      id: item.product_id,
+      name: item.name,
+      price: item.unit_price ?? item.price,
+      cover_image: item.cover_image || null,
+    }, item.qty ?? item.quantity ?? 1)
+  }
+  selectedOrder.value = null
+  router.push('/checkout')
 }
 
 function statusClass(s) {
