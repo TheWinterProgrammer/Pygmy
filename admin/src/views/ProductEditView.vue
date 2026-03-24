@@ -185,6 +185,24 @@
           </div>
         </div>
 
+        <!-- Product Specifications -->
+        <div class="glass section" v-if="!isNew">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+            <h3 style="margin:0">📋 Specifications</h3>
+            <button type="button" class="btn btn-ghost btn-sm" @click="addSpec">+ Add Spec</button>
+          </div>
+          <p class="text-muted" style="font-size:.84rem;margin-bottom:1rem;" v-if="!specs.length">
+            Add structured attributes like material, weight, dimensions, warranty, etc.
+          </p>
+          <div v-for="(spec, si) in specs" :key="spec.id || 'new-spec-' + si" class="spec-row">
+            <input class="input" v-model="spec.group_name" placeholder="Group (e.g. General)" style="width:110px;flex-shrink:0" />
+            <input class="input" v-model="spec.label" placeholder="Label (e.g. Material)" style="flex:1" />
+            <input class="input" v-model="spec.value" placeholder="Value (e.g. Stainless Steel)" style="flex:1.5" />
+            <button type="button" class="btn-icon" title="Save spec" @click="saveSpec(si)">💾</button>
+            <button type="button" class="btn-icon" title="Delete spec" @click="deleteSpec(si, spec.id)">✕</button>
+          </div>
+        </div>
+
         <!-- SEO -->
         <div class="glass section">
           <h3 style="margin-bottom:1rem">SEO</h3>
@@ -534,6 +552,7 @@ onMounted(async () => {
     loadVariants()
     loadVolumeTiers()
     loadCustomOptions()
+    loadSpecs()
     try {
       const { data: product } = await api.get(`/products/id/${route.params.id}`)
       form.value = {
@@ -706,6 +725,40 @@ async function deleteVolumeTier(ti) {
   toast.success('Tier removed')
 }
 
+// ─── Product Specifications ───────────────────────────────────────────────────
+const specs = ref([])
+async function loadSpecs() {
+  if (isNew.value) return
+  try {
+    const { data } = await api.get('/product-specs', { params: { product_id: route.params.id } })
+    specs.value = data.specs || []
+  } catch {}
+}
+function addSpec() {
+  specs.value.push({ group_name: 'General', label: '', value: '', sort_order: specs.value.length })
+}
+async function saveSpec(si) {
+  const spec = specs.value[si]
+  if (!spec.label || !spec.value) { toast.error('Label and value required'); return }
+  try {
+    if (spec.id) {
+      const { data } = await api.put(`/product-specs/${spec.id}`, spec)
+      specs.value[si] = data
+    } else {
+      const { data } = await api.post('/product-specs', { ...spec, product_id: route.params.id })
+      specs.value[si] = data
+    }
+    toast.success('Spec saved')
+  } catch { toast.error('Save failed') }
+}
+async function deleteSpec(si, id) {
+  if (id) {
+    try { await api.delete(`/product-specs/${id}`) } catch { toast.error('Delete failed'); return }
+  }
+  specs.value.splice(si, 1)
+  toast.success('Spec removed')
+}
+
 // ─── Custom Options ─────────────────────────────────────────────────────────────
 const customOptions = ref([])
 async function loadCustomOptions() {
@@ -824,6 +877,7 @@ async function deleteCustomOption(oi, id) {
   flex-wrap: wrap;
 }
 .vg-name { flex: 1; min-width: 120px; }
+.spec-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
 .vg-options { display: flex; flex-direction: column; gap: .4rem; }
 .vg-option {
   display: grid;

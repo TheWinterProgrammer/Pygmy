@@ -332,6 +332,22 @@
         </div>
       </div>
 
+      <!-- Specifications Section -->
+      <div v-if="specGroups && Object.keys(specGroups).length" class="specs-section">
+        <h2 class="specs-title">📋 Specifications</h2>
+        <div v-for="(groupSpecs, groupName) in specGroups" :key="groupName" class="spec-group glass">
+          <h3 class="spec-group-name">{{ groupName }}</h3>
+          <table class="spec-table">
+            <tbody>
+              <tr v-for="spec in groupSpecs" :key="spec.id">
+                <td class="spec-label">{{ spec.label }}</td>
+                <td class="spec-value">{{ spec.value }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- Reviews Section -->
       <div class="reviews-section">
         <h2 class="reviews-title">Customer Reviews</h2>
@@ -601,6 +617,14 @@ const variantInfo = computed(() => {
 
 // Reviews
 // Q&A
+const specGroups    = ref(null)
+async function loadSpecs(productId) {
+  try {
+    const { data } = await api.get('/product-specs', { params: { product_id: productId } })
+    specGroups.value = data.grouped || null
+  } catch { specGroups.value = null }
+}
+
 const qaItems       = ref([])
 const loadingQa     = ref(false)
 const qaSubmitted   = ref(false)
@@ -758,9 +782,10 @@ async function load() {
       if (!sid) { sid = Math.random().toString(36).slice(2); localStorage.setItem('pygmy_sid', sid) }
       api.post('/recently-viewed', { session_id: sid, product_id: data.id }).catch(() => {})
     } catch {}
-    // Load reviews + Q&A
+    // Load reviews + Q&A + specs
     loadReviews(data.id)
     loadQa(data.id)
+    loadSpecs(data.id)
     // Load recommendations
     api.get(`/recommendations/auto?product_id=${data.id}&limit=4`)
       .then(r => { recommendations.value = r.data || [] })
@@ -1163,6 +1188,14 @@ function fmt(n) {
 .strikethrough { text-decoration: line-through; color: var(--text-muted); }
 .regular-price { font-weight: 600; }
 
+.specs-section { margin-top: 2.5rem; }
+.specs-title { font-size: 1.35rem; font-weight: 700; margin-bottom: 1rem; }
+.spec-group { padding: 20px 24px; margin-bottom: 16px; border-radius: 14px; }
+.spec-group-name { font-size: 0.9rem; font-weight: 600; color: #e05560; margin: 0 0 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+.spec-table { width: 100%; border-collapse: collapse; }
+.spec-table tr:not(:last-child) td { border-bottom: 1px solid rgba(255,255,255,0.06); }
+.spec-label { padding: 10px 0; color: #888; font-size: 0.88rem; width: 40%; }
+.spec-value { padding: 10px 0 10px 12px; color: #e2e8f0; font-size: 0.9rem; font-weight: 500; }
 .reviews-section { margin-top: 2.5rem; }
 
 /* Q&A */

@@ -116,6 +116,9 @@ import orderShipmentsRoutes from './routes/order_shipments.js'
 import aiContentRoutes from './routes/ai_content.js'
 import changelogRoutes from './routes/changelog.js'
 import npsRoutes from './routes/nps.js'
+import geoAnalyticsRoutes from './routes/geo_analytics.js'
+import productSpecsRoutes from './routes/product_specs.js'
+import scheduledReportsRoutes, { processScheduledReports } from './routes/scheduled_reports.js'
 import shippingLabelsRoutes from './routes/shipping_labels.js'
 import db from './db.js'
 
@@ -329,6 +332,9 @@ app.use('/api/order-shipments', orderShipmentsRoutes)
 app.use('/api/ai', aiContentRoutes)
 app.use('/api/changelog', changelogRoutes)
 app.use('/api/nps', npsRoutes)
+app.use('/api/geo-analytics', geoAnalyticsRoutes)
+app.use('/api/product-specs', productSpecsRoutes)
+app.use('/api/scheduled-reports', scheduledReportsRoutes)
 app.use('/api/shipping-labels', shippingLabelsRoutes)
 app.use('/', shoppingFeedRoutes)
 
@@ -465,3 +471,7 @@ setInterval(() => processReviewRequests().catch(console.error), 10 * 60_000) // 
 // ─── Digest Email Scheduler ───────────────────────────────────────────────────
 // Check once per hour if a digest is due
 setInterval(() => processDigest().catch(console.error), 60 * 60_000)
+
+// ─── Scheduled Reports Processor ─────────────────────────────────────────────
+// Check every 15 minutes if any scheduled report is due
+setInterval(() => processScheduledReports().catch(console.error), 15 * 60_000)

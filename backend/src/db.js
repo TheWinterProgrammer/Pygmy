@@ -2698,3 +2698,48 @@ for (const [key, value] of Object.entries(phase57Defaults)) {
 }
 
 console.log('Phase 57 schema ready')
+
+// ─── Phase 58 Schema ──────────────────────────────────────────────────────────
+
+// Product Specifications (key-value attributes per product)
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS product_specs (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id  INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    label       TEXT NOT NULL,
+    value       TEXT NOT NULL,
+    sort_order  INTEGER NOT NULL DEFAULT 0,
+    group_name  TEXT NOT NULL DEFAULT 'General',
+    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_product_specs_product ON product_specs(product_id, sort_order)`).run()
+
+// Scheduled Email Reports
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS scheduled_reports (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name            TEXT NOT NULL,
+    frequency       TEXT NOT NULL DEFAULT 'weekly',
+    day_of_week     INTEGER DEFAULT 1,
+    day_of_month    INTEGER DEFAULT 1,
+    send_time       TEXT NOT NULL DEFAULT '08:00',
+    recipients      TEXT NOT NULL DEFAULT '[]',
+    report_types    TEXT NOT NULL DEFAULT '["orders","revenue"]',
+    last_sent_at    TEXT,
+    next_send_at    TEXT,
+    active          INTEGER NOT NULL DEFAULT 1,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`).run()
+
+const phase58Defaults = {
+  geo_analytics_enabled: '1',
+  scheduled_reports_enabled: '1',
+}
+for (const [key, value] of Object.entries(phase58Defaults)) {
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
+}
+
+console.log('Phase 58 schema ready')
