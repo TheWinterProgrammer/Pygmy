@@ -2847,4 +2847,31 @@ for (const [key, value] of Object.entries(phase59Defaults)) {
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
 }
 
-console.log('Phase 59 schema ready')
+// ─── Phase 60 Schema ──────────────────────────────────────────────────────────
+
+// IP Blocklist
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS ip_blocklist (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    pattern    TEXT    NOT NULL,
+    type       TEXT    NOT NULL DEFAULT 'exact',
+    note       TEXT    NOT NULL DEFAULT '',
+    active     INTEGER NOT NULL DEFAULT 1,
+    hits       INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_ip_blocklist_active ON ip_blocklist(active)`).run()
+
+// Safe migration: add folder_id to media if missing (already done in Phase 15 but guard added)
+try { db.prepare(`ALTER TABLE media ADD COLUMN folder_id INTEGER REFERENCES media_folders(id) ON DELETE SET NULL`).run() } catch {}
+
+const phase60Defaults = {
+  ip_blocklist_enabled: '1',
+  site_audit_enabled: '1',
+}
+for (const [key, value] of Object.entries(phase60Defaults)) {
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
+}
+
+console.log('Phase 60 schema ready')

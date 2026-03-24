@@ -194,6 +194,9 @@ const navItems = [
   { to: '/surveys',                  icon: '📝',  label: 'Survey Builder' },
   { to: '/customer-tags',            icon: '🏷️',  label: 'Customer Tags' },
   { to: '/order-statuses',           icon: '🔖',  label: 'Order Statuses' },
+  { to: '/ip-blocklist',             icon: '🛡️',  label: 'IP Blocklist' },
+  { to: '/site-audit',               icon: '🔍',  label: 'Site Audit' },
+  { to: '/media-alt',                icon: '🖼️',  label: 'Media Alt Text' },
   { to: '/settings',          icon: '⚙️',  label: 'Settings' },
 ]
 

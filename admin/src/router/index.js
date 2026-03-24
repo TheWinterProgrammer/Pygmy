@@ -125,6 +125,9 @@ const routes = [
       { path: 'surveys',            name: 'Surveys',          component: () => import('../views/SurveysView.vue') },
       { path: 'customer-tags',     name: 'CustomerTags',     component: () => import('../views/CustomerTagsView.vue') },
       { path: 'order-statuses',    name: 'OrderStatuses',    component: () => import('../views/OrderStatusesView.vue') },
+      { path: 'ip-blocklist',      name: 'IpBlocklist',      component: () => import('../views/IpBlocklistView.vue') },
+      { path: 'site-audit',        name: 'SiteAudit',        component: () => import('../views/SiteAuditView.vue') },
+      { path: 'media-alt',         name: 'MediaAlt',         component: () => import('../views/MediaAltView.vue') },
       { path: 'settings',          name: 'Settings',         component: () => import('../views/SettingsView.vue') },
     ]
   },

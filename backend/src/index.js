@@ -123,6 +123,9 @@ import shippingLabelsRoutes from './routes/shipping_labels.js'
 import surveysRoutes from './routes/surveys.js'
 import customerTagsRoutes from './routes/customer_tags.js'
 import orderStatusesRoutes from './routes/order_statuses.js'
+import ipBlocklistRoutes, { isIpBlocked } from './routes/ip_blocklist.js'
+import siteAuditRoutes from './routes/site_audit.js'
+import mediaAltRoutes from './routes/media_alt.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -144,6 +147,24 @@ app.use(express.urlencoded({ extended: true }))
 
 // ─── Static files ─────────────────────────────────────────────────────────────
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')))
+
+// ─── IP Blocklist Middleware ───────────────────────────────────────────────────
+app.use((req, res, next) => {
+  // Skip admin/api-keys/auth routes from being hard-blocked (admins can always access)
+  if (req.path.startsWith('/api/auth') || req.path.startsWith('/api/ip-blocklist')) return next()
+  const setting = db.prepare(`SELECT value FROM settings WHERE key='ip_blocklist_enabled'`).get()
+  if (setting?.value !== '1') return next()
+  const ip = req.ip || req.connection.remoteAddress || ''
+  if (isIpBlocked(ip)) {
+    // Increment hit counter asynchronously
+    setImmediate(() => {
+      db.prepare(`UPDATE ip_blocklist SET hits = hits + 1 WHERE active = 1 AND (type='exact' AND pattern=?)`)
+        .run(ip)
+    })
+    return res.status(403).json({ error: 'Access denied' })
+  }
+  next()
+})
 
 // ─── Rate limiters (public-facing endpoints only) ─────────────────────────────
 const jsonError = (msg) => ({ message: msg, error: 'rate_limit_exceeded' })
@@ -342,6 +363,9 @@ app.use('/api/shipping-labels', shippingLabelsRoutes)
 app.use('/api/surveys', surveysRoutes)
 app.use('/api/customer-tags', customerTagsRoutes)
 app.use('/api/order-statuses', orderStatusesRoutes)
+app.use('/api/ip-blocklist', ipBlocklistRoutes)
+app.use('/api/site-audit', siteAuditRoutes)
+app.use('/api/media-alt', mediaAltRoutes)
 app.use('/', shoppingFeedRoutes)
 
 // ─── SEO (public) ─────────────────────────────────────────────────────────────
