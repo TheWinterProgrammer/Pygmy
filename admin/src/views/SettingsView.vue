@@ -808,6 +808,41 @@
         </div>
       </div>
 
+      <!-- Store Locator (Phase 62) -->
+      <div class="glass section" style="grid-column:span 2">
+        <h2 style="margin-bottom:1.25rem;">📍 Store Locator</h2>
+        <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.25rem;">
+          Show a "Find a Store" page on the public site with your physical locations, addresses, hours, and map links.
+          Manage locations in the <RouterLink to="/store-locator" style="color:var(--accent)">📍 Store Locator</RouterLink> panel.
+        </p>
+        <label class="toggle-label" style="margin-bottom:1rem;">
+          <input type="checkbox" v-model="storeLocatorEnabled" />
+          <span>Enable Store Locator public page</span>
+        </label>
+        <div v-if="storeLocatorEnabled" class="settings-grid">
+          <div class="form-group">
+            <label>Page Title</label>
+            <input v-model="form.store_locator_title" class="input" placeholder="Find a Store" />
+          </div>
+          <div class="form-group">
+            <label>Page Subtitle</label>
+            <input v-model="form.store_locator_subtitle" class="input" placeholder="Discover our locations near you" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Shared Wishlists (Phase 62) -->
+      <div class="glass section" style="grid-column:span 2">
+        <h2 style="margin-bottom:1.25rem;">💝 Shared Wishlists</h2>
+        <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.25rem;">
+          Allow customers to generate a public shareable link for their wishlist, so friends and family can view and purchase items as gifts.
+        </p>
+        <label class="toggle-label">
+          <input type="checkbox" v-model="sharedWishlistsEnabled" />
+          <span>Allow customers to share wishlists publicly</span>
+        </label>
+      </div>
+
       <div class="glass section profile-section">
         <h2 style="margin-bottom:1.25rem;">🔐 My Profile</h2>
         <div class="form-group">
@@ -1030,6 +1065,12 @@ const form = ref({
   cookie_consent_policy_url: '/privacy-policy',
   cookie_analytics_default: '0',
   cookie_marketing_default: '0',
+  // Store Locator (Phase 62)
+  store_locator_enabled: '1',
+  store_locator_title: 'Find a Store',
+  store_locator_subtitle: 'Discover our locations near you',
+  // Shared Wishlists (Phase 62)
+  shared_wishlists_enabled: '1',
 })
 
 // Checkbox helpers (settings stored as '1'/'0')
@@ -1141,6 +1182,15 @@ const cookieMarketingDefault = computed({
 })
 
 // ─── Email branding helpers ───────────────────────────────────────────────────
+const storeLocatorEnabled = computed({
+  get: () => form.value.store_locator_enabled === '1',
+  set: v => { form.value.store_locator_enabled = v ? '1' : '0' }
+})
+const sharedWishlistsEnabled = computed({
+  get: () => form.value.shared_wishlists_enabled === '1',
+  set: v => { form.value.shared_wishlists_enabled = v ? '1' : '0' }
+})
+
 const emailAccentHex = computed(() => {
   // Try to parse stored value to something a color input can use (it needs #rrggbb)
   const raw = form.value.email_accent_color || '#b32838'

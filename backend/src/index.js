@@ -130,6 +130,7 @@ import errorLogsRoutes from './routes/error_logs.js'
 import bulkPriceRoutes from './routes/bulk_price.js'
 import customerTimelineRoutes from './routes/customer_timeline.js'
 import orderPrintRoutes from './routes/order_print.js'
+import storeLocatorRoutes from './routes/store_locator.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -374,6 +375,7 @@ app.use('/api/error-logs', errorLogsRoutes)
 app.use('/api/bulk-price', bulkPriceRoutes)
 app.use('/api/customer-timeline', customerTimelineRoutes)
 app.use('/api/order-print', orderPrintRoutes)
+app.use('/api/store-locator', storeLocatorRoutes)
 app.use('/api/sitemap', seoRoutes)
 app.use('/', shoppingFeedRoutes)
 

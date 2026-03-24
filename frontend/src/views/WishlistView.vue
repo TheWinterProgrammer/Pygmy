@@ -28,6 +28,33 @@
       <!-- Server error notice -->
       <div v-if="serverError" style="color:#f87171;font-size:.85rem;margin-bottom:.75rem;">{{ serverError }}</div>
 
+      <!-- Share Wishlist (logged-in only) -->
+      <div v-if="customer.isLoggedIn && !serverLoading && (displayItems !== null ? displayItems.length : wishlist.items.length)" class="share-section glass">
+        <div class="share-info">
+          <span class="share-icon">🔗</span>
+          <div>
+            <strong>Share your wishlist</strong>
+            <p v-if="!sharedWishlist">Anyone with the link can view your wishlist items.</p>
+            <p v-else>
+              Your wishlist is shared! <a :href="sharedUrl" target="_blank" class="share-link">{{ sharedUrl }}</a>
+            </p>
+          </div>
+        </div>
+        <div class="share-actions">
+          <template v-if="!sharedWishlist">
+            <button class="btn btn-primary btn-sm" @click="createShare" :disabled="sharing">
+              {{ sharing ? 'Creating…' : '🌐 Create Public Link' }}
+            </button>
+          </template>
+          <template v-else>
+            <button class="btn btn-ghost btn-sm" @click="copyShareLink">
+              {{ shareCopied ? '✅ Copied!' : '📋 Copy Link' }}
+            </button>
+            <button class="btn btn-danger btn-sm" @click="removeShare" :disabled="sharing">Remove</button>
+          </template>
+        </div>
+      </div>
+
       <!-- Wishlist grid -->
       <div class="wishlist-grid" v-if="!serverLoading && (displayItems !== null ? displayItems.length : wishlist.items.length)">
         <div class="wishlist-card glass" v-for="item in (displayItems !== null ? displayItems : wishlist.items)" :key="item.id">
@@ -99,6 +126,51 @@ async function loadServerWishlist() {
   }
 }
 
+// ── Shared Wishlist ───────────────────────────────────────────────────────────
+const sharedWishlist = ref(null)
+const sharing = ref(false)
+const shareCopied = ref(false)
+const sharedUrl = ref('')
+
+async function loadSharedWishlist() {
+  if (!customer.isLoggedIn) return
+  try {
+    const { data } = await api.get('/wishlists/me/shared', {
+      headers: { Authorization: `Bearer ${customer.token}` }
+    })
+    sharedWishlist.value = data
+    if (data) sharedUrl.value = `${window.location.origin}/wishlist/shared/${data.share_code}`
+  } catch {}
+}
+
+async function createShare() {
+  sharing.value = true
+  try {
+    const { data } = await api.post('/wishlists/me/share', { name: 'My Wishlist', public: 1 }, {
+      headers: { Authorization: `Bearer ${customer.token}` }
+    })
+    sharedWishlist.value = data
+    sharedUrl.value = `${window.location.origin}/wishlist/shared/${data.share_code}`
+  } catch (e) {
+    alert('Could not create shared wishlist')
+  } finally { sharing.value = false }
+}
+
+async function removeShare() {
+  sharing.value = true
+  try {
+    await api.delete('/wishlists/me/shared', { headers: { Authorization: `Bearer ${customer.token}` } })
+    sharedWishlist.value = null
+    sharedUrl.value = ''
+  } catch {} finally { sharing.value = false }
+}
+
+function copyShareLink() {
+  navigator.clipboard.writeText(sharedUrl.value)
+  shareCopied.value = true
+  setTimeout(() => { shareCopied.value = false }, 2500)
+}
+
 async function removeServerItem(productId) {
   try {
     await api.delete(`/wishlists/me/${productId}`, {
@@ -111,7 +183,10 @@ async function removeServerItem(productId) {
   } catch {}
 }
 
-onMounted(loadServerWishlist)
+onMounted(async () => {
+  await loadServerWishlist()
+  await loadSharedWishlist()
+})
 
 function fmt(v) {
   const symbol = site.settings?.shop_currency_symbol || '€'
@@ -189,6 +264,19 @@ function addToCart(item) {
   transform: translateY(-4px);
   box-shadow: 0 16px 40px rgba(0,0,0,.35);
 }
+
+.share-section {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 1rem; padding: 1rem 1.25rem; border-radius: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap;
+}
+.share-info { display: flex; align-items: flex-start; gap: .75rem; flex: 1; }
+.share-icon { font-size: 1.3rem; }
+.share-info strong { display: block; margin-bottom: .2rem; }
+.share-info p { margin: 0; color: var(--text-muted, #aaa); font-size: .85rem; }
+.share-link { color: var(--accent); word-break: break-all; font-size: .8rem; }
+.share-actions { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+.btn-danger { background: rgba(239,68,68,.15); color: #f87171; border: 1px solid rgba(239,68,68,.3); }
+.btn-danger:hover { background: rgba(239,68,68,.25); }
 
 .card-img {
   position: relative;

@@ -119,11 +119,58 @@
             <input :value="selected.url" class="input" readonly @click="$event.target.select()" />
           </div>
         </div>
-        <button class="btn btn-danger" style="margin-top:1rem;width:100%;justify-content:center;" @click="remove(selected)">
-          Delete
-        </button>
+        <div style="margin-top:.75rem;display:flex;gap:.5rem;">
+          <button v-if="isImageFile(selected)" class="btn btn-ghost btn-sm" @click="openEditor(selected)" style="flex:1;">
+            🖊️ Edit Image
+          </button>
+          <button class="btn btn-danger" style="flex:1;" @click="remove(selected)">
+            🗑️ Delete
+          </button>
+        </div>
       </div>
     </div>
+
+    <!-- Image Editor Modal -->
+    <Teleport to="body">
+      <div class="modal-backdrop" v-if="editingImage" @click.self="closeEditor">
+        <div class="editor-modal glass">
+          <div class="editor-header">
+            <h3>🖊️ Image Editor</h3>
+            <button class="close-btn" @click="closeEditor">✕</button>
+          </div>
+          <div class="editor-canvas-wrap">
+            <canvas ref="editorCanvas" class="editor-canvas"></canvas>
+          </div>
+          <div class="editor-tools">
+            <div class="tool-group">
+              <span class="tool-label">Rotate</span>
+              <button class="tool-btn" @click="rotate(-90)" title="Rotate left">↺ 90°</button>
+              <button class="tool-btn" @click="rotate(90)" title="Rotate right">↻ 90°</button>
+            </div>
+            <div class="tool-group">
+              <span class="tool-label">Flip</span>
+              <button class="tool-btn" @click="flip('h')" title="Flip horizontal">↔ H</button>
+              <button class="tool-btn" @click="flip('v')" title="Flip vertical">↕ V</button>
+            </div>
+            <div class="tool-group fg">
+              <span class="tool-label">Brightness: {{ editorBrightness }}%</span>
+              <input type="range" v-model="editorBrightness" min="0" max="200" step="1" class="range" @input="applyFilters" />
+            </div>
+            <div class="tool-group fg">
+              <span class="tool-label">Contrast: {{ editorContrast }}%</span>
+              <input type="range" v-model="editorContrast" min="0" max="200" step="1" class="range" @input="applyFilters" />
+            </div>
+          </div>
+          <div class="editor-footer">
+            <button class="btn btn-ghost" @click="resetEditor">Reset</button>
+            <button class="btn btn-ghost" @click="closeEditor">Cancel</button>
+            <button class="btn btn-primary" @click="saveEdited" :disabled="savingEdited">
+              {{ savingEdited ? 'Saving…' : '💾 Save & Replace' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
     <!-- Folder context menu (rename/delete) -->
     <Teleport to="body">
@@ -160,6 +207,88 @@ const loading = ref(true)
 const selected = ref(null)
 const editAlt = ref('')
 const moveToFolder = ref(null)
+
+// ── Image Editor ──────────────────────────────────────────────────────────────
+const editingImage = ref(null)
+const editorCanvas = ref(null)
+const editorBrightness = ref(100)
+const editorContrast = ref(100)
+const savingEdited = ref(false)
+let editorImg = null
+let editorRotation = 0
+let editorFlipH = false
+let editorFlipV = false
+
+function isImageFile(item) {
+  return item?.mime_type?.startsWith('image/') && !item?.mime_type?.includes('svg')
+}
+
+async function openEditor(item) {
+  editingImage.value = item
+  editorRotation = 0; editorFlipH = false; editorFlipV = false
+  editorBrightness.value = 100; editorContrast.value = 100
+  await nextTick()
+  editorImg = new Image()
+  editorImg.crossOrigin = 'anonymous'
+  editorImg.onload = () => drawEditor()
+  editorImg.src = item.url + '?t=' + Date.now()
+}
+
+function closeEditor() { editingImage.value = null; editorImg = null }
+
+function drawEditor() {
+  if (!editorCanvas.value || !editorImg) return
+  const canvas = editorCanvas.value
+  const ctx = canvas.getContext('2d')
+  const isRotated90 = editorRotation % 180 !== 0
+  canvas.width  = isRotated90 ? editorImg.height : editorImg.width
+  canvas.height = isRotated90 ? editorImg.width  : editorImg.height
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+  ctx.save()
+  ctx.translate(canvas.width / 2, canvas.height / 2)
+  ctx.rotate(editorRotation * Math.PI / 180)
+  ctx.scale(editorFlipH ? -1 : 1, editorFlipV ? -1 : 1)
+  ctx.filter = `brightness(${editorBrightness.value}%) contrast(${editorContrast.value}%)`
+  ctx.drawImage(editorImg, -editorImg.width / 2, -editorImg.height / 2)
+  ctx.restore()
+}
+
+function rotate(deg) { editorRotation = ((editorRotation + deg) % 360 + 360) % 360; drawEditor() }
+function flip(axis) {
+  if (axis === 'h') editorFlipH = !editorFlipH
+  else editorFlipV = !editorFlipV
+  drawEditor()
+}
+function applyFilters() { drawEditor() }
+function resetEditor() {
+  editorRotation = 0; editorFlipH = false; editorFlipV = false
+  editorBrightness.value = 100; editorContrast.value = 100
+  drawEditor()
+}
+
+async function saveEdited() {
+  if (!editorCanvas.value || !editingImage.value) return
+  savingEdited.value = true
+  editorCanvas.value.toBlob(async blob => {
+    try {
+      const formData = new FormData()
+      const ext = (editingImage.value.mime_type || 'image/jpeg').includes('png') ? 'png' : 'jpg'
+      const baseName = (editingImage.value.original || 'image').replace(/\.[^.]+$/, '')
+      formData.append('file', blob, `${baseName}-edited.${ext}`)
+      const { data } = await api.post('/media', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+      const uploaded = Array.isArray(data) ? data[0] : data
+      if (uploaded) {
+        // Add to media list and select the new item
+        media.value.unshift(uploaded)
+        selected.value = { ...uploaded }
+        editAlt.value = ''
+      }
+      closeEditor()
+    } catch (e) {
+      alert('Failed to save: ' + (e.response?.data?.error || e.message))
+    } finally { savingEdited.value = false }
+  }, (editingImage.value.mime_type || 'image/jpeg').includes('png') ? 'image/png' : 'image/jpeg', 0.92)
+}
 const uploading = ref(false)
 const uploadProgress = ref(0)
 const activeFolder = ref(null) // null = all
@@ -442,4 +571,23 @@ function formatSize(bytes) {
 }
 .ctx-item:hover { background: var(--glass-bg); }
 .ctx-item.danger { color: var(--accent); }
+
+/* ─── Image Editor Modal ────────────────────────────────────── */
+.editor-modal {
+  border-radius: 1.5rem; width: 100%; max-width: 700px; max-height: 92vh;
+  display: flex; flex-direction: column;
+  border: 1px solid rgba(255,255,255,.12); backdrop-filter: blur(16px);
+}
+.editor-header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.25rem; border-bottom: 1px solid rgba(255,255,255,.08); }
+.editor-header h3 { margin: 0; font-size: 1rem; }
+.editor-canvas-wrap { flex: 1; overflow: auto; display: flex; align-items: center; justify-content: center; padding: 1rem; min-height: 200px; background: rgba(0,0,0,.3); }
+.editor-canvas { max-width: 100%; max-height: 380px; border-radius: .5rem; box-shadow: 0 4px 24px rgba(0,0,0,.4); }
+.editor-tools { display: flex; flex-wrap: wrap; gap: .75rem; padding: .75rem 1.25rem; border-top: 1px solid rgba(255,255,255,.08); align-items: center; }
+.tool-group { display: flex; align-items: center; gap: .4rem; }
+.tool-group.fg { flex: 1 1 180px; flex-direction: column; align-items: flex-start; gap: .2rem; }
+.tool-label { font-size: .75rem; color: var(--text-muted, #aaa); white-space: nowrap; }
+.tool-btn { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12); color: inherit; border-radius: .5rem; padding: .35rem .7rem; font-size: .8rem; cursor: pointer; transition: background .15s; }
+.tool-btn:hover { background: rgba(255,255,255,.16); }
+.range { width: 100%; accent-color: var(--accent); }
+.editor-footer { display: flex; justify-content: flex-end; gap: .5rem; padding: .75rem 1.25rem; border-top: 1px solid rgba(255,255,255,.08); }
 </style>

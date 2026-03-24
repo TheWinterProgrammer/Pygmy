@@ -168,6 +168,7 @@ const navItems = [
   { to: '/customer-segments',  icon: '🎯',  label: 'Customer Segments' },
   { to: '/activity-log',       icon: '🕐',  label: 'Activity Log' },
   { to: '/languages',          icon: '🌐',  label: 'Languages' },
+  { to: '/store-locator',      icon: '📍',  label: 'Store Locator' },
   { to: '/performance',        icon: '⚡',  label: 'Performance' },
   { to: '/digest',             icon: '📬',  label: 'Digest Emails' },
   { to: '/push-notifications', icon: '🔔',  label: 'Push Notifications' },

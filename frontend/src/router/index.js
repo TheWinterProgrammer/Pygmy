@@ -111,6 +111,14 @@ const routes = [
     component: () => import('../views/CollectionView.vue')
   },
   {
+    path: '/stores',
+    component: () => import('../views/StoresView.vue')
+  },
+  {
+    path: '/wishlist/shared/:code',
+    component: () => import('../views/SharedWishlistView.vue')
+  },
+  {
     path: '/vendors',
     component: () => import('../views/VendorsView.vue')
   },

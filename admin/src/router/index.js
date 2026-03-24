@@ -79,6 +79,7 @@ const routes = [
       { path: 'email-sequences',   name: 'EmailSequences',   component: () => import('../views/EmailSequencesView.vue') },
       { path: 'customer-segments', name: 'CustomerSegments', component: () => import('../views/CustomerSegmentsView.vue') },
       { path: 'languages',         name: 'Languages',        component: () => import('../views/LanguagesView.vue') },
+      { path: 'store-locator',     name: 'StoreLocator',     component: () => import('../views/StoreLocatorView.vue') },
       { path: 'performance',       name: 'Performance',      component: () => import('../views/PerformanceView.vue') },
       { path: 'digest',            name: 'Digest',           component: () => import('../views/DigestView.vue') },
       { path: 'push-notifications', name: 'PushNotifications', component: () => import('../views/PushNotificationsView.vue') },

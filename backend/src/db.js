@@ -2875,3 +2875,33 @@ for (const [key, value] of Object.entries(phase60Defaults)) {
 }
 
 console.log('Phase 60 schema ready')
+
+// ─── Phase 62 Schema ──────────────────────────────────────────────────────────
+
+const phase62Defaults = {
+  store_locator_enabled: '1',
+  store_locator_title: 'Find a Store',
+  store_locator_subtitle: 'Discover our locations near you',
+  shared_wishlists_enabled: '1',
+}
+for (const [key, value] of Object.entries(phase62Defaults)) {
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
+}
+
+// Shared wishlist share_code column
+try { db.prepare(`ALTER TABLE wishlists ADD COLUMN share_code TEXT`).run() } catch {}
+// Shared wishlist lists table
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS shared_wishlists (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+    share_code TEXT    NOT NULL UNIQUE,
+    name       TEXT    NOT NULL DEFAULT 'My Wishlist',
+    public     INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_shared_wishlists_code ON shared_wishlists(share_code)`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_shared_wishlists_customer ON shared_wishlists(customer_id)`).run()
+
+console.log('Phase 62 schema ready')
