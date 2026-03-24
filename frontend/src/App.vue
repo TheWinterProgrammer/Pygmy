@@ -19,6 +19,7 @@
     <SitePopup />
     <SupportWidget />
     <NpsWidget />
+    <LiveChatWidget />
     <CompareDrawer />
     <PushPrompt />
     <InstallPrompt />
@@ -41,6 +42,7 @@ import AnnouncementBar from './components/AnnouncementBar.vue'
 import SitePopup from './components/SitePopup.vue'
 import SupportWidget from './components/SupportWidget.vue'
 import NpsWidget from './components/NpsWidget.vue'
+import LiveChatWidget from './components/LiveChatWidget.vue'
 import CompareDrawer from './components/CompareDrawer.vue'
 import PushPrompt from './components/PushPrompt.vue'
 import InstallPrompt from './components/InstallPrompt.vue'

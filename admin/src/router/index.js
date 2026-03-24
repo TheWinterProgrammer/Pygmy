@@ -135,6 +135,9 @@ const routes = [
       { path: 'cookie-consent',    name: 'CookieConsent',    component: () => import('../views/CookieConsentView.vue') },
       { path: 'funnel',            name: 'Funnel',           component: () => import('../views/FunnelView.vue') },
       { path: 'heatmap',           name: 'Heatmap',          component: () => import('../views/HeatmapView.vue') },
+      { path: 'live-chat',         name: 'LiveChat',         component: () => import('../views/LiveChatView.vue') },
+      { path: 'loyalty-rewards',   name: 'LoyaltyRewards',   component: () => import('../views/LoyaltyRewardsView.vue') },
+      { path: 'custom-404',        name: 'Custom404',        component: () => import('../views/Custom404View.vue') },
       { path: 'settings',          name: 'Settings',         component: () => import('../views/SettingsView.vue') },
     ]
   },

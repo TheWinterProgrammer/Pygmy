@@ -843,6 +843,50 @@
         </label>
       </div>
 
+      <!-- Live Chat (Phase 65) -->
+      <div class="glass section" style="grid-column:span 2">
+        <h2 style="margin-bottom:1.25rem;">💬 Live Chat</h2>
+        <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.25rem;">
+          Enable a floating chat widget on your public site so visitors can contact you in real-time. Manage conversations in the
+          <RouterLink to="/live-chat" style="color:var(--accent)">💬 Live Chat</RouterLink> panel.
+        </p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+          <label class="toggle-label" style="grid-column:span 2">
+            <input type="checkbox" v-model="liveChatEnabled" />
+            <span>Enable live chat widget on public site</span>
+          </label>
+          <div class="form-group">
+            <label>Widget Button Label</label>
+            <input v-model="form.live_chat_button_label" class="input" placeholder="Chat with us" />
+          </div>
+          <div class="form-group">
+            <label>Accent Color</label>
+            <input v-model="form.live_chat_color" type="color" class="input" style="height:2.5rem;padding:.3rem;" />
+          </div>
+          <div class="form-group" style="grid-column:span 2">
+            <label>Greeting Message</label>
+            <input v-model="form.live_chat_greeting" class="input" placeholder="Hi there 👋 How can we help?" />
+          </div>
+          <div class="form-group" style="grid-column:span 2">
+            <label>Offline Message</label>
+            <input v-model="form.live_chat_offline_message" class="input" placeholder="We're offline. Leave a message!" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Loyalty Rewards Catalog (Phase 65) -->
+      <div class="glass section" style="grid-column:span 2">
+        <h2 style="margin-bottom:1.25rem;">🎁 Loyalty Rewards Catalog</h2>
+        <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.25rem;">
+          Let customers redeem their loyalty points for specific rewards: discount coupons, store credit, free shipping, or free products.
+          Manage rewards in the <RouterLink to="/loyalty-rewards" style="color:var(--accent)">🎁 Loyalty Rewards</RouterLink> panel.
+        </p>
+        <label class="toggle-label">
+          <input type="checkbox" v-model="loyaltyRewardsEnabled" />
+          <span>Enable loyalty rewards catalog</span>
+        </label>
+      </div>
+
       <div class="glass section profile-section">
         <h2 style="margin-bottom:1.25rem;">🔐 My Profile</h2>
         <div class="form-group">
@@ -1071,6 +1115,14 @@ const form = ref({
   store_locator_subtitle: 'Discover our locations near you',
   // Shared Wishlists (Phase 62)
   shared_wishlists_enabled: '1',
+  // Live Chat (Phase 65)
+  live_chat_enabled: '0',
+  live_chat_button_label: 'Chat with us',
+  live_chat_greeting: "Hi there 👋 How can we help you today?",
+  live_chat_offline_message: "We're offline right now. Leave us a message!",
+  live_chat_color: '#e04858',
+  // Loyalty Rewards Catalog (Phase 65)
+  loyalty_rewards_enabled: '1',
 })
 
 // Checkbox helpers (settings stored as '1'/'0')
@@ -1189,6 +1241,16 @@ const storeLocatorEnabled = computed({
 const sharedWishlistsEnabled = computed({
   get: () => form.value.shared_wishlists_enabled === '1',
   set: v => { form.value.shared_wishlists_enabled = v ? '1' : '0' }
+})
+
+const liveChatEnabled = computed({
+  get: () => form.value.live_chat_enabled === '1',
+  set: v => { form.value.live_chat_enabled = v ? '1' : '0' }
+})
+
+const loyaltyRewardsEnabled = computed({
+  get: () => form.value.loyalty_rewards_enabled === '1',
+  set: v => { form.value.loyalty_rewards_enabled = v ? '1' : '0' }
 })
 
 const emailAccentHex = computed(() => {

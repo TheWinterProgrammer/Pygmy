@@ -204,6 +204,9 @@ const navItems = [
   { to: '/cookie-consent',           icon: '🍪',  label: 'Cookie Consent' },
   { to: '/funnel',                   icon: '🔭',  label: 'Sales Funnel' },
   { to: '/heatmap',                  icon: '🔥',  label: 'Click Heatmaps' },
+  { to: '/live-chat',                icon: '💬',  label: 'Live Chat' },
+  { to: '/loyalty-rewards',          icon: '🎁',  label: 'Loyalty Rewards' },
+  { to: '/custom-404',               icon: '🔍',  label: 'Custom 404 Page' },
   { to: '/settings',          icon: '⚙️',  label: 'Settings' },
 ]
 

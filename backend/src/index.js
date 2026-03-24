@@ -134,6 +134,9 @@ import storeLocatorRoutes from './routes/store_locator.js'
 import cookieConsentRoutes from './routes/cookie_consent.js'
 import funnelRoutes from './routes/funnel.js'
 import heatmapRoutes from './routes/heatmap.js'
+import liveChatRoutes from './routes/live_chat.js'
+import loyaltyRewardsRoutes from './routes/loyalty_rewards.js'
+import custom404Routes from './routes/custom_404.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -382,6 +385,9 @@ app.use('/api/store-locator', storeLocatorRoutes)
 app.use('/api/cookie-consent', cookieConsentRoutes)
 app.use('/api/funnel', funnelRoutes)
 app.use('/api/heatmap', heatmapRoutes)
+app.use('/api/live-chat', liveChatRoutes)
+app.use('/api/loyalty-rewards', loyaltyRewardsRoutes)
+app.use('/api/custom-404', custom404Routes)
 app.use('/api/sitemap', seoRoutes)
 app.use('/', shoppingFeedRoutes)
 
