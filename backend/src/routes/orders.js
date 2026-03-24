@@ -60,7 +60,7 @@ function getSetting(key) {
 
 // ─── Public: Create order (checkout) ─────────────────────────────────────────
 // POST /api/orders
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const {
     customer_name, customer_email, customer_phone,
     shipping_address, billing_address, billing_same_as_shipping = 1, items, subtotal, total, notes,
@@ -492,6 +492,84 @@ router.post('/lookup', (req, res) => {
     shipped_at:       order.shipped_at || null,
     created_at: order.created_at,
     updated_at: order.updated_at,
+  })
+})
+
+// ─── Admin: Order Analytics (must be before /:id) ────────────────────────────
+// GET /api/orders/analytics?days=30&granularity=day
+router.get('/analytics', authMiddleware, (req, res) => {
+  const days = Math.min(365, Math.max(7, parseInt(req.query.days) || 30))
+  const granularity = req.query.granularity === 'week' ? 'week' : req.query.granularity === 'month' ? 'month' : 'day'
+  const dateFormat = granularity === 'month' ? '%Y-%m' : granularity === 'week' ? '%Y-%W' : '%Y-%m-%d'
+
+  const dailyRevenue = db.prepare(`
+    SELECT strftime('${dateFormat}', created_at) as period,
+           COUNT(*) as order_count,
+           COALESCE(SUM(total), 0) as revenue,
+           COALESCE(AVG(total), 0) as avg_order_value
+    FROM orders
+    WHERE created_at >= datetime('now', '-${days} days')
+    GROUP BY period
+    ORDER BY period ASC
+  `).all()
+
+  const statusBreakdown = db.prepare(`
+    SELECT status, COUNT(*) as count, COALESCE(SUM(total), 0) as revenue
+    FROM orders
+    WHERE created_at >= datetime('now', '-${days} days')
+    GROUP BY status
+  `).all()
+
+  const topProducts = db.prepare(`
+    SELECT json_extract(item.value, '$.product_id') as product_id,
+           json_extract(item.value, '$.name') as name,
+           SUM(json_extract(item.value, '$.qty') * json_extract(item.value, '$.unit_price')) as revenue,
+           SUM(json_extract(item.value, '$.qty')) as units_sold,
+           COUNT(DISTINCT o.id) as order_count
+    FROM orders o, json_each(o.items) item
+    WHERE o.created_at >= datetime('now', '-${days} days')
+      AND o.status NOT IN ('cancelled', 'refunded')
+    GROUP BY product_id
+    ORDER BY revenue DESC
+    LIMIT 10
+  `).all()
+
+  const summary = db.prepare(`
+    SELECT
+      COUNT(*) as total_orders,
+      COALESCE(SUM(total), 0) as total_revenue,
+      COALESCE(AVG(total), 0) as avg_order_value,
+      COALESCE(SUM(CASE WHEN status = 'refunded' THEN total ELSE 0 END), 0) as refunded_revenue,
+      COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_count,
+      COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_count,
+      COUNT(DISTINCT customer_email) as unique_customers
+    FROM orders
+    WHERE created_at >= datetime('now', '-${days} days')
+  `).get()
+
+  const hourlyDist = db.prepare(`
+    SELECT CAST(strftime('%H', created_at) AS INTEGER) as hour,
+           COUNT(*) as count
+    FROM orders
+    WHERE created_at >= datetime('now', '-${days} days')
+    GROUP BY hour
+    ORDER BY hour ASC
+  `).all()
+
+  const dowDist = db.prepare(`
+    SELECT CAST(strftime('%w', created_at) AS INTEGER) as dow,
+           COUNT(*) as count,
+           COALESCE(SUM(total), 0) as revenue
+    FROM orders
+    WHERE created_at >= datetime('now', '-${days} days')
+    GROUP BY dow
+    ORDER BY dow ASC
+  `).all()
+
+  res.json({
+    summary, daily_revenue: dailyRevenue, status_breakdown: statusBreakdown,
+    top_products: topProducts, hourly_distribution: hourlyDist,
+    dow_distribution: dowDist, period: { days, granularity }
   })
 })
 

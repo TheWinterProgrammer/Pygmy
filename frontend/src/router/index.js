@@ -11,6 +11,14 @@ const routes = [
     component: () => import('../views/BlogView.vue')
   },
   {
+    path: '/blog/authors',
+    component: () => import('../views/AuthorsView.vue')
+  },
+  {
+    path: '/blog/author/:name',
+    component: () => import('../views/AuthorView.vue')
+  },
+  {
     path: '/search',
     component: () => import('../views/SearchView.vue')
   },

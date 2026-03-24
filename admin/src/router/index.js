@@ -115,6 +115,9 @@ const routes = [
       { path: 'preorders',         name: 'Preorders',        component: () => import('../views/PreordersView.vue') },
       { path: 'order-shipments',   name: 'OrderShipments',   component: () => import('../views/OrderShipmentsView.vue') },
       { path: 'ai-content',        name: 'AiContent',        component: () => import('../views/AiContentView.vue') },
+      { path: 'recommendations',    name: 'Recommendations',  component: () => import('../views/RecommendationsView.vue') },
+      { path: 'customer-import',    name: 'CustomerImport',   component: () => import('../views/CustomerImportView.vue') },
+      { path: 'order-analytics',    name: 'OrderAnalytics',   component: () => import('../views/OrderAnalyticsView.vue') },
       { path: 'settings',          name: 'Settings',         component: () => import('../views/SettingsView.vue') },
     ]
   },

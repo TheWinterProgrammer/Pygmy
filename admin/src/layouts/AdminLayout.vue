@@ -186,6 +186,9 @@ const navItems = [
   { to: '/ai-content',               icon: '🤖',  label: 'AI Content Helper' },
   { to: '/tax-report',               icon: '🧮',  label: 'Tax Report' },
   { to: '/charity',                  icon: '💝',  label: 'Charity Campaigns' },
+  { to: '/recommendations',          icon: '🔀',  label: 'Product Recommendations' },
+  { to: '/order-analytics',          icon: '📊',  label: 'Order Analytics' },
+  { to: '/customer-import',          icon: '📥',  label: 'Customer Import' },
   { to: '/settings',          icon: '⚙️',  label: 'Settings' },
 ]
 

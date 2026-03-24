@@ -37,6 +37,11 @@
           >{{ post.category_name }}</RouterLink>
           <span class="date">{{ formatDate(post.published_at || post.created_at) }}</span>
           <span class="reading-time">{{ readingTime }} min read</span>
+          <RouterLink
+            v-if="post.author_name"
+            :to="`/blog/author/${encodeURIComponent(post.author_name)}`"
+            class="author-link"
+          >✍️ {{ post.author_name }}</RouterLink>
         </div>
         <h1 class="post-title">{{ post.title }}</h1>
         <p class="post-excerpt" v-if="post.excerpt">{{ post.excerpt }}</p>
@@ -519,6 +524,16 @@ function formatDate(iso) {
   opacity: 0.8;
 }
 .reading-time::before { content: '·'; margin-right: 0.5rem; }
+
+.author-link {
+  font-size: 0.78rem;
+  color: var(--accent);
+  text-decoration: none;
+  opacity: 0.85;
+  transition: opacity .15s;
+}
+.author-link::before { content: '·'; margin-right: 0.5rem; color: var(--text-muted); }
+.author-link:hover { opacity: 1; text-decoration: underline; }
 
 /* Tags + share row */
 .post-bottom-row {

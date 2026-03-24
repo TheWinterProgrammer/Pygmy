@@ -24,6 +24,7 @@
           <li><a href="/support">🎫 Support</a></li>
           <li><a href="/contact">Contact</a></li>
           <li><a href="/search">Search</a></li>
+          <li><a href="/blog/authors">✍️ Authors</a></li>
           <li><a href="/vendors">🏪 Marketplace</a></li>
           <li><a href="/vendor-portal">Sell on {{ site.settings.site_name || 'our store' }}</a></li>
         </ul>

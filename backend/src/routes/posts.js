@@ -143,6 +143,42 @@ router.post('/bulk', authMiddleware, (req, res) => {
   res.status(400).json({ error: 'Unknown action' })
 })
 
+// GET /api/posts/authors — list all unique post authors
+router.get('/authors', (req, res) => {
+  const authors = db.prepare(`
+    SELECT author_name, author_email,
+           COUNT(*) as post_count,
+           MAX(published_at) as last_published_at
+    FROM posts
+    WHERE status = 'published' AND author_name != ''
+    GROUP BY author_name
+    ORDER BY post_count DESC
+  `).all()
+  res.json(authors)
+})
+
+// GET /api/posts/author/:name — posts by author name (public)
+router.get('/author/:name', (req, res) => {
+  const name = decodeURIComponent(req.params.name)
+  const limit = Math.min(parseInt(req.query.limit) || 12, 50)
+  const offset = parseInt(req.query.offset) || 0
+
+  const rows = db.prepare(`
+    SELECT p.*, c.name as category_name, c.slug as category_slug
+    FROM posts p
+    LEFT JOIN categories c ON c.id = p.category_id
+    WHERE p.status = 'published' AND p.author_name = ?
+    ORDER BY p.published_at DESC, p.created_at DESC
+    LIMIT ? OFFSET ?
+  `).all(name, limit, offset).map(parsePost)
+
+  const total = db.prepare(`
+    SELECT COUNT(*) as total FROM posts WHERE status = 'published' AND author_name = ?
+  `).get(name).total
+
+  res.json({ posts: rows, total, author: name })
+})
+
 // GET /api/posts/:slug/related — 3 related posts by same category, falling back to recent
 router.get('/:slug/related', (req, res) => {
   const post = db.prepare('SELECT id, category_id, tags FROM posts WHERE slug = ?').get(req.params.slug)
