@@ -34,11 +34,20 @@
             <input v-model="form.slug" class="input" placeholder="product-slug" />
           </div>
           <div class="form-group">
-            <label>Short Description / Excerpt</label>
+            <label>Short Description / Excerpt
+              <button class="btn-ai" title="Generate with AI" @click="aiGenExcerpt" :disabled="!form.name || aiLoading">
+                {{ aiLoading === 'excerpt' ? '⏳' : '🤖 AI' }}
+              </button>
+            </label>
             <textarea v-model="form.excerpt" class="input" rows="2" placeholder="One-liner shown in listing…" />
           </div>
           <div class="form-group">
-            <label>Full Description</label>
+            <label>Full Description
+              <button class="btn-ai" title="Generate with AI" @click="aiGenDescription" :disabled="!form.name || aiLoading">
+                {{ aiLoading === 'description' ? '⏳' : '🤖 AI' }}
+              </button>
+            </label>
+            <div v-if="aiError" class="ai-error">{{ aiError }}</div>
             <RichEditor v-model="form.description" placeholder="Full product details…" />
           </div>
         </div>
@@ -320,6 +329,36 @@
             Stock tracking is off. Product always shows as available.
           </p>
         </div>
+
+        <!-- Pre-Orders -->
+        <div class="glass section">
+          <h3 style="margin-bottom:1rem">🛒 Pre-Orders</h3>
+          <label class="checkbox-row" style="margin-bottom:.875rem;">
+            <input type="checkbox" v-model="form.preorder_enabled" />
+            <span>Enable pre-orders for this product</span>
+          </label>
+          <template v-if="form.preorder_enabled">
+            <div class="form-group">
+              <label>Pre-Order Button Message</label>
+              <input v-model="form.preorder_message" class="input" placeholder="Pre-order now — ships when available" />
+              <small style="color:var(--text-muted);font-size:.75rem;">Shown on the product page and Add to Cart button.</small>
+            </div>
+            <div class="form-group">
+              <label>Expected Release Date <span style="color:#888;font-weight:400;">(optional)</span></label>
+              <input v-model="form.preorder_release_date" class="input" type="date" />
+            </div>
+            <div class="form-group">
+              <label>Pre-Order Limit <span style="color:#888;font-weight:400;">(0 = unlimited)</span></label>
+              <input v-model.number="form.preorder_limit" class="input" type="number" min="0" step="1" />
+              <small style="color:var(--text-muted);font-size:.75rem;">
+                Max pre-orders accepted. Current: <strong>{{ form.preorder_count || 0 }}</strong>
+              </small>
+            </div>
+          </template>
+          <p v-else class="text-muted" style="font-size:.85rem;margin:.5rem 0 0;">
+            Pre-orders are off. Enable to let customers order before the product ships.
+          </p>
+        </div>
       </div>
     </div>
   </div>
@@ -345,6 +384,51 @@ const isNew    = computed(() => !route.params.id)
 const lock     = useContentLock('product', computed(() => isNew.value ? null : route.params.id))
 const saving   = ref(false)
 const showPicker  = ref(false)
+
+// ─── AI Content ───────────────────────────────────────────────────────────────
+const aiLoading = ref(null) // 'excerpt' | 'description' | null
+const aiError   = ref('')
+
+async function aiGenExcerpt() {
+  if (!form.value.name) return
+  aiLoading.value = 'excerpt'
+  aiError.value = ''
+  try {
+    const tags = Array.isArray(form.value.tags) ? form.value.tags : []
+    const { data } = await api.post('/ai/post-excerpt', {
+      title: form.value.name,
+      content: form.value.excerpt || form.value.description || '',
+      category: '',
+    })
+    form.value.excerpt = data.text
+    toast.show('✨ Excerpt generated!', 'success')
+  } catch (e) {
+    aiError.value = e.response?.data?.error || 'AI generation failed — check Settings → AI Content'
+  } finally {
+    aiLoading.value = null
+  }
+}
+
+async function aiGenDescription() {
+  if (!form.value.name) return
+  aiLoading.value = 'description'
+  aiError.value = ''
+  try {
+    const tags = Array.isArray(form.value.tags) ? form.value.tags : []
+    const { data } = await api.post('/ai/product-description', {
+      name: form.value.name,
+      excerpt: form.value.excerpt || '',
+      price: form.value.price,
+      tags,
+    })
+    form.value.description = data.text.split('\n').map(p => p.trim()).filter(Boolean).map(p => `<p>${p}</p>`).join('')
+    toast.show('✨ Description generated!', 'success')
+  } catch (e) {
+    aiError.value = e.response?.data?.error || 'AI generation failed — check Settings → AI Content'
+  } finally {
+    aiLoading.value = null
+  }
+}
 
 // ─── Variants ─────────────────────────────────────────────────────────────────
 const variantGroups = ref([]) // [{ id?, name, options: [{label,price_adj,sku_suffix,stock}], saving }]
@@ -438,6 +522,8 @@ const form = ref({
   track_stock: false, stock_quantity: 0,
   allow_backorder: false, low_stock_threshold: 5,
   is_digital: false,
+  preorder_enabled: false, preorder_message: 'Pre-order now — ships when available',
+  preorder_release_date: '', preorder_limit: 0, preorder_count: 0,
 })
 
 onMounted(async () => {
@@ -473,6 +559,11 @@ onMounted(async () => {
         allow_backorder: Boolean(product.allow_backorder),
         low_stock_threshold: product.low_stock_threshold ?? 5,
         is_digital: Boolean(product.is_digital),
+        preorder_enabled: Boolean(product.preorder_enabled),
+        preorder_message: product.preorder_message || 'Pre-order now — ships when available',
+        preorder_release_date: product.preorder_release_date ? product.preorder_release_date.slice(0,10) : '',
+        preorder_limit: product.preorder_limit || 0,
+        preorder_count: product.preorder_count || 0,
       }
       tagsInput.value = (product.tags || []).join(', ')
     } catch {
@@ -559,6 +650,10 @@ async function save(status) {
       allow_backorder: form.value.allow_backorder,
       low_stock_threshold: parseInt(form.value.low_stock_threshold) || 5,
       is_digital: form.value.is_digital ? 1 : 0,
+      preorder_enabled: form.value.preorder_enabled ? 1 : 0,
+      preorder_message: form.value.preorder_message,
+      preorder_release_date: form.value.preorder_release_date || null,
+      preorder_limit: parseInt(form.value.preorder_limit) || 0,
     }
     if (isNew.value) {
       const { data } = await api.post('/products', payload)

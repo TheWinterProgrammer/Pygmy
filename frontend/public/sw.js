@@ -1,33 +1,55 @@
-// Pygmy CMS — Service Worker for Web Push Notifications
-self.addEventListener('install', () => self.skipWaiting())
-self.addEventListener('activate', e => e.waitUntil(self.clients.claim()))
+// Pygmy CMS — Service Worker (Phase 55)
+// Provides offline fallback and asset caching for PWA support.
 
-self.addEventListener('push', e => {
-  if (!e.data) return
-  let data
-  try { data = e.data.json() } catch { data = { title: 'New Notification', body: e.data.text(), data: { url: '/' } } }
+const CACHE_NAME = 'pygmy-v1'
+const OFFLINE_URL = '/offline.html'
 
-  const options = {
-    body:    data.body    || '',
-    icon:    data.icon    || '/favicon.svg',
-    badge:   data.badge   || '/favicon.svg',
-    image:   data.image   || undefined,
-    data:    data.data    || { url: '/' },
-    vibrate: [200, 100, 200],
-    requireInteraction: false,
-  }
+// Assets to pre-cache
+const PRECACHE = [
+  '/',
+  '/offline.html',
+]
 
-  e.waitUntil(self.registration.showNotification(data.title || 'Pygmy CMS', options))
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE)).then(() => self.skipWaiting())
+  )
 })
 
-self.addEventListener('notificationclick', e => {
-  e.notification.close()
-  const url = e.notification.data?.url || '/'
-  e.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
-      const existing = clients.find(c => c.url === url && 'focus' in c)
-      if (existing) return existing.focus()
-      return self.clients.openWindow(url)
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+    ).then(() => self.clients.claim())
+  )
+})
+
+self.addEventListener('fetch', (event) => {
+  // Only handle GET requests for navigation
+  if (event.request.method !== 'GET') return
+  // Don't intercept API calls
+  if (event.request.url.includes('/api/')) return
+
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(() =>
+        caches.match(OFFLINE_URL).then((r) => r || new Response('Offline', { status: 503 }))
+      )
+    )
+    return
+  }
+
+  // Stale-while-revalidate for static assets
+  event.respondWith(
+    caches.match(event.request).then((cached) => {
+      const fetchPromise = fetch(event.request).then((response) => {
+        if (response && response.status === 200 && event.request.url.match(/\.(js|css|png|jpg|webp|svg|woff2)$/)) {
+          const clone = response.clone()
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone))
+        }
+        return response
+      })
+      return cached || fetchPromise
     })
   )
 })

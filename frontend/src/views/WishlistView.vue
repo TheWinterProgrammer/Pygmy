@@ -3,29 +3,42 @@
     <div class="container">
       <div class="wishlist-header">
         <h1>♡ Wishlist</h1>
-        <div class="header-actions" v-if="wishlist.items.length">
-          <span class="text-muted" style="font-size:.9rem;">{{ wishlist.count }} item{{ wishlist.count !== 1 ? 's' : '' }}</span>
-          <button class="btn btn-ghost btn-sm" @click="wishlist.clear()">Clear all</button>
+        <div class="header-actions" v-if="(displayItems !== null ? displayItems.length : wishlist.items.length)">
+          <span class="text-muted" style="font-size:.9rem;">
+            {{ (displayItems !== null ? displayItems.length : wishlist.count) }} item{{ (displayItems !== null ? displayItems.length : wishlist.count) !== 1 ? 's' : '' }}
+          </span>
+          <span v-if="customer.isLoggedIn" class="text-muted" style="font-size:.8rem;opacity:.6;">☁️ Synced</span>
+          <button class="btn btn-ghost btn-sm" @click="wishlist.clear(); if (displayItems !== null) displayItems = []">Clear all</button>
         </div>
       </div>
 
+      <!-- Loading state -->
+      <div v-if="serverLoading" class="loading-state glass" style="padding:2rem;text-align:center;border-radius:1rem;">
+        Loading your wishlist…
+      </div>
+
       <!-- Empty state -->
-      <div class="empty-state glass" v-if="!wishlist.items.length">
+      <div class="empty-state glass" v-else-if="(displayItems !== null ? !displayItems.length : !wishlist.items.length)">
         <div style="font-size:3rem;margin-bottom:.75rem;">♡</div>
         <h2>Your wishlist is empty</h2>
         <p class="text-muted">Save products you love and come back to them later.</p>
         <RouterLink to="/shop" class="btn btn-primary" style="margin-top:1rem;">Browse Shop</RouterLink>
       </div>
 
+      <!-- Server error notice -->
+      <div v-if="serverError" style="color:#f87171;font-size:.85rem;margin-bottom:.75rem;">{{ serverError }}</div>
+
       <!-- Wishlist grid -->
-      <div class="wishlist-grid" v-else>
-        <div class="wishlist-card glass" v-for="item in wishlist.items" :key="item.id">
+      <div class="wishlist-grid" v-if="!serverLoading && (displayItems !== null ? displayItems.length : wishlist.items.length)">
+        <div class="wishlist-card glass" v-for="item in (displayItems !== null ? displayItems : wishlist.items)" :key="item.id">
           <div class="card-img">
             <RouterLink :to="`/shop/${item.slug}`">
               <img v-if="item.cover_image" :src="item.cover_image" :alt="item.name" />
               <div v-else class="img-placeholder">🛍️</div>
             </RouterLink>
-            <button class="remove-heart" @click="wishlist.remove(item.id)" title="Remove from wishlist">♥</button>
+            <button class="remove-heart"
+              @click="displayItems !== null ? removeServerItem(item.id) : wishlist.remove(item.id)"
+              title="Remove from wishlist">♥</button>
           </div>
 
           <div class="card-body">
@@ -50,13 +63,55 @@
 </template>
 
 <script setup>
+import { ref, onMounted } from 'vue'
 import { useWishlistStore } from '../stores/wishlist.js'
 import { useCartStore } from '../stores/cart.js'
 import { useSiteStore } from '../stores/site.js'
+import { useCustomerStore } from '../stores/customer.js'
+import api from '../api.js'
 
-const wishlist = useWishlistStore()
-const cart     = useCartStore()
-const site     = useSiteStore()
+const wishlist  = useWishlistStore()
+const cart      = useCartStore()
+const site      = useSiteStore()
+const customer  = useCustomerStore()
+
+// Server-side wishlist state (for logged-in customers)
+const serverItems   = ref(null)  // null = not loaded yet
+const serverLoading = ref(false)
+const serverError   = ref(null)
+
+// Items to display: prefer server items when logged in
+const displayItems = ref(null)
+
+async function loadServerWishlist() {
+  if (!customer.isLoggedIn) return
+  serverLoading.value = true
+  try {
+    const { data } = await api.get('/wishlists/me', {
+      headers: { Authorization: `Bearer ${customer.token}` }
+    })
+    serverItems.value = data || []
+    displayItems.value = data
+  } catch (e) {
+    serverError.value = 'Could not load wishlist from server.'
+  } finally {
+    serverLoading.value = false
+  }
+}
+
+async function removeServerItem(productId) {
+  try {
+    await api.delete(`/wishlists/me/${productId}`, {
+      headers: { Authorization: `Bearer ${customer.token}` }
+    })
+    serverItems.value = serverItems.value.filter(i => i.id !== productId)
+    displayItems.value = serverItems.value
+    // Also remove from local store
+    wishlist.remove(productId)
+  } catch {}
+}
+
+onMounted(loadServerWishlist)
 
 function fmt(v) {
   const symbol = site.settings?.shop_currency_symbol || '€'

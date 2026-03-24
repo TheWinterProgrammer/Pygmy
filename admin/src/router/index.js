@@ -110,6 +110,11 @@ const routes = [
       { path: 'inventory-adjustments', name: 'InventoryAdjustments', component: () => import('../views/InventoryAdjustmentsView.vue') },
       { path: 'tax-report',            name: 'TaxReport',            component: () => import('../views/TaxReportView.vue') },
       { path: 'vendors',           name: 'Vendors',          component: () => import('../views/VendorsView.vue') },
+      { path: 'charity',           name: 'Charity',          component: () => import('../views/CharityView.vue') },
+      { path: 'stock-history',     name: 'StockHistory',     component: () => import('../views/StockHistoryView.vue') },
+      { path: 'preorders',         name: 'Preorders',        component: () => import('../views/PreordersView.vue') },
+      { path: 'order-shipments',   name: 'OrderShipments',   component: () => import('../views/OrderShipmentsView.vue') },
+      { path: 'ai-content',        name: 'AiContent',        component: () => import('../views/AiContentView.vue') },
       { path: 'settings',          name: 'Settings',         component: () => import('../views/SettingsView.vue') },
     ]
   },

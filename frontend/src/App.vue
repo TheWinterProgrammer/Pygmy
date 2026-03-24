@@ -20,6 +20,7 @@
     <SupportWidget />
     <CompareDrawer />
     <PushPrompt />
+    <InstallPrompt />
   </div>
 
   <!-- Loading screen -->
@@ -40,6 +41,7 @@ import SitePopup from './components/SitePopup.vue'
 import SupportWidget from './components/SupportWidget.vue'
 import CompareDrawer from './components/CompareDrawer.vue'
 import PushPrompt from './components/PushPrompt.vue'
+import InstallPrompt from './components/InstallPrompt.vue'
 import { useAffiliate } from './composables/useAffiliate.js'
 
 const site = useSiteStore()

@@ -118,6 +118,52 @@
             <span class="meta-label">Notes:</span> {{ result.notes }}
           </div>
 
+          <!-- Cancel Order section -->
+          <div class="cancel-section" v-if="canCancel">
+            <div v-if="!showCancelForm">
+              <button class="btn btn-cancel btn-full" @click="showCancelForm = true">✕ Cancel This Order</button>
+            </div>
+            <div v-else class="cancel-form glass">
+              <h4>Cancel Order {{ result.order_number }}</h4>
+              <p class="cancel-warning">⚠️ This action cannot be undone. Your order will be cancelled.</p>
+              <div class="form-group">
+                <label>Reason (optional)</label>
+                <input v-model="cancelReason" class="lookup-input" placeholder="e.g. Changed my mind…" />
+              </div>
+              <div v-if="cancelError" class="cancel-error">{{ cancelError }}</div>
+              <div class="cancel-actions">
+                <button class="btn btn-ghost" @click="showCancelForm = false">Keep Order</button>
+                <button class="btn btn-danger" @click="doCancel" :disabled="cancelling">
+                  {{ cancelling ? 'Cancelling…' : '✕ Confirm Cancel' }}
+                </button>
+              </div>
+            </div>
+            <div class="cancel-success glass" v-if="cancelSuccess">
+              ✅ Your order has been cancelled. You'll receive a confirmation shortly.
+            </div>
+          </div>
+
+          <!-- Add Note Section -->
+          <div class="note-section" v-if="!['cancelled','refunded'].includes(result.status)">
+            <div v-if="!showNoteForm">
+              <button class="btn btn-ghost btn-full" @click="showNoteForm = true" style="margin-top:.75rem;">
+                📝 Add a Note to This Order
+              </button>
+            </div>
+            <div v-else class="note-form glass" style="margin-top:1rem;padding:1.25rem;border-radius:1rem;">
+              <h4 style="margin:0 0 .75rem;">Add Order Note</h4>
+              <textarea v-model="noteText" class="input" rows="3" placeholder="e.g. Please leave at door, special delivery instructions…" style="width:100%;resize:vertical;"></textarea>
+              <div v-if="noteError" class="cancel-error" style="margin-top:.5rem;">{{ noteError }}</div>
+              <div v-if="noteSuccess" style="color:#4ade80;margin-top:.5rem;">✅ Note added!</div>
+              <div style="display:flex;gap:.5rem;margin-top:.75rem;">
+                <button class="btn btn-ghost" @click="showNoteForm = false; noteText = ''">Cancel</button>
+                <button class="btn btn-primary" @click="addNote" :disabled="noteLoading || !noteText.trim()">
+                  {{ noteLoading ? 'Adding…' : 'Add Note' }}
+                </button>
+              </div>
+            </div>
+          </div>
+
           <!-- Track again -->
           <button class="btn btn-ghost btn-full" style="margin-top:1.25rem;" @click="reset">
             ← Track another order
@@ -129,7 +175,7 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import api from '../api.js'
 import { useSiteStore } from '../stores/site.js'
 import OrderTimeline from '../components/OrderTimeline.vue'
@@ -140,6 +186,67 @@ const looking = ref(false)
 const result  = ref(null)
 const form    = reactive({ order_number: '', email: '' })
 const errors  = reactive({ order_number: '', email: '', global: '' })
+
+// Cancel order
+const showCancelForm = ref(false)
+const cancelReason   = ref('')
+const cancelling     = ref(false)
+const cancelError    = ref('')
+const cancelSuccess  = ref(false)
+
+// Customer note
+const showNoteForm = ref(false)
+const noteText     = ref('')
+const noteLoading  = ref(false)
+const noteError    = ref('')
+const noteSuccess  = ref(false)
+
+async function addNote() {
+  if (!noteText.value.trim()) return
+  noteLoading.value = true
+  noteError.value = ''
+  noteSuccess.value = false
+  try {
+    await api.post('/orders/customer-note', {
+      order_number: result.value.order_number,
+      email: form.email || result.value.customer_email,
+      note: noteText.value.trim()
+    })
+    noteSuccess.value = true
+    noteText.value = ''
+    setTimeout(() => { showNoteForm.value = false; noteSuccess.value = false }, 2500)
+  } catch (e) {
+    noteError.value = e.response?.data?.error || 'Failed to add note.'
+  } finally {
+    noteLoading.value = false
+  }
+}
+
+const canCancel = computed(() => {
+  if (!result.value) return false
+  const status = result.value.status
+  return ['pending', 'processing'].includes(status)
+})
+
+async function doCancel() {
+  if (!result.value) return
+  cancelling.value = true
+  cancelError.value = ''
+  try {
+    await api.post('/orders/cancel', {
+      order_number: result.value.order_number,
+      email: form.email || result.value.customer_email,
+      reason: cancelReason.value
+    })
+    cancelSuccess.value = true
+    showCancelForm.value = false
+    result.value = { ...result.value, status: 'cancelled' }
+  } catch (e) {
+    cancelError.value = e.response?.data?.error || 'Cancellation failed. Please contact support.'
+  } finally {
+    cancelling.value = false
+  }
+}
 
 function validate() {
   errors.order_number = form.order_number.trim() ? '' : 'Order number is required.'
@@ -290,4 +397,17 @@ function fmt(v) {
 
 .result-notes { font-size: .85rem; color: var(--text-muted); margin-top: .5rem; line-height: 1.5; }
 .tracking-card { margin-bottom: 1rem; padding: 1rem; background: rgba(255,255,255,.04); border-radius: .75rem; border: 1px solid rgba(255,255,255,.08); }
+
+/* Cancel Order */
+.cancel-section { margin-top: 1.25rem; display: flex; flex-direction: column; gap: .75rem; }
+.btn-cancel { background: rgba(245,101,101,.1); border: 1px solid rgba(245,101,101,.3); color: #f56565; border-radius: .75rem; padding: .65rem 1.25rem; cursor: pointer; font-size: .9rem; font-weight: 500; transition: background .2s; width: 100%; }
+.btn-cancel:hover { background: rgba(245,101,101,.18); }
+.btn-danger { background: rgba(245,101,101,.2); border: 1px solid rgba(245,101,101,.4); color: #f56565; border-radius: .75rem; padding: .6rem 1.25rem; cursor: pointer; font-size: .9rem; font-weight: 600; transition: background .2s; }
+.btn-danger:hover { background: rgba(245,101,101,.3); }
+.cancel-form { display: flex; flex-direction: column; gap: .75rem; padding: 1.25rem; border-radius: 1rem; }
+.cancel-form h4 { margin: 0; font-size: 1rem; }
+.cancel-warning { font-size: .85rem; color: #f6ad55; margin: 0; }
+.cancel-actions { display: flex; gap: .5rem; justify-content: flex-end; }
+.cancel-error { font-size: .85rem; color: #f56565; background: rgba(245,101,101,.1); padding: .5rem .75rem; border-radius: .5rem; }
+.cancel-success { padding: .75rem 1rem; border-radius: .75rem; color: #48bb78; background: rgba(72,187,120,.1); font-size: .9rem; }
 </style>

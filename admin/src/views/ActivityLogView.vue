@@ -2,7 +2,12 @@
   <div>
     <div class="page-header">
       <h1>🕐 Activity Log</h1>
-      <button class="btn btn-ghost btn-sm" @click="fetchActivity">↺ Refresh</button>
+      <div style="display:flex;gap:.5rem;">
+        <button class="btn btn-ghost btn-sm" @click="exportCsv" :disabled="exportLoading">
+          {{ exportLoading ? 'Exporting…' : '⬇️ Export CSV' }}
+        </button>
+        <button class="btn btn-ghost btn-sm" @click="fetchActivity">↺ Refresh</button>
+      </div>
     </div>
 
     <!-- Filter bar -->
@@ -85,11 +90,31 @@ import api from '../api.js'
 const log = ref([])
 const total = ref(0)
 const loading = ref(false)
+const exportLoading = ref(false)
 const q = ref('')
 const entityFilter = ref('')
 const actionFilter = ref('')
 const offset = ref(0)
 const perPage = 50
+
+async function exportCsv() {
+  exportLoading.value = true
+  try {
+    const params = {}
+    if (q.value) params.q = q.value
+    if (entityFilter.value) params.entity_type = entityFilter.value
+    if (actionFilter.value) params.action = actionFilter.value
+    const res = await api.get('/activity/export/csv', { params, responseType: 'blob' })
+    const url = URL.createObjectURL(new Blob([res.data], { type: 'text/csv' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `activity-log-${new Date().toISOString().slice(0,10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch {} finally {
+    exportLoading.value = false
+  }
+}
 
 let debounceTimer = null
 function debounceFetch() {

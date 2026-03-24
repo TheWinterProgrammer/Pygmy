@@ -180,7 +180,12 @@ const navItems = [
   { to: '/customer-ltv',             icon: '📊',  label: 'Customer LTV' },
   { to: '/order-tags',               icon: '🏷️',  label: 'Order Tags' },
   { to: '/inventory-adjustments',    icon: '📦',  label: 'Inventory Log' },
+  { to: '/stock-history',            icon: '📋',  label: 'Stock History' },
+  { to: '/preorders',               icon: '🛒',  label: 'Preorders' },
+  { to: '/order-shipments',          icon: '📬',  label: 'Multi-Shipments' },
+  { to: '/ai-content',               icon: '🤖',  label: 'AI Content Helper' },
   { to: '/tax-report',               icon: '🧮',  label: 'Tax Report' },
+  { to: '/charity',                  icon: '💝',  label: 'Charity Campaigns' },
   { to: '/settings',          icon: '⚙️',  label: 'Settings' },
 ]
 

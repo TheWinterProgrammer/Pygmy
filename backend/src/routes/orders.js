@@ -2,7 +2,7 @@
 import { Router } from 'express'
 import jwt from 'jsonwebtoken'
 import db from '../db.js'
-import { authMiddleware } from '../middleware/auth.js'
+import { authMiddleware, customerAuthMiddleware } from '../middleware/auth.js'
 import { logActivity } from './activity.js'
 import { fireWebhooks } from './webhooks.js'
 import { fireAutomation } from './automation.js'
@@ -77,6 +77,8 @@ router.post('/', (req, res) => {
     gift_message = '',
     payment_method = 'manual',
     payment_reference = '',
+    donation_amount = 0,
+    donation_campaign_id = null,
   } = req.body
 
   if (!customer_name || !customer_email) {
@@ -196,7 +198,8 @@ router.post('/', (req, res) => {
 
   // Tax inclusive means tax is already in subtotal, so don't add it again
   const taxInclusive = getSetting('tax_inclusive') === '1'
-  const computedTotal = Math.max(0, computedSubtotal - discountAmount - loyaltyDiscount - giftCardDiscount - storeCreditDiscount + shippingCostNum + giftWrapCost + (taxInclusive ? 0 : taxAmountNum))
+  const donationAmountNum = Math.max(0, parseFloat(donation_amount) || 0)
+  const computedTotal = Math.max(0, computedSubtotal - discountAmount - loyaltyDiscount - giftCardDiscount - storeCreditDiscount + shippingCostNum + giftWrapCost + (taxInclusive ? 0 : taxAmountNum)) + donationAmountNum
   const orderNumber = generateOrderNumber()
 
   // Use a transaction: insert order + decrement stock + increment coupon uses + loyalty
@@ -207,8 +210,8 @@ router.post('/', (req, res) => {
         items, subtotal, discount_amount, shipping_cost, shipping_zone, shipping_method,
         shipping_country, shipping_rate_name, total, coupon_code, notes, customer_id, tax_amount, tax_rate_name,
         gift_card_code, gift_card_discount, gift_wrap, gift_message, gift_wrap_cost, store_credit_used,
-        payment_method, payment_status, payment_reference)
-      VALUES (?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        payment_method, payment_status, payment_reference, donation_amount, donation_campaign_id)
+      VALUES (?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       orderNumber,
       customer_name.trim(),
@@ -239,14 +242,16 @@ router.post('/', (req, res) => {
       storeCreditDiscount,
       (payment_method || 'manual').trim(),
       'unpaid',
-      (payment_reference || '').trim()
+      (payment_reference || '').trim(),
+      donationAmountNum,
+      donation_campaign_id || null
     )
 
     const newOrderId = result.lastInsertRowid
 
-    // Decrement stock for tracked products
+    // Decrement stock for tracked products; increment preorder_count for preorder products
     for (const item of validatedItems) {
-      const p = db.prepare('SELECT track_stock FROM products WHERE id = ?').get(item.product_id)
+      const p = db.prepare('SELECT track_stock, preorder_enabled FROM products WHERE id = ?').get(item.product_id)
       if (p?.track_stock) {
         db.prepare(`
           UPDATE products
@@ -254,6 +259,9 @@ router.post('/', (req, res) => {
               updated_at = datetime('now')
           WHERE id = ?
         `).run(item.quantity, item.product_id)
+      }
+      if (p?.preorder_enabled) {
+        db.prepare(`UPDATE products SET preorder_count = preorder_count + ? WHERE id = ?`).run(item.quantity, item.product_id)
       }
     }
 
@@ -373,6 +381,19 @@ router.post('/', (req, res) => {
 
   // Record vendor sales (fire-and-forget)
   try { await recordVendorSale(newId, orderNumber, validatedItems.map(i => ({ product_id: i.product_id || i.id, name: i.name, quantity: i.quantity, unit_price: i.unit_price || i.price }))) } catch {}
+
+  // Record charity donation
+  if (donationAmountNum > 0 && donation_campaign_id) {
+    try {
+      db.prepare(`
+        INSERT INTO charity_donations (campaign_id, order_id, order_number, customer_email, amount)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(donation_campaign_id, newId, orderNumber, customer_email?.trim().toLowerCase() || '', donationAmountNum)
+      db.prepare(`
+        UPDATE charity_campaigns SET total_raised = total_raised + ?, donation_count = donation_count + 1 WHERE id = ?
+      `).run(donationAmountNum, donation_campaign_id)
+    } catch (e) { console.warn('Charity donation record error:', e.message) }
+  }
 
   // Send order confirmation email (fire-and-forget)
   sendOrderConfirmation({ ...order, items: validatedItems, downloadTokens }).catch(() => {})
@@ -595,6 +616,94 @@ router.put('/:id', authMiddleware, (req, res) => {
   }
 
   res.json({ ...updated, items: JSON.parse(updated.items || '[]') })
+})
+
+// ─── Customer: Cancel own order ───────────────────────────────────────────────
+// POST /api/orders/cancel
+router.post('/cancel', (req, res) => {
+  const { order_number, email, reason } = req.body
+  if (!order_number || !email) return res.status(400).json({ error: 'order_number and email required' })
+
+  // Check feature enabled
+  const enabled = db.prepare(`SELECT value FROM settings WHERE key = 'customer_cancel_enabled'`).get()
+  if (!enabled || enabled.value !== '1') return res.status(403).json({ error: 'Order cancellation is not available' })
+
+  const order = db.prepare(`SELECT * FROM orders WHERE order_number = ? AND LOWER(customer_email) = LOWER(?)`).get(order_number.trim(), email.trim())
+  if (!order) return res.status(404).json({ error: 'Order not found. Please check your order number and email.' })
+
+  if (order.status === 'cancelled') return res.status(400).json({ error: 'Order is already cancelled.' })
+  if (['shipped', 'completed', 'refunded'].includes(order.status)) {
+    return res.status(400).json({ error: `This order cannot be cancelled because it is ${order.status}.` })
+  }
+
+  // Check time window
+  const windowHours = parseInt(db.prepare(`SELECT value FROM settings WHERE key = 'customer_cancel_window'`).get()?.value || '24')
+  const orderDate = new Date(order.created_at)
+  const hoursSince = (Date.now() - orderDate.getTime()) / 3600000
+  if (windowHours > 0 && hoursSince > windowHours) {
+    return res.status(400).json({ error: `The ${windowHours}-hour cancellation window has passed. Please contact support.` })
+  }
+
+  db.prepare(`
+    UPDATE orders SET status='cancelled', cancelled_by='customer', cancel_reason=?, cancelled_at=datetime('now') WHERE id=?
+  `).run((reason || '').trim(), order.id)
+
+  // Log timeline event
+  try {
+    db.prepare(`INSERT INTO order_timeline (order_id, event, description, actor) VALUES (?, 'cancelled', ?, 'customer')`)
+      .run(order.id, reason ? `Customer cancelled: ${reason}` : 'Cancelled by customer')
+  } catch {}
+
+  res.json({ ok: true, message: 'Your order has been cancelled.' })
+})
+
+// ─── Customer: Add note to order ─────────────────────────────────────────────
+// POST /api/orders/customer-note  { order_number, email, note }
+router.post('/customer-note', (req, res) => {
+  const { order_number, email, note } = req.body
+  if (!order_number || !email || !note?.trim()) {
+    return res.status(400).json({ error: 'order_number, email, and note are required' })
+  }
+
+  const order = db.prepare(
+    `SELECT * FROM orders WHERE order_number = ? AND LOWER(customer_email) = LOWER(?)`
+  ).get(order_number.trim(), email.trim())
+  if (!order) return res.status(404).json({ error: 'Order not found. Check your order number and email.' })
+
+  // Append note to order notes (preserve existing notes)
+  const existing = order.notes ? order.notes.trim() : ''
+  const timestamp = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  const newNote = existing
+    ? `${existing}\n\n[Customer, ${timestamp}]: ${note.trim()}`
+    : `[Customer, ${timestamp}]: ${note.trim()}`
+
+  db.prepare(`UPDATE orders SET notes = ? WHERE id = ?`).run(newNote, order.id)
+
+  // Log to order timeline
+  try {
+    db.prepare(`INSERT INTO order_timeline (order_id, event, description, actor) VALUES (?, 'note_added', ?, 'customer')`)
+      .run(order.id, note.trim().slice(0, 500))
+  } catch {}
+
+  res.json({ ok: true, message: 'Note added to your order.' })
+})
+
+// ─── Customer: Get order timeline (public, by order_number + email) ───────────
+// POST /api/orders/timeline-lookup  { order_number, email }
+router.post('/timeline-lookup', (req, res) => {
+  const { order_number, email } = req.body
+  if (!order_number || !email) return res.status(400).json({ error: 'order_number and email required' })
+
+  const order = db.prepare(
+    `SELECT id FROM orders WHERE order_number = ? AND LOWER(customer_email) = LOWER(?)`
+  ).get(order_number.trim(), email.trim())
+  if (!order) return res.status(404).json({ error: 'Order not found' })
+
+  const timeline = db.prepare(
+    `SELECT event, description, actor, created_at FROM order_timeline WHERE order_id = ? ORDER BY created_at ASC`
+  ).all(order.id)
+
+  res.json({ timeline })
 })
 
 // ─── Admin: Delete order ──────────────────────────────────────────────────────

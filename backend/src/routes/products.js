@@ -57,6 +57,12 @@ function parseProduct(row) {
     video_url: row.video_url || '',
     in_stock: !row.track_stock || row.stock_quantity > 0 || Boolean(row.allow_backorder),
     low_stock: Boolean(row.track_stock) && (row.stock_quantity ?? 0) <= (row.low_stock_threshold ?? 5) && (row.stock_quantity ?? 0) > 0,
+    preorder_enabled: Boolean(row.preorder_enabled),
+    preorder_message: row.preorder_message || 'Pre-order now — ships when available',
+    preorder_release_date: row.preorder_release_date || null,
+    preorder_limit: row.preorder_limit ?? 0,
+    preorder_count: row.preorder_count ?? 0,
+    preorder_available: Boolean(row.preorder_enabled) && (!(row.preorder_limit > 0) || (row.preorder_count < row.preorder_limit)),
   }
 }
 
@@ -260,6 +266,10 @@ router.post('/', authMiddleware, (req, res) => {
     allow_backorder = false, low_stock_threshold = 5,
     is_digital = false,
     video_url = '',
+    preorder_enabled = false,
+    preorder_message = 'Pre-order now — ships when available',
+    preorder_release_date = null,
+    preorder_limit = 0,
   } = req.body
 
   if (!name?.trim()) return res.status(400).json({ error: 'name required' })
@@ -278,8 +288,9 @@ router.post('/', authMiddleware, (req, res) => {
     INSERT INTO products
       (name, slug, excerpt, description, price, sale_price, sku, cover_image, gallery,
        category_id, tags, status, featured, meta_title, meta_desc, publish_at,
-       track_stock, stock_quantity, allow_backorder, low_stock_threshold, is_digital, video_url)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+       track_stock, stock_quantity, allow_backorder, low_stock_threshold, is_digital, video_url,
+       preorder_enabled, preorder_message, preorder_release_date, preorder_limit)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `).run(
     name.trim(), slug, excerpt, description,
     price, sale_price, sku, cover_image,
@@ -292,6 +303,10 @@ router.post('/', authMiddleware, (req, res) => {
     parseInt(low_stock_threshold) || 5,
     is_digital ? 1 : 0,
     (video_url || '').trim(),
+    preorder_enabled ? 1 : 0,
+    preorder_message || 'Pre-order now — ships when available',
+    preorder_release_date || null,
+    parseInt(preorder_limit) || 0,
   )
 
   const product = db.prepare('SELECT * FROM products WHERE id = ?').get(info.lastInsertRowid)
@@ -313,6 +328,7 @@ router.put('/:id', authMiddleware, (req, res) => {
     track_stock, stock_quantity, allow_backorder, low_stock_threshold,
     is_digital,
     video_url,
+    preorder_enabled, preorder_message, preorder_release_date, preorder_limit,
   } = req.body
 
   // only regenerate slug if name changed and no slug conflict
@@ -337,6 +353,7 @@ router.put('/:id', authMiddleware, (req, res) => {
       meta_title = ?, meta_desc = ?, publish_at = ?,
       track_stock = ?, stock_quantity = ?, allow_backorder = ?, low_stock_threshold = ?,
       is_digital = ?, video_url = ?,
+      preorder_enabled = ?, preorder_message = ?, preorder_release_date = ?, preorder_limit = ?,
       updated_at = datetime('now')
     WHERE id = ?
   `).run(
@@ -362,6 +379,10 @@ router.put('/:id', authMiddleware, (req, res) => {
     low_stock_threshold !== undefined ? (parseInt(low_stock_threshold) || 5) : existing.low_stock_threshold,
     is_digital !== undefined ? (is_digital ? 1 : 0) : existing.is_digital,
     video_url !== undefined ? (video_url || '').trim() : (existing.video_url || ''),
+    preorder_enabled !== undefined ? (preorder_enabled ? 1 : 0) : existing.preorder_enabled,
+    preorder_message !== undefined ? preorder_message : (existing.preorder_message || 'Pre-order now — ships when available'),
+    preorder_release_date !== undefined ? preorder_release_date : existing.preorder_release_date,
+    preorder_limit !== undefined ? (parseInt(preorder_limit) || 0) : (existing.preorder_limit || 0),
     existing.id
   )
 

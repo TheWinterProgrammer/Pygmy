@@ -14,3 +14,12 @@ app.mount('#app')
 
 // Initialize Web Vitals RUM beacon (Phase 36)
 initWebVitals()
+
+// Register Service Worker for PWA support (Phase 55)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch((err) => {
+      console.warn('Service Worker registration failed:', err)
+    })
+  })
+}

@@ -2504,3 +2504,144 @@ for (const [key, value] of Object.entries(phase52Defaults)) {
 }
 
 console.log('Phase 52 schema ready')
+
+// ─── Phase 54: Pre-Orders + Persistent Wishlists + Charity Donations ─────────
+
+// Pre-orders: add columns to products
+try { db.prepare(`ALTER TABLE products ADD COLUMN preorder_enabled INTEGER NOT NULL DEFAULT 0`).run() } catch {}
+try { db.prepare(`ALTER TABLE products ADD COLUMN preorder_message TEXT DEFAULT 'Pre-order now — ships when available'`).run() } catch {}
+try { db.prepare(`ALTER TABLE products ADD COLUMN preorder_release_date TEXT`).run() } catch {}
+try { db.prepare(`ALTER TABLE products ADD COLUMN preorder_limit INTEGER DEFAULT 0`).run() } catch {}
+try { db.prepare(`ALTER TABLE products ADD COLUMN preorder_count INTEGER NOT NULL DEFAULT 0`).run() } catch {}
+
+// Persistent wishlist for logged-in customers
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS wishlists (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+    product_id  INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    added_at    TEXT    NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(customer_id, product_id)
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_wishlists_customer ON wishlists(customer_id)`).run()
+
+// Charity / donation campaigns
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS charity_campaigns (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    name             TEXT    NOT NULL,
+    description      TEXT    DEFAULT '',
+    logo             TEXT,
+    mode             TEXT    NOT NULL DEFAULT 'roundup', -- roundup | fixed | custom
+    fixed_amounts    TEXT    NOT NULL DEFAULT '[1,2,5]',  -- JSON array for fixed mode
+    active           INTEGER NOT NULL DEFAULT 1,
+    total_raised     REAL    NOT NULL DEFAULT 0,
+    donation_count   INTEGER NOT NULL DEFAULT 0,
+    created_at       TEXT    NOT NULL DEFAULT (datetime('now')),
+    updated_at       TEXT    NOT NULL DEFAULT (datetime('now'))
+  )
+`).run()
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS charity_donations (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    campaign_id      INTEGER NOT NULL REFERENCES charity_campaigns(id) ON DELETE CASCADE,
+    order_id         INTEGER REFERENCES orders(id) ON DELETE SET NULL,
+    order_number     TEXT,
+    customer_email   TEXT,
+    amount           REAL    NOT NULL,
+    created_at       TEXT    NOT NULL DEFAULT (datetime('now'))
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_donations_campaign ON charity_donations(campaign_id)`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_donations_order    ON charity_donations(order_id)`).run()
+
+// Add donation_amount to orders
+try { db.prepare(`ALTER TABLE orders ADD COLUMN donation_amount REAL DEFAULT 0`).run() } catch {}
+try { db.prepare(`ALTER TABLE orders ADD COLUMN donation_campaign_id INTEGER`).run() } catch {}
+
+// Customer order cancellation tracking
+try { db.prepare(`ALTER TABLE orders ADD COLUMN cancelled_by TEXT`).run() } catch {} // 'customer' | 'admin'
+try { db.prepare(`ALTER TABLE orders ADD COLUMN cancel_reason TEXT`).run() } catch {}
+try { db.prepare(`ALTER TABLE orders ADD COLUMN cancelled_at TEXT`).run() } catch {}
+
+const phase54Defaults = {
+  preorders_enabled:          '1',
+  wishlists_enabled:          '1',
+  charity_enabled:            '0',
+  customer_cancel_enabled:    '1',
+  customer_cancel_window:     '24', // hours
+}
+for (const [key, value] of Object.entries(phase54Defaults)) {
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
+}
+
+console.log('Phase 54 schema ready')
+
+// Phase 55 — Stock History table
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS stock_history (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id  INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    old_qty     INTEGER NOT NULL DEFAULT 0,
+    new_qty     INTEGER NOT NULL DEFAULT 0,
+    change_amt  INTEGER NOT NULL DEFAULT 0,
+    reason      TEXT    NOT NULL DEFAULT 'manual', -- manual | order | adjustment | return | import
+    order_id    INTEGER REFERENCES orders(id) ON DELETE SET NULL,
+    admin_id    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    admin_name  TEXT,
+    note        TEXT,
+    created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_stock_history_product ON stock_history(product_id)`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_stock_history_created ON stock_history(created_at DESC)`).run()
+
+// Phase 55 defaults
+const phase55Defaults = {
+  stock_history_enabled: '1',
+  pwa_enabled:           '0',
+  pwa_name:              'My Site',
+  pwa_short_name:        'My Site',
+  pwa_theme_color:       '#c0434e',
+}
+for (const [key, value] of Object.entries(phase55Defaults)) {
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
+}
+
+console.log('Phase 55 schema ready')
+
+// Phase 56 — AI Content Helper + Order Multi-Shipment settings
+const phase56Defaults = {
+  ai_enabled:    '0',
+  ai_api_url:    'https://api.openai.com/v1/chat/completions',
+  ai_api_key:    '',
+  ai_model:      'gpt-3.5-turbo',
+  ai_tone:       'professional',
+  multi_shipment_enabled: '1',
+}
+for (const [key, value] of Object.entries(phase56Defaults)) {
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
+}
+
+// order_shipments table (idempotent)
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS order_shipments (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id         INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    carrier          TEXT,
+    tracking_number  TEXT,
+    tracking_url     TEXT,
+    items            TEXT DEFAULT '[]',
+    status           TEXT NOT NULL DEFAULT 'pending',
+    shipped_at       TEXT,
+    delivered_at     TEXT,
+    notes            TEXT,
+    created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_order_shipments_order ON order_shipments(order_id)`).run()
+
+console.log('Phase 56 schema ready')

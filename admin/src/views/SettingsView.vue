@@ -651,6 +651,54 @@
         </div>
       </div>
 
+      <!-- AI Content Helper (Phase 56) -->
+      <div class="glass section" style="grid-column:span 2">
+        <h2 style="margin-bottom:1.25rem;">🤖 AI Content Helper</h2>
+        <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.25rem;">
+          Connect to an OpenAI-compatible API to generate product descriptions, blog excerpts, SEO meta tags, and title ideas.
+          Use the <RouterLink to="/ai-content" style="color:var(--accent)">🤖 AI Content</RouterLink> panel to generate text.
+        </p>
+        <label class="toggle-label" style="margin-bottom:1.25rem">
+          <input type="checkbox" v-model="aiEnabled" />
+          <span>Enable AI Content Helper</span>
+        </label>
+        <div v-if="aiEnabled" class="settings-grid">
+          <div class="form-group">
+            <label>API URL</label>
+            <input v-model="form.ai_api_url" class="input" placeholder="https://api.openai.com/v1/chat/completions" />
+            <small style="color:var(--muted)">Compatible with OpenAI, Anthropic (via proxy), Ollama, and other OpenAI-compatible endpoints.</small>
+          </div>
+          <div class="form-group">
+            <label>API Key</label>
+            <input v-model="form.ai_api_key" class="input" type="password" placeholder="sk-…" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label>Model</label>
+            <input v-model="form.ai_model" class="input" placeholder="gpt-3.5-turbo" list="ai-models" />
+            <datalist id="ai-models">
+              <option value="gpt-3.5-turbo" />
+              <option value="gpt-4o" />
+              <option value="gpt-4o-mini" />
+              <option value="gpt-4-turbo" />
+              <option value="claude-3-haiku-20240307" />
+              <option value="claude-3-5-sonnet-20241022" />
+              <option value="llama3.2" />
+              <option value="mistral" />
+            </datalist>
+          </div>
+          <div class="form-group">
+            <label>Default Tone</label>
+            <select v-model="form.ai_tone" class="input">
+              <option value="professional">Professional</option>
+              <option value="casual">Casual &amp; Friendly</option>
+              <option value="luxury">Luxury</option>
+              <option value="technical">Technical</option>
+              <option value="playful">Playful</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
       <div class="glass section profile-section">
         <h2 style="margin-bottom:1.25rem;">🔐 My Profile</h2>
         <div class="form-group">
@@ -934,6 +982,11 @@ const multicurrencyEnabled = computed({
 const bookingsEnabled = computed({
   get: () => form.value.bookings_enabled === '1',
   set: v => { form.value.bookings_enabled = v ? '1' : '0' }
+})
+
+const aiEnabled = computed({
+  get: () => form.value.ai_enabled === '1',
+  set: v => { form.value.ai_enabled = v ? '1' : '0' }
 })
 
 const giftRegistryEnabled = computed({

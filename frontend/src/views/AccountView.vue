@@ -128,8 +128,60 @@
           <h2 class="tab-title">🏆 Loyalty Points</h2>
           <div v-if="loyaltyLoading" class="loading">Loading…</div>
           <template v-else>
-            <!-- Balance card -->
-            <div class="points-balance-card glass">
+            <!-- Tier Card (when tiers enabled) -->
+            <div v-if="loyaltyTier.tiers_enabled && loyaltyTier.all_tiers?.length" class="tier-section">
+              <!-- Current Tier -->
+              <div class="tier-card glass" :style="loyaltyTier.current_tier ? `border-color:${loyaltyTier.current_tier.color}44` : ''">
+                <div class="tier-header">
+                  <div class="tier-badge" :style="loyaltyTier.current_tier ? `background:${loyaltyTier.current_tier.color}22;color:${loyaltyTier.current_tier.color}` : ''">
+                    <span class="tier-icon">{{ loyaltyTier.current_tier?.icon || '🏅' }}</span>
+                    <span class="tier-name">{{ loyaltyTier.current_tier?.name || 'No Tier Yet' }}</span>
+                  </div>
+                  <div class="tier-balance">
+                    <span class="tier-pts">{{ loyaltyBalance }}</span>
+                    <span class="tier-pts-label"> pts</span>
+                  </div>
+                </div>
+
+                <!-- Tier perks -->
+                <div v-if="loyaltyTier.current_tier?.perks?.length" class="tier-perks">
+                  <div v-for="perk in loyaltyTier.current_tier.perks" :key="perk" class="tier-perk">
+                    ✓ {{ perk }}
+                  </div>
+                </div>
+
+                <!-- Progress to next tier -->
+                <div v-if="loyaltyTier.next_tier" class="tier-progress">
+                  <div class="tier-progress-label">
+                    <span>Progress to {{ loyaltyTier.next_tier.icon }} {{ loyaltyTier.next_tier.name }}</span>
+                    <span>{{ loyaltyTier.points_to_next }} pts to go</span>
+                  </div>
+                  <div class="tier-progress-bar">
+                    <div class="tier-progress-fill" :style="`width:${loyaltyTier.progress_pct}%;background:${loyaltyTier.current_tier?.color || 'var(--accent)'}`"></div>
+                  </div>
+                </div>
+                <div v-else-if="loyaltyTier.current_tier" class="tier-max-badge">
+                  🌟 You're at the highest tier!
+                </div>
+              </div>
+
+              <!-- All tiers roadmap -->
+              <div class="tiers-roadmap">
+                <div v-for="tier in loyaltyTier.all_tiers" :key="tier.id"
+                     class="roadmap-tier"
+                     :class="{ 'roadmap-active': loyaltyTier.current_tier?.id === tier.id, 'roadmap-reached': loyaltyBalance >= tier.min_points }">
+                  <div class="roadmap-icon" :style="`color:${tier.color}`">{{ tier.icon }}</div>
+                  <div class="roadmap-info">
+                    <div class="roadmap-name" :style="`color:${tier.color}`">{{ tier.name }}</div>
+                    <div class="roadmap-pts muted">{{ tier.min_points.toLocaleString() }} pts</div>
+                  </div>
+                  <div v-if="tier.earn_multiplier > 1" class="roadmap-multi">×{{ tier.earn_multiplier }}</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Balance card (compact when tiers shown, full when not) -->
+            <div class="points-balance-card glass" :class="{ compact: loyaltyTier.tiers_enabled }">
               <div class="points-big">{{ loyaltyBalance }}</div>
               <div class="points-label">points</div>
               <div class="points-worth">Worth {{ currency }}{{ loyaltyWorth.toFixed(2) }}</div>
@@ -366,6 +418,14 @@
             </a>
             <button @click="reorder(selectedOrder)" class="btn btn-accent btn-sm" style="display:inline-flex;align-items:center;gap:.4rem;">
               🔁 Reorder
+            </button>
+            <button
+              v-if="['pending','processing'].includes(selectedOrder.status)"
+              @click="requestCancelOrder(selectedOrder)"
+              class="btn btn-danger btn-sm"
+              style="display:inline-flex;align-items:center;gap:.4rem;"
+            >
+              ✕ Cancel Order
             </button>
           </div>
 
@@ -641,6 +701,25 @@ function statusClass(s) {
   return { pending: 'status-pending', processing: 'status-processing', shipped: 'status-shipped', completed: 'status-completed', cancelled: 'status-cancelled', refunded: 'status-cancelled' }[s] || ''
 }
 
+async function requestCancelOrder(order) {
+  const reason = prompt(`Why do you want to cancel order ${order.order_number}? (optional)`)
+  if (reason === null) return // user pressed Cancel on prompt
+  try {
+    await api.post('/orders/cancel', {
+      order_number: order.order_number,
+      email: store.customer?.email || '',
+      reason: reason.trim(),
+    })
+    alert('Your order has been cancelled.')
+    // Refresh orders list
+    selectedOrder.value = null
+    const { data } = await api.get('/customers/me/orders', { headers: { Authorization: `Bearer ${store.token}` } })
+    orders.value = data.map(o => ({ ...o, items: o.items || [] }))
+  } catch (e) {
+    alert(e.response?.data?.error || 'Could not cancel order. Please contact support.')
+  }
+}
+
 // Loyalty
 const loyaltyBalance = ref(0)
 const loyaltyWorth = ref(0)
@@ -649,14 +728,16 @@ const loyaltyMinRedeem = ref(100)
 const loyaltyRedemptionRate = ref(100)
 const loyaltyTxns = ref([])
 const loyaltyLoading = ref(false)
+const loyaltyTier = ref({ tiers_enabled: false })
 
 async function loadLoyalty() {
   loyaltyLoading.value = true
   try {
     const headers = { Authorization: `Bearer ${store.token}` }
-    const [balRes, txRes] = await Promise.all([
+    const [balRes, txRes, tierRes] = await Promise.all([
       api.get('/loyalty/balance', { headers }),
       api.get('/loyalty/transactions', { headers }),
+      api.get('/loyalty/tier', { headers }).catch(() => ({ data: { tiers_enabled: false } })),
     ])
     loyaltyBalance.value = balRes.data.balance || 0
     loyaltyWorth.value = balRes.data.worth || 0
@@ -664,6 +745,7 @@ async function loadLoyalty() {
     loyaltyMinRedeem.value = balRes.data.min_redeem || 100
     loyaltyRedemptionRate.value = balRes.data.redemption_rate || 100
     loyaltyTxns.value = txRes.data || []
+    loyaltyTier.value = tierRes.data || { tiers_enabled: false }
   } catch {} finally {
     loyaltyLoading.value = false
   }
@@ -921,7 +1003,33 @@ onMounted(async () => {
 }
 
 /* Points Tab */
+/* Tier section */
+.tier-section { margin-bottom: 1.25rem; }
+.tier-card { padding: 1.25rem; border-radius: 1.25rem; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 1rem; }
+.tier-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
+.tier-badge { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.9rem; border-radius: 99px; font-weight: 700; font-size: 0.95rem; background: rgba(255,255,255,0.06); }
+.tier-icon { font-size: 1.2rem; }
+.tier-name { font-weight: 700; }
+.tier-balance { text-align: right; }
+.tier-pts { font-size: 1.8rem; font-weight: 800; color: #fbbf24; line-height: 1; }
+.tier-pts-label { font-size: 0.85rem; color: var(--muted); }
+.tier-perks { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem; }
+.tier-perk { background: rgba(255,255,255,0.06); border-radius: 99px; padding: 0.2rem 0.7rem; font-size: 0.8rem; color: #4ade80; }
+.tier-progress { margin-top: 0.5rem; }
+.tier-progress-label { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.4rem; }
+.tier-progress-bar { height: 8px; background: rgba(255,255,255,0.08); border-radius: 99px; overflow: hidden; }
+.tier-progress-fill { height: 100%; border-radius: 99px; transition: width 0.6s ease; }
+.tier-max-badge { text-align: center; padding: 0.5rem; font-size: 0.9rem; color: #fbbf24; }
+.tiers-roadmap { display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 0.25rem; }
+.roadmap-tier { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; padding: 0.6rem 0.8rem; border-radius: 1rem; border: 1px solid rgba(255,255,255,0.06); min-width: 72px; opacity: 0.5; transition: opacity 0.2s; background: rgba(255,255,255,0.03); }
+.roadmap-tier.roadmap-reached { opacity: 0.8; }
+.roadmap-tier.roadmap-active { opacity: 1; border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.07); }
+.roadmap-icon { font-size: 1.4rem; }
+.roadmap-name { font-size: 0.75rem; font-weight: 700; text-align: center; }
+.roadmap-pts { font-size: 0.65rem; text-align: center; }
+.roadmap-multi { font-size: 0.7rem; background: rgba(251,191,36,0.2); color: #fbbf24; border-radius: 99px; padding: 0.1rem 0.4rem; font-weight: 700; }
 .points-balance-card { border-radius: 1.25rem; padding: 2rem; text-align: center; margin-bottom: 1.25rem; display: flex; flex-direction: column; align-items: center; max-width: 280px; }
+.points-balance-card.compact { padding: 1rem 1.5rem; flex-direction: row; gap: 1rem; align-items: center; max-width: 100%; justify-content: flex-start; }
 .points-big { font-size: 3.5rem; font-weight: 800; color: #fbbf24; line-height: 1; }
 .points-label { font-size: 1rem; color: var(--muted); margin-bottom: 0.5rem; }
 .points-worth { font-size: 0.9rem; color: var(--muted); background: rgba(251,191,36,.1); padding: 0.3rem 0.8rem; border-radius: 99px; }

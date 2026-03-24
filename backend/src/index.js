@@ -108,6 +108,12 @@ import inventoryAdjustmentsRoutes from './routes/inventory_adjustments.js'
 import taxReportRoutes from './routes/tax_report.js'
 import customerImportRoutes from './routes/customer_import.js'
 import vendorsRoutes from './routes/vendors.js'
+import charityRoutes from './routes/charity.js'
+import wishlistsRoutes from './routes/wishlists.js'
+import stockHistoryRoutes from './routes/stock_history.js'
+import preordersRoutes from './routes/preorders.js'
+import orderShipmentsRoutes from './routes/order_shipments.js'
+import aiContentRoutes from './routes/ai_content.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -312,6 +318,12 @@ app.use('/api/inventory-adjustments', inventoryAdjustmentsRoutes)
 app.use('/api/tax-report', taxReportRoutes)
 app.use('/api/customer-import', customerImportRoutes)
 app.use('/api/vendors', vendorsRoutes)
+app.use('/api/charity', charityRoutes)
+app.use('/api/wishlists', wishlistsRoutes)
+app.use('/api/stock-history', stockHistoryRoutes)
+app.use('/api/preorders', preordersRoutes)
+app.use('/api/order-shipments', orderShipmentsRoutes)
+app.use('/api/ai', aiContentRoutes)
 app.use('/', shoppingFeedRoutes)
 
 // ─── SEO (public) ─────────────────────────────────────────────────────────────

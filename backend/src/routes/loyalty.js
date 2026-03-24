@@ -103,6 +103,55 @@ router.post('/redeem', (req, res) => {
   })
 })
 
+// ─── Customer: Get tier info + progress ──────────────────────────────────────
+// GET /api/loyalty/tier
+router.get('/tier', (req, res) => {
+  const customerId = resolveCustomer(req)
+  if (!customerId) return res.status(401).json({ error: 'Authentication required' })
+
+  const customer = db.prepare('SELECT id, points_balance, loyalty_tier_id FROM customers WHERE id = ?').get(customerId)
+  if (!customer) return res.status(404).json({ error: 'Customer not found' })
+
+  const tiersEnabled = getSetting('loyalty_tiers_enabled') === '1'
+  if (!tiersEnabled) return res.json({ tiers_enabled: false })
+
+  const tiers = db.prepare(`
+    SELECT id, name, slug, min_points, earn_multiplier, color, icon, perks, sort_order
+    FROM loyalty_tiers WHERE active = 1
+    ORDER BY min_points ASC
+  `).all().map(t => {
+    try { t.perks = JSON.parse(t.perks || '[]') } catch { t.perks = [] }
+    return t
+  })
+
+  const balance = customer.points_balance || 0
+
+  // Find current tier (highest min_points not exceeding balance)
+  const currentTier = [...tiers].reverse().find(t => balance >= t.min_points) || null
+
+  // Find next tier (first tier above balance)
+  const nextTier = tiers.find(t => balance < t.min_points) || null
+
+  let progress = 100
+  let pointsToNext = 0
+  if (nextTier) {
+    const tierStart = currentTier ? currentTier.min_points : 0
+    const tierRange = nextTier.min_points - tierStart
+    progress = tierRange > 0 ? Math.round(((balance - tierStart) / tierRange) * 100) : 100
+    pointsToNext = nextTier.min_points - balance
+  }
+
+  res.json({
+    tiers_enabled: true,
+    balance,
+    current_tier: currentTier,
+    next_tier: nextTier,
+    progress_pct: progress,
+    points_to_next: pointsToNext,
+    all_tiers: tiers,
+  })
+})
+
 // ─── Admin: List customers with points ───────────────────────────────────────
 // GET /api/loyalty/admin/customers
 router.get('/admin/customers', authMiddleware, (req, res) => {

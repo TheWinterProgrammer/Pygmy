@@ -245,16 +245,27 @@
             <div v-if="bisError" class="bis-error">{{ bisError }}</div>
           </div>
 
+          <!-- Pre-Order Banner -->
+          <div class="preorder-banner" v-if="product.preorder_enabled && product.preorder_available">
+            <span class="preorder-badge">🛒 Pre-Order</span>
+            <span class="preorder-msg">{{ product.preorder_message }}</span>
+            <span v-if="product.preorder_release_date" class="preorder-date">
+              Ships: {{ fmtDate(product.preorder_release_date) }}
+            </span>
+          </div>
+
           <!-- Add to Cart -->
           <div class="atc-row" v-if="product.price !== null">
-            <div class="qty-selector" v-if="product.in_stock || !product.track_stock">
+            <div class="qty-selector" v-if="product.in_stock || !product.track_stock || (product.preorder_enabled && product.preorder_available)">
               <button @click="qty = Math.max(1, qty - 1)">−</button>
-              <input type="number" v-model.number="qty" min="1" :max="product.track_stock && !product.allow_backorder ? product.stock_quantity : 99" />
-              <button @click="qty = Math.min(product.track_stock && !product.allow_backorder ? product.stock_quantity : 99, qty + 1)">+</button>
+              <input type="number" v-model.number="qty" min="1" :max="product.track_stock && !product.allow_backorder && !product.preorder_enabled ? product.stock_quantity : 99" />
+              <button @click="qty = Math.min(product.track_stock && !product.allow_backorder && !product.preorder_enabled ? product.stock_quantity : 99, qty + 1)">+</button>
             </div>
             <button class="btn btn-primary btn-lg atc-btn" @click="addToCart"
-              :disabled="product.track_stock && !product.in_stock">
-              <span v-if="product.track_stock && !product.in_stock">Out of Stock</span>
+              :disabled="(product.track_stock && !product.in_stock && !product.preorder_enabled) || (product.preorder_enabled && !product.preorder_available)">
+              <span v-if="product.preorder_enabled && !product.preorder_available">Pre-Order Full</span>
+              <span v-else-if="product.preorder_enabled && product.preorder_available && !addedFlash">🛒 Pre-Order Now</span>
+              <span v-else-if="product.track_stock && !product.in_stock && !product.preorder_enabled">Out of Stock</span>
               <span v-else-if="addedFlash">✓ Added!</span>
               <span v-else>🛒 Add to Cart</span>
             </button>
@@ -1019,6 +1030,29 @@ function fmt(n) {
 .compare-toggle-btn.active { background: rgba(251,191,36,.15); border-color: hsl(40,80%,50%); color: hsl(40,80%,60%); }
 
 /* Add to cart */
+.preorder-banner {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  background: rgba(59,130,246,.1);
+  border: 1px solid rgba(59,130,246,.2);
+  border-radius: 1rem;
+  padding: .75rem 1rem;
+  margin-bottom: .75rem;
+  flex-wrap: wrap;
+}
+.preorder-badge {
+  background: rgba(59,130,246,.2);
+  color: #60a5fa;
+  border-radius: .5rem;
+  padding: .2rem .6rem;
+  font-size: .75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.preorder-msg { font-size: .9rem; color: #93c5fd; flex: 1; }
+.preorder-date { font-size: .8rem; color: #888; white-space: nowrap; }
+
 .atc-row {
   display: flex;
   gap: .75rem;

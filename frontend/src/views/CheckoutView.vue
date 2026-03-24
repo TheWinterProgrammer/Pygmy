@@ -309,6 +309,40 @@
               </template>
             </div>
 
+            <!-- Charity Donation -->
+            <div class="charity-section" v-if="charityCampaign">
+              <h3 class="sub-section" style="margin-top:1.25rem;">💝 Donate to {{ charityCampaign.name }}</h3>
+              <p class="charity-desc" v-if="charityCampaign.description">{{ charityCampaign.description }}</p>
+              <!-- Roundup mode -->
+              <div v-if="charityCampaign.mode === 'roundup'" class="charity-roundup">
+                <label class="gift-wrap-toggle">
+                  <input type="checkbox" v-model="donateRoundup" @change="updateDonationRoundup" />
+                  <span>Round up my order to <strong>{{ fmt(roundupTarget) }}</strong> (+{{ fmt(roundupAmount) }})</span>
+                </label>
+              </div>
+              <!-- Fixed mode -->
+              <div v-else-if="charityCampaign.mode === 'fixed'" class="charity-fixed">
+                <div class="charity-amounts">
+                  <button v-for="amt in charityCampaign.fixed_amounts" :key="amt"
+                    class="charity-amt-btn"
+                    :class="{ active: donationAmount === amt }"
+                    @click="donationAmount = donationAmount === amt ? 0 : amt">
+                    {{ fmt(amt) }}
+                  </button>
+                  <button class="charity-amt-btn" :class="{ active: donationAmount === 0 }" @click="donationAmount = 0">
+                    None
+                  </button>
+                </div>
+              </div>
+              <!-- Custom mode -->
+              <div v-else-if="charityCampaign.mode === 'custom'" class="charity-custom">
+                <div class="input-with-prefix">
+                  <span class="prefix">{{ currency }}</span>
+                  <input type="number" v-model.number="donationAmount" min="0" step="0.5" class="input" placeholder="0.00" />
+                </div>
+              </div>
+            </div>
+
             <!-- Order Bumps -->
             <div class="order-bumps-section" v-if="orderBumps.length">
               <h3 class="sub-section">🎁 Special Add-On Offers</h3>
@@ -390,6 +424,10 @@
             <div class="summary-row" v-if="giftWrap && giftWrapPrice > 0">
               <span class="text-muted">🎀 Gift Wrap</span>
               <span>+{{ fmt(giftWrapPrice) }}</span>
+            </div>
+            <div class="summary-row" v-if="donationAmount > 0 && charityCampaign">
+              <span class="text-muted">💝 {{ charityCampaign.name }}</span>
+              <span style="color:hsl(340,70%,70%);">+{{ fmt(donationAmount) }}</span>
             </div>
             <div class="summary-row">
               <span class="text-muted">Shipping</span>
@@ -655,6 +693,12 @@ function removeStoreCredit() { storeCreditApplied.value = 0; storeCreditInput.va
 const giftWrapEnabled = ref(false)
 const giftWrapPrice   = ref(5)
 const giftWrap        = ref(false)
+
+// Charity donation
+const charityCampaign = ref(null)
+const donationAmount  = ref(0)
+const donateRoundup   = ref(false)
+const currency        = ref('€')
 const giftMessage     = ref('')
 
 // ── Auto Discounts (BOGO / Buy X Get Y) ──────────────────────────────────────
@@ -682,9 +726,16 @@ async function evaluateAutoDiscounts () {
 }
 
 // ── Total ─────────────────────────────────────────────────────────────────────
-const orderTotal = computed(() =>
+const baseOrderTotal = computed(() =>
   Math.max(0, cart.subtotal - (appliedCoupon.value?.discount || 0) - loyaltyDiscount.value - giftCardDiscount.value - storeCreditApplied.value - autoDiscountTotal.value + shippingCost.value + taxAmount.value + (giftWrap.value ? giftWrapPrice.value : 0))
 )
+const roundupTarget = computed(() => Math.ceil(baseOrderTotal.value))
+const roundupAmount = computed(() => Math.max(0, roundupTarget.value - baseOrderTotal.value))
+const orderTotal = computed(() => baseOrderTotal.value + (donationAmount.value || 0))
+
+function updateDonationRoundup() {
+  donationAmount.value = donateRoundup.value ? roundupAmount.value : 0
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function fmt(v) {
@@ -739,6 +790,12 @@ onMounted(async () => {
     storeCreditEnabled.value  = data.store_credit_enabled === '1'
     giftWrapEnabled.value     = data.gift_wrap_enabled === '1'
     giftWrapPrice.value       = parseFloat(data.gift_wrap_price || '5')
+    currency.value            = data.shop_currency_symbol || '€'
+  } catch {}
+  // Load charity campaign
+  try {
+    const { data: cc } = await api.get('/charity/active')
+    charityCampaign.value = cc
   } catch {}
   // Evaluate auto discounts on load
   evaluateAutoDiscounts()
@@ -845,6 +902,8 @@ async function placeOrder() {
       gift_wrap:              giftWrap.value ? 1 : 0,
       gift_message:           giftMessage.value.trim(),
       auto_discount_amount:   autoDiscountTotal.value || 0,
+      donation_amount:        donationAmount.value || 0,
+      donation_campaign_id:   charityCampaign.value?.id || null,
     }
 
     const headers = customer.isLoggedIn ? { Authorization: `Bearer ${customer.token}` } : {}
@@ -1103,6 +1162,16 @@ async function placeOrder() {
 }
 .summary-total { font-size: 1rem; margin-bottom: 0; }
 .discount-row span:last-child { font-weight: 600; }
+
+/* Charity */
+.charity-section { margin-top: 1.25rem; }
+.charity-desc { font-size: .85rem; color: #aaa; margin: .25rem 0 .75rem; }
+.charity-amounts { display: flex; gap: .5rem; flex-wrap: wrap; }
+.charity-amt-btn { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.1); border-radius: .6rem; padding: .4rem .9rem; color: white; cursor: pointer; font-size: .9rem; }
+.charity-amt-btn.active { background: var(--accent); border-color: var(--accent); }
+.charity-custom { display: flex; max-width: 160px; }
+.input-with-prefix { display: flex; align-items: center; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: .75rem; overflow: hidden; }
+.prefix { padding: .65rem .75rem; color: #888; font-size: .9rem; }
 
 /* Order Bumps */
 .order-bumps-section { margin: 1.5rem 0 0; }
