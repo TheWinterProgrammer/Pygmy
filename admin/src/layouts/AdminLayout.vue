@@ -197,6 +197,9 @@ const navItems = [
   { to: '/ip-blocklist',             icon: '🛡️',  label: 'IP Blocklist' },
   { to: '/site-audit',               icon: '🔍',  label: 'Site Audit' },
   { to: '/media-alt',                icon: '🖼️',  label: 'Media Alt Text' },
+  { to: '/error-logs',               icon: '🚫',  label: '404 Error Tracker' },
+  { to: '/bulk-price',               icon: '💰',  label: 'Bulk Price Editor' },
+  { to: '/customer-timeline',        icon: '⏱️',  label: 'Customer Timeline' },
   { to: '/settings',          icon: '⚙️',  label: 'Settings' },
 ]
 

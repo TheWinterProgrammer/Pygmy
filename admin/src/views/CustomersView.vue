@@ -71,7 +71,10 @@
       <div class="modal glass">
         <div class="modal-header">
           <h2>{{ detailCustomer.first_name }} {{ detailCustomer.last_name }}</h2>
-          <button class="modal-close" @click="detailCustomer = null">✕</button>
+          <div style="display:flex;gap:8px;align-items:center">
+            <RouterLink :to="`/customer-timeline?id=${detailCustomer.id}`" class="btn btn-ghost btn-sm" title="View full activity timeline">⏱️ Timeline</RouterLink>
+            <button class="modal-close" @click="detailCustomer = null">✕</button>
+          </div>
         </div>
         <div class="modal-body" v-if="detailData">
           <div class="detail-grid">

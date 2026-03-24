@@ -827,6 +827,7 @@ async function load() {
     }
   } catch {
     product.value = null
+    api.post('/error-logs', { path: window.location.pathname, referrer: document.referrer, status_code: 404 }).catch(() => {})
   } finally {
     loading.value = false
   }

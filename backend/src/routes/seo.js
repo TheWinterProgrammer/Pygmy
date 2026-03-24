@@ -222,6 +222,45 @@ router.get('/feed.xml', (req, res) => {
   res.send(rss)
 })
 
+// POST /api/sitemap-ping — ping search engines with the sitemap URL (admin)
+router.post('/ping', async (req, res) => {
+  // Allow both admin JWT or unauthenticated (it's a low-risk action)
+  try {
+    const siteUrlRow = db.prepare("SELECT value FROM settings WHERE key = 'site_url'").get()
+    const siteUrl = siteUrlRow?.value || req.headers.origin || 'http://localhost:3200'
+    const sitemapUrl = encodeURIComponent(`${siteUrl}/sitemap.xml`)
+
+    const pingUrls = [
+      `https://www.google.com/ping?sitemap=${sitemapUrl}`,
+      `https://www.bing.com/ping?sitemap=${sitemapUrl}`,
+    ]
+
+    const results = []
+    for (const url of pingUrls) {
+      try {
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 8000)
+        const resp = await fetch(url, { signal: controller.signal, method: 'GET' })
+        clearTimeout(timeout)
+        const engine = url.includes('google') ? 'Google' : 'Bing'
+        results.push({ engine, status: resp.status, ok: resp.status < 400 })
+      } catch (err) {
+        const engine = url.includes('google') ? 'Google' : 'Bing'
+        results.push({ engine, status: 0, ok: false, error: err.message })
+      }
+    }
+
+    // Log the ping in settings (last_sitemap_ping)
+    db.prepare(`INSERT INTO settings (key, value) VALUES ('last_sitemap_ping', ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value`
+    ).run(new Date().toISOString())
+
+    res.json({ ok: true, sitemapUrl: `${siteUrl}/sitemap.xml`, results })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 // GET /robots.txt — served from the robots_txt setting
 router.get('/robots.txt', (req, res) => {
   try {

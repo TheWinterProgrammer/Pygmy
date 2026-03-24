@@ -196,6 +196,37 @@
         </div>
       </div>
 
+      <!-- Sitemap Ping -->
+      <div class="glass section">
+        <h2 style="margin-bottom:0.5rem;">🔍 Sitemap & Search Engine Submission</h2>
+        <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.25rem;">
+          Notify Google and Bing about your sitemap to speed up indexing after publishing new content.
+          Your sitemap is available at
+          <code style="background:rgba(255,255,255,0.08);padding:0.1em 0.35em;border-radius:0.3em;">{{ form.site_url || '[site_url]' }}/sitemap.xml</code>.
+        </p>
+        <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+          <button
+            class="btn btn-secondary"
+            @click="pingSitemap"
+            :disabled="pinging"
+            style="min-width:180px"
+          >
+            {{ pinging ? '⏳ Pinging…' : '📡 Ping Search Engines' }}
+          </button>
+          <span v-if="pingResult" :style="{ color: pingResult.ok ? 'hsl(140,55%,55%)' : 'var(--accent)', fontSize: '0.85rem' }">
+            {{ pingResult.message }}
+          </span>
+        </div>
+        <div v-if="pingResult?.results?.length" style="margin-top:0.75rem;display:flex;gap:0.75rem;flex-wrap:wrap">
+          <span
+            v-for="r in pingResult.results" :key="r.engine"
+            :style="{ background: r.ok ? 'rgba(60,200,80,0.1)' : 'rgba(200,60,60,0.1)', border: '1px solid ' + (r.ok ? 'rgba(60,200,80,0.25)' : 'rgba(200,60,60,0.25)'), borderRadius: '999px', padding: '0.2rem 0.7rem', fontSize: '0.78rem', color: r.ok ? 'hsl(140,55%,55%)' : 'var(--accent)' }"
+          >
+            {{ r.ok ? '✓' : '✗' }} {{ r.engine }} {{ r.ok ? '(OK)' : '(failed)' }}
+          </span>
+        </div>
+      </div>
+
       <!-- E-Commerce -->
       <div class="glass section">
         <h2 style="margin-bottom:1.25rem;">🛒 E-Commerce</h2>
@@ -898,6 +929,8 @@ const pickerTarget = ref(null)
 const testingEmail = ref(false)
 const testEmailMsg = ref('')
 const testEmailOk = ref(false)
+const pinging = ref(false)
+const pingResult = ref(null)
 
 const profile = ref({ name: '', email: '', password: '', confirm: '' })
 
@@ -1188,6 +1221,27 @@ onMounted(async () => {
   tfa.value.enabled = !!meRes.data.totp_enabled
   loaded.value = true
 })
+
+async function pingSitemap() {
+  pinging.value = true
+  pingResult.value = null
+  try {
+    const { data } = await api.post('/sitemap/ping')
+    const successes = data.results?.filter(r => r.ok).length || 0
+    const total = data.results?.length || 0
+    pingResult.value = {
+      ok: successes > 0,
+      message: successes === total
+        ? `✓ Pinged ${total} search engine${total !== 1 ? 's' : ''} successfully`
+        : `⚠ ${successes}/${total} pings succeeded`,
+      results: data.results || [],
+    }
+  } catch (err) {
+    pingResult.value = { ok: false, message: 'Failed to ping: ' + (err.response?.data?.error || err.message), results: [] }
+  } finally {
+    pinging.value = false
+  }
+}
 
 async function save() {
   saving.value = true

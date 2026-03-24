@@ -61,10 +61,58 @@
         <span class="bulk-count">{{ selected.size }} selected</span>
         <button class="btn btn-sm btn-ghost" @click="bulkAction('publish')">✅ Publish</button>
         <button class="btn btn-sm btn-ghost" @click="bulkAction('unpublish')">📝 Unpublish</button>
+        <button class="btn btn-sm btn-ghost" @click="openBulkEdit">✏️ Edit Prices/Stock</button>
         <button class="btn btn-sm btn-danger" @click="bulkAction('delete')">🗑 Delete</button>
         <button class="btn btn-sm btn-ghost" @click="selected.clear()">✕ Deselect</button>
       </div>
     </Transition>
+
+    <!-- Bulk Price/Stock Edit Modal -->
+    <div class="modal-overlay" v-if="bulkEditOpen" @click.self="bulkEditOpen = false">
+      <div class="modal glass-modal">
+        <div class="modal-header">
+          <h2>✏️ Bulk Edit — {{ selected.size }} product{{ selected.size !== 1 ? 's' : '' }}</h2>
+          <button class="modal-close" @click="bulkEditOpen = false">✕</button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-hint">Leave a field blank to keep existing values unchanged.</p>
+          <div class="form-two-col">
+            <div class="form-row">
+              <label>Set Price (€)</label>
+              <input v-model="bulkEditForm.price" type="number" min="0" step="0.01" class="input" placeholder="e.g. 29.99" />
+            </div>
+            <div class="form-row">
+              <label>Set Sale Price (€)</label>
+              <input v-model="bulkEditForm.sale_price" type="number" min="0" step="0.01" class="input" placeholder="Leave blank = no sale" />
+            </div>
+            <div class="form-row">
+              <label>Set Stock Quantity</label>
+              <input v-model="bulkEditForm.stock_quantity" type="number" min="0" class="input" placeholder="e.g. 100" />
+            </div>
+            <div class="form-row">
+              <label>Set Status</label>
+              <select v-model="bulkEditForm.status" class="select">
+                <option value="">— keep existing —</option>
+                <option value="published">Published</option>
+                <option value="draft">Draft</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row" style="margin-top:.75rem">
+            <label>
+              <input type="checkbox" v-model="bulkEditForm.clear_sale" style="margin-right:.4rem" />
+              Clear sale price (remove discounts)
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" @click="bulkEditOpen = false">Cancel</button>
+          <button class="btn btn-primary" @click="applyBulkEdit" :disabled="bulkEditing">
+            {{ bulkEditing ? 'Saving…' : `Apply to ${selected.size} product${selected.size !== 1 ? 's' : ''}` }}
+          </button>
+        </div>
+      </div>
+    </div>
 
     <div class="glass section" v-if="filtered.length">
       <table class="data-table">
@@ -155,6 +203,9 @@ const activeCategory = ref(null)
 const search = ref('')
 const statusFilter = ref('')
 const selected = reactive(new Set())
+const bulkEditOpen = ref(false)
+const bulkEditing = ref(false)
+const bulkEditForm = ref({ price: '', sale_price: '', stock_quantity: '', status: '', clear_sale: false })
 
 const filtered = computed(() => {
   let list = products.value
@@ -200,6 +251,46 @@ async function bulkAction(action) {
   } catch {
     toast.error('Bulk action failed')
   }
+}
+
+function openBulkEdit() {
+  bulkEditForm.value = { price: '', sale_price: '', stock_quantity: '', status: '', clear_sale: false }
+  bulkEditOpen.value = true
+}
+
+async function applyBulkEdit() {
+  const ids = [...selected]
+  const patch = {}
+  if (bulkEditForm.value.price !== '') patch.price = Number(bulkEditForm.value.price)
+  if (bulkEditForm.value.clear_sale) {
+    patch.sale_price = null
+  } else if (bulkEditForm.value.sale_price !== '') {
+    patch.sale_price = Number(bulkEditForm.value.sale_price)
+  }
+  if (bulkEditForm.value.stock_quantity !== '') patch.stock_quantity = Number(bulkEditForm.value.stock_quantity)
+  if (bulkEditForm.value.status) patch.status = bulkEditForm.value.status
+
+  if (!Object.keys(patch).length) {
+    toast.error('No changes specified')
+    return
+  }
+
+  bulkEditing.value = true
+  let updated = 0
+  let failed = 0
+  for (const id of ids) {
+    try {
+      await api.put(`/products/${id}`, patch)
+      updated++
+    } catch {
+      failed++
+    }
+  }
+  bulkEditing.value = false
+  bulkEditOpen.value = false
+  if (updated > 0) toast.success(`Updated ${updated} product${updated !== 1 ? 's' : ''}${failed ? ` (${failed} failed)` : ''}`)
+  else toast.error('All updates failed')
+  await load()
 }
 
 async function deleteSingle(p) {
@@ -273,6 +364,45 @@ function fmt(n) {
   border: 1px solid rgba(var(--accent-rgb, 219,68,82), 0.4);
 }
 .bulk-count { font-size: 0.85rem; font-weight: 600; margin-right: 0.5rem; color: var(--accent); }
+
+/* Bulk Edit Modal */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,.55);
+  display: flex; align-items: center; justify-content: center;
+  padding: 1rem;
+}
+.glass-modal {
+  background: hsl(228,4%,16%);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 1.25rem;
+  width: 100%; max-width: 560px;
+  box-shadow: 0 24px 64px rgba(0,0,0,.5);
+}
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1.25rem 1.5rem 1rem;
+  border-bottom: 1px solid rgba(255,255,255,.07);
+}
+.modal-header h2 { font-size: 1.05rem; margin: 0; }
+.modal-close {
+  background: none; border: none; color: var(--text-muted); cursor: pointer;
+  font-size: 1.2rem; padding: 0 .25rem;
+  transition: color .15s;
+}
+.modal-close:hover { color: var(--text); }
+.modal-body { padding: 1.25rem 1.5rem; }
+.modal-hint { font-size: .82rem; color: var(--text-muted); margin-bottom: 1rem; }
+.modal-footer {
+  display: flex; justify-content: flex-end; gap: .75rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid rgba(255,255,255,.07);
+}
+.form-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+.form-row { display: flex; flex-direction: column; gap: .35rem; }
+.form-row label { font-size: .82rem; color: var(--text-muted); }
+.input { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: .5rem; padding: .5rem .75rem; color: var(--text); font-size: .88rem; width: 100%; }
+.select { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: .5rem; padding: .5rem .75rem; color: var(--text); font-size: .88rem; width: 100%; }
 
 .section { padding: 0; overflow: hidden; }
 .text-muted { color: var(--text-muted); font-size: 0.85rem; }

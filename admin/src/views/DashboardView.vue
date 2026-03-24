@@ -11,6 +11,33 @@
       </div>
     </div>
 
+    <!-- Low Stock Alert Banner -->
+    <div v-if="lowStockProducts.length" class="low-stock-banner glass">
+      <div class="low-stock-left">
+        <span class="low-stock-icon">⚠️</span>
+        <div>
+          <strong>Low Stock Alert</strong>
+          <span class="low-stock-sub">{{ lowStockProducts.length }} product{{ lowStockProducts.length !== 1 ? 's' : '' }} running low or out of stock</span>
+        </div>
+      </div>
+      <div class="low-stock-pills">
+        <RouterLink
+          v-for="p in lowStockProducts.slice(0, 5)"
+          :key="p.id"
+          :to="`/products/${p.id}`"
+          class="low-stock-pill"
+          :class="{ 'pill-oos': p.stock_quantity <= 0 }"
+          :title="`${p.name}: ${p.stock_quantity} in stock`"
+        >
+          {{ p.name }} <span class="pill-qty">{{ p.stock_quantity <= 0 ? 'OOS' : p.stock_quantity }}</span>
+        </RouterLink>
+        <span v-if="lowStockProducts.length > 5" class="low-stock-more">+{{ lowStockProducts.length - 5 }} more</span>
+      </div>
+      <RouterLink to="/products?status=&filter=low_stock" class="btn btn-sm btn-ghost low-stock-cta">
+        View All →
+      </RouterLink>
+    </div>
+
     <div class="stats-grid" v-if="stats">
       <div class="stat-card glass">
         <div class="stat-icon">📄</div>
@@ -487,6 +514,12 @@
       <RouterLink to="/surveys" class="btn btn-ghost">📝 Surveys</RouterLink>
       <RouterLink to="/customer-tags" class="btn btn-ghost">🏷️ Customer Tags</RouterLink>
       <RouterLink to="/order-statuses" class="btn btn-ghost">🔖 Order Statuses</RouterLink>
+      <RouterLink to="/ip-blocklist" class="btn btn-ghost">🛡️ IP Blocklist</RouterLink>
+      <RouterLink to="/site-audit" class="btn btn-ghost">🔍 Site Audit</RouterLink>
+      <RouterLink to="/media-alt" class="btn btn-ghost">🖼️ Media Alt Text</RouterLink>
+      <RouterLink to="/error-logs" class="btn btn-ghost">🚫 404 Tracker</RouterLink>
+      <RouterLink to="/bulk-price" class="btn btn-ghost">💰 Bulk Price Editor</RouterLink>
+      <RouterLink to="/customer-timeline" class="btn btn-ghost">⏱️ Customer Timeline</RouterLink>
     </div>
 
     <!-- Quick Notes -->
@@ -504,6 +537,7 @@ import Sparkline from '../components/Sparkline.vue'
 const auth = useAuthStore()
 const stats = ref(null)
 const lastRefreshed = ref(null)
+const lowStockProducts = ref([])
 let refreshTimer = null
 
 async function loadStats() {
@@ -514,8 +548,19 @@ async function loadStats() {
   } catch {}
 }
 
+async function loadLowStock() {
+  try {
+    const { data } = await api.get('/products/inventory')
+    lowStockProducts.value = [
+      ...(data.outOfStock || []),
+      ...(data.lowStock || []),
+    ].slice(0, 20)
+  } catch {}
+}
+
 onMounted(() => {
   loadStats()
+  loadLowStock()
   // Auto-refresh every 60 seconds
   refreshTimer = setInterval(loadStats, 60_000)
 })
@@ -548,6 +593,54 @@ function timeAgo(iso) {
 
 <style scoped>
 .text-muted { color: var(--text-muted); font-size: 0.88rem; }
+
+/* Low stock banner */
+.low-stock-banner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.85rem 1.25rem;
+  margin-bottom: 1.25rem;
+  border-radius: 0.875rem;
+  border-color: rgba(250,160,50,0.35);
+  background: rgba(250,160,50,0.07);
+}
+.low-stock-icon { font-size: 1.3rem; flex-shrink: 0; }
+.low-stock-left { display: flex; align-items: center; gap: 0.65rem; flex-shrink: 0; }
+.low-stock-left strong { font-size: 0.88rem; color: hsl(38,90%,68%); }
+.low-stock-sub { display: block; font-size: 0.75rem; color: var(--text-muted); }
+.low-stock-pills { display: flex; flex-wrap: wrap; gap: 0.4rem; flex: 1; min-width: 0; }
+.low-stock-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  font-size: 0.73rem;
+  color: var(--text);
+  text-decoration: none;
+  transition: background 0.15s;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.low-stock-pill:hover { background: rgba(255,255,255,0.1); }
+.low-stock-pill.pill-oos { border-color: rgba(var(--accent-rgb,200,60,80),0.4); color: var(--accent); }
+.pill-qty {
+  background: rgba(250,160,50,0.2);
+  color: hsl(38,90%,68%);
+  border-radius: 999px;
+  padding: 0 0.3rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+.pill-oos .pill-qty { background: rgba(var(--accent-rgb,200,60,80),0.2); color: var(--accent); }
+.low-stock-more { font-size: 0.72rem; color: var(--text-muted); padding: 0.15rem 0; }
+.low-stock-cta { margin-left: auto; flex-shrink: 0; }
 
 .stats-grid {
   display: grid;

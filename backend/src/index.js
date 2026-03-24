@@ -126,6 +126,10 @@ import orderStatusesRoutes from './routes/order_statuses.js'
 import ipBlocklistRoutes, { isIpBlocked } from './routes/ip_blocklist.js'
 import siteAuditRoutes from './routes/site_audit.js'
 import mediaAltRoutes from './routes/media_alt.js'
+import errorLogsRoutes from './routes/error_logs.js'
+import bulkPriceRoutes from './routes/bulk_price.js'
+import customerTimelineRoutes from './routes/customer_timeline.js'
+import orderPrintRoutes from './routes/order_print.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -366,6 +370,11 @@ app.use('/api/order-statuses', orderStatusesRoutes)
 app.use('/api/ip-blocklist', ipBlocklistRoutes)
 app.use('/api/site-audit', siteAuditRoutes)
 app.use('/api/media-alt', mediaAltRoutes)
+app.use('/api/error-logs', errorLogsRoutes)
+app.use('/api/bulk-price', bulkPriceRoutes)
+app.use('/api/customer-timeline', customerTimelineRoutes)
+app.use('/api/order-print', orderPrintRoutes)
+app.use('/api/sitemap', seoRoutes)
 app.use('/', shoppingFeedRoutes)
 
 // ─── SEO (public) ─────────────────────────────────────────────────────────────

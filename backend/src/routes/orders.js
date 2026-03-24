@@ -611,7 +611,7 @@ router.get('/confirm/:orderNumber', (req, res) => {
 
 // ─── Admin: Update order status / notes ──────────────────────────────────────
 // PUT /api/orders/:id
-router.put('/:id', authMiddleware, (req, res) => {
+router.put('/:id', authMiddleware, async (req, res) => {
   const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id)
   if (!order) return res.status(404).json({ error: 'Order not found' })
 

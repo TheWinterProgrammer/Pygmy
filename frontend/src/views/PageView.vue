@@ -94,6 +94,13 @@ async function load() {
     }).catch(() => {})
   } catch {
     page.value = null
+    // Track 404
+    api.post('/error-logs', {
+      path: window.location.pathname,
+      referrer: document.referrer,
+      user_agent: navigator.userAgent,
+      status_code: 404
+    }).catch(() => {})
   }
   loading.value = false
 }

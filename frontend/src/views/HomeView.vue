@@ -85,6 +85,47 @@
     </div>
   </section>
 
+  <!-- ───── Featured Bundles ───── -->
+  <section class="bundles-section container" v-if="featuredBundles.length">
+    <h2 class="section-title">🪄 Bundle Deals</h2>
+    <p class="section-sub">Buy together and save more</p>
+    <div class="bundles-grid">
+      <RouterLink
+        v-for="b in featuredBundles"
+        :key="b.id"
+        :to="`/shop/bundles/${b.slug}`"
+        class="bundle-card glass"
+      >
+        <div class="bundle-img" v-if="b.cover_image">
+          <img :src="b.cover_image" :alt="b.name" loading="lazy" />
+        </div>
+        <div class="bundle-img bundle-img-ph" v-else>
+          <span>🛍️</span>
+        </div>
+        <div class="bundle-body">
+          <h3 class="bundle-name">{{ b.name }}</h3>
+          <p class="bundle-desc" v-if="b.description">{{ b.description }}</p>
+          <div class="bundle-pricing">
+            <span class="bundle-orig">{{ fmt(b.original_total) }}</span>
+            <span class="bundle-arrow">→</span>
+            <span class="bundle-price">{{ fmt(b.bundle_price) }}</span>
+            <span class="bundle-save" v-if="bundleSavingsPct(b) > 0">Save {{ bundleSavingsPct(b) }}%</span>
+          </div>
+          <div class="bundle-items-preview" v-if="b.items?.length">
+            <span v-for="item in b.items.slice(0, 3)" :key="item.product_id" class="bundle-item-pill">
+              {{ item.name }}
+            </span>
+            <span v-if="b.items.length > 3" class="bundle-item-more">+{{ b.items.length - 3 }} more</span>
+          </div>
+        </div>
+        <div class="bundle-cta">View Bundle →</div>
+      </RouterLink>
+    </div>
+    <div class="view-all">
+      <RouterLink to="/shop/bundles" class="btn btn-outline">All Bundle Deals →</RouterLink>
+    </div>
+  </section>
+
   <!-- ───── Upcoming Events ───── -->
   <section class="events-section container" v-if="upcomingEvents.length">
     <h2 class="section-title">Upcoming Events</h2>
@@ -125,14 +166,22 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useSiteStore } from '../stores/site.js'
 import api from '../api.js'
+import { useCurrency } from '../composables/useCurrency.js'
 
 const site = useSiteStore()
+const { fmt, ensureLoaded: ensureCurrency } = useCurrency()
 const posts = ref([])
 const total = ref(0)
 const loaded = ref(false)
 const scrolled = ref(false)
 const upcomingEvents = ref([])
 const featuredProducts = ref([])
+const featuredBundles = ref([])
+
+function bundleSavingsPct(b) {
+  if (!b.original_total || b.original_total <= 0) return 0
+  return Math.round(((b.original_total - b.bundle_price) / b.original_total) * 100)
+}
 
 const heroBg = computed(() => {
   const url = site.settings.hero_bg_url
@@ -145,6 +194,7 @@ const heroBg = computed(() => {
 })
 
 onMounted(async () => {
+  await ensureCurrency()
   try {
     const { data } = await api.get('/posts?limit=6')
     posts.value = data.posts
@@ -160,6 +210,13 @@ onMounted(async () => {
       ...e,
       tags: typeof e.tags === 'string' ? JSON.parse(e.tags) : (e.tags || [])
     }))
+  } catch {}
+  try {
+    const { data } = await api.get('/bundles?limit=3')
+    // Only show published bundles with at least 1 item that have a discount
+    featuredBundles.value = (data || [])
+      .filter(b => b.status === 'published' && b.bundle_price < b.original_total)
+      .slice(0, 3)
   } catch {}
   loaded.value = true
   window.addEventListener('scroll', onScroll, { passive: true })
@@ -411,6 +468,66 @@ function formatDay(d) {
 .price-main { font-size: 1.05rem; font-weight: 700; color: var(--accent); }
 .price-sale { font-size: 1.05rem; font-weight: 700; color: var(--accent); }
 .price-original-strike { font-size: .85rem; color: var(--text-muted); text-decoration: line-through; }
+/* ─── Bundle Deals section ─── */
+.bundles-section { padding: 3rem 1.5rem 2rem; }
+.section-sub { color: var(--text-muted); margin-top: -0.5rem; margin-bottom: 1.5rem; font-size: .9rem; }
+.bundles-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+.bundle-card {
+  border-radius: 1rem;
+  overflow: hidden;
+  text-decoration: none;
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  transition: transform .2s, box-shadow .2s;
+}
+.bundle-card:hover { transform: translateY(-4px); box-shadow: 0 14px 40px rgba(0,0,0,.4); }
+.bundle-img { aspect-ratio: 16/9; overflow: hidden; background: hsl(228,4%,13%); }
+.bundle-img img { width: 100%; height: 100%; object-fit: cover; }
+.bundle-img-ph { display: flex; align-items: center; justify-content: center; font-size: 2.5rem; }
+.bundle-body { padding: 1rem 1.1rem .6rem; flex: 1; }
+.bundle-name { font-size: 1rem; font-weight: 600; margin: 0 0 .3rem; }
+.bundle-desc { font-size: .8rem; color: var(--text-muted); margin-bottom: .6rem;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.bundle-pricing { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin-bottom: .5rem; }
+.bundle-orig { font-size: .82rem; color: var(--text-muted); text-decoration: line-through; }
+.bundle-arrow { color: var(--text-muted); font-size: .75rem; }
+.bundle-price { font-size: 1.05rem; font-weight: 700; color: var(--accent); }
+.bundle-save {
+  background: rgba(60,200,80,.12);
+  color: hsl(140,55%,55%);
+  border: 1px solid rgba(60,200,80,.25);
+  font-size: .7rem; font-weight: 700;
+  padding: .15rem .5rem; border-radius: 999px;
+}
+.bundle-items-preview { display: flex; flex-wrap: wrap; gap: .35rem; }
+.bundle-item-pill {
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 999px;
+  font-size: .68rem;
+  padding: .1rem .45rem;
+  color: var(--text-muted);
+  max-width: 110px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.bundle-item-more { font-size: .68rem; color: var(--text-muted); padding: .1rem .3rem; }
+.bundle-cta {
+  display: block;
+  padding: .65rem 1.1rem;
+  font-size: .8rem;
+  font-weight: 600;
+  color: var(--accent);
+  border-top: 1px solid rgba(255,255,255,.06);
+  transition: background .15s;
+}
+.bundle-card:hover .bundle-cta { background: rgba(255,255,255,.03); }
+
 .events-section { padding: 4rem 1.5rem 2rem; }
 .events-row { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem; }
 .event-card {

@@ -128,6 +128,9 @@ const routes = [
       { path: 'ip-blocklist',      name: 'IpBlocklist',      component: () => import('../views/IpBlocklistView.vue') },
       { path: 'site-audit',        name: 'SiteAudit',        component: () => import('../views/SiteAuditView.vue') },
       { path: 'media-alt',         name: 'MediaAlt',         component: () => import('../views/MediaAltView.vue') },
+      { path: 'error-logs',        name: 'ErrorLogs',        component: () => import('../views/ErrorLogsView.vue') },
+      { path: 'bulk-price',        name: 'BulkPrice',        component: () => import('../views/BulkPriceView.vue') },
+      { path: 'customer-timeline', name: 'CustomerTimeline', component: () => import('../views/CustomerTimelineView.vue') },
       { path: 'settings',          name: 'Settings',         component: () => import('../views/SettingsView.vue') },
     ]
   },

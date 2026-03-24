@@ -302,6 +302,7 @@
         <div class="modal-footer">
           <button class="btn btn-ghost" @click="selected = null">Close</button>
           <button class="btn btn-ghost" @click="printInvoice(selected)" title="Open print-ready invoice">🖨️ Invoice</button>
+          <button class="btn btn-ghost" @click="printOrderDetail(selected)" title="Open printable order view">🖨️ Print Order</button>
           <button class="btn btn-ghost" @click="printPackingSlip(selected)" title="Open packing slip">📋 Packing Slip</button>
           <button class="btn btn-ghost" @click="printShippingLabel(selected)" title="Open shipping label">🏷️ Shipping Label</button>
           <button class="btn btn-ghost" @click="openMessageModal(selected)" title="Send message to customer">📩 Message Customer</button>
@@ -668,6 +669,11 @@ async function savePayment() {
   } finally {
     saving.value = false
   }
+}
+
+function printOrderDetail(order) {
+  const token = localStorage.getItem('pygmy_token')
+  window.open(`${API}/api/order-print/${order.order_number}?token=${encodeURIComponent(token)}`, '_blank')
 }
 
 function printInvoice(order) {
