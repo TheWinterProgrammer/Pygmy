@@ -29,6 +29,7 @@
           <li v-if="site.settings.store_locator_enabled === '1'"><a href="/stores">📍 Store Locator</a></li>
           <li><a href="/vendors">🏪 Marketplace</a></li>
           <li><a href="/vendor-portal">Sell on {{ site.settings.site_name || 'our store' }}</a></li>
+          <li v-if="site.settings.referral_enabled === '1'"><a href="/referral">🤝 Refer a Friend</a></li>
         </ul>
       </nav>
     </div>

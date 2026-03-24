@@ -131,6 +131,14 @@ const routes = [
     component: () => import('../views/VendorPortalView.vue')
   },
   {
+    path: '/surveys/:slug',
+    component: () => import('../views/SurveyView.vue')
+  },
+  {
+    path: '/referral',
+    component: () => import('../views/ReferralView.vue')
+  },
+  {
     path: '/changelog',
     component: () => import('../views/ChangelogView.vue')
   },

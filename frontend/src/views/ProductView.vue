@@ -493,6 +493,7 @@
 
 <script setup>
 import { ref, computed, reactive, onMounted, watch } from 'vue'
+import { trackFunnelEvent } from '../composables/useTracking.js'
 import FlashSaleBanner from '../components/FlashSaleBanner.vue'
 import RecentlyViewed from '../components/RecentlyViewed.vue'
 import SocialProof from '../components/SocialProof.vue'
@@ -735,6 +736,8 @@ function addToCart() {
   cart.open()
   addedFlash.value = true
   setTimeout(() => { addedFlash.value = false }, 2000)
+  // Track funnel: add_to_cart
+  trackFunnelEvent('add_to_cart', { productId: product.value.id, productSlug: product.value.slug })
 }
 
 const allImages = computed(() => {
@@ -776,6 +779,8 @@ async function load() {
       entity_slug: data.slug,
       entity_title: data.name
     }).catch(() => {})
+    // Track funnel: product_view
+    trackFunnelEvent('product_view', { productId: data.id, productSlug: data.slug })
     // Track recently viewed
     try {
       let sid = localStorage.getItem('pygmy_sid')

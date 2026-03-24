@@ -131,6 +131,9 @@ import bulkPriceRoutes from './routes/bulk_price.js'
 import customerTimelineRoutes from './routes/customer_timeline.js'
 import orderPrintRoutes from './routes/order_print.js'
 import storeLocatorRoutes from './routes/store_locator.js'
+import cookieConsentRoutes from './routes/cookie_consent.js'
+import funnelRoutes from './routes/funnel.js'
+import heatmapRoutes from './routes/heatmap.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -376,6 +379,9 @@ app.use('/api/bulk-price', bulkPriceRoutes)
 app.use('/api/customer-timeline', customerTimelineRoutes)
 app.use('/api/order-print', orderPrintRoutes)
 app.use('/api/store-locator', storeLocatorRoutes)
+app.use('/api/cookie-consent', cookieConsentRoutes)
+app.use('/api/funnel', funnelRoutes)
+app.use('/api/heatmap', heatmapRoutes)
 app.use('/api/sitemap', seoRoutes)
 app.use('/', shoppingFeedRoutes)
 

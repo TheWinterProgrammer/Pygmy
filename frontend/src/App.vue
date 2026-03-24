@@ -45,6 +45,7 @@ import CompareDrawer from './components/CompareDrawer.vue'
 import PushPrompt from './components/PushPrompt.vue'
 import InstallPrompt from './components/InstallPrompt.vue'
 import { useAffiliate } from './composables/useAffiliate.js'
+import { installHeatmapTracker } from './composables/useTracking.js'
 
 const site = useSiteStore()
 const { captureReferral } = useAffiliate()
@@ -52,6 +53,10 @@ const { captureReferral } = useAffiliate()
 onMounted(async () => {
   await site.load()
   captureReferral()
+  // Install click heatmap tracker (respects heatmap_enabled setting)
+  if (site.settings?.heatmap_enabled === '1') {
+    installHeatmapTracker()
+  }
 })
 </script>
 

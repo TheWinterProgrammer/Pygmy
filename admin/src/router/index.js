@@ -132,6 +132,9 @@ const routes = [
       { path: 'error-logs',        name: 'ErrorLogs',        component: () => import('../views/ErrorLogsView.vue') },
       { path: 'bulk-price',        name: 'BulkPrice',        component: () => import('../views/BulkPriceView.vue') },
       { path: 'customer-timeline', name: 'CustomerTimeline', component: () => import('../views/CustomerTimelineView.vue') },
+      { path: 'cookie-consent',    name: 'CookieConsent',    component: () => import('../views/CookieConsentView.vue') },
+      { path: 'funnel',            name: 'Funnel',           component: () => import('../views/FunnelView.vue') },
+      { path: 'heatmap',           name: 'Heatmap',          component: () => import('../views/HeatmapView.vue') },
       { path: 'settings',          name: 'Settings',         component: () => import('../views/SettingsView.vue') },
     ]
   },

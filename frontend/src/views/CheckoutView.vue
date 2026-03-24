@@ -455,6 +455,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { trackFunnelEvent } from '../composables/useTracking.js'
 import { useRouter } from 'vue-router'
 import { useCartStore } from '../stores/cart.js'
 import { useSiteStore } from '../stores/site.js'
@@ -784,6 +785,8 @@ function buildBillingAddressString() {
 
 // ── Mount ─────────────────────────────────────────────────────────────────────
 onMounted(async () => {
+  // Track funnel: checkout_start
+  trackFunnelEvent('checkout_start')
   try {
     const { data } = await api.get('/settings')
     giftCardsEnabled.value    = data.gift_cards_enabled === '1'

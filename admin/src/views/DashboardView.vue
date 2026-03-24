@@ -520,6 +520,9 @@
       <RouterLink to="/error-logs" class="btn btn-ghost">🚫 404 Tracker</RouterLink>
       <RouterLink to="/bulk-price" class="btn btn-ghost">💰 Bulk Price Editor</RouterLink>
       <RouterLink to="/customer-timeline" class="btn btn-ghost">⏱️ Customer Timeline</RouterLink>
+      <RouterLink to="/cookie-consent" class="btn btn-ghost">🍪 Cookie Consent</RouterLink>
+      <RouterLink to="/funnel" class="btn btn-ghost">🔭 Sales Funnel</RouterLink>
+      <RouterLink to="/heatmap" class="btn btn-ghost">🔥 Click Heatmaps</RouterLink>
     </div>
 
     <!-- Quick Notes -->

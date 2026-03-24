@@ -201,6 +201,9 @@ const navItems = [
   { to: '/error-logs',               icon: '🚫',  label: '404 Error Tracker' },
   { to: '/bulk-price',               icon: '💰',  label: 'Bulk Price Editor' },
   { to: '/customer-timeline',        icon: '⏱️',  label: 'Customer Timeline' },
+  { to: '/cookie-consent',           icon: '🍪',  label: 'Cookie Consent' },
+  { to: '/funnel',                   icon: '🔭',  label: 'Sales Funnel' },
+  { to: '/heatmap',                  icon: '🔥',  label: 'Click Heatmaps' },
   { to: '/settings',          icon: '⚙️',  label: 'Settings' },
 ]
 

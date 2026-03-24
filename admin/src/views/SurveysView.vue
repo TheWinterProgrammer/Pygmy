@@ -48,9 +48,10 @@
         <div class="survey-meta">
           <span class="meta-pill">❓ {{ s.question_count }} questions</span>
           <span class="meta-pill">👥 {{ s.response_count }} responses</span>
-          <span class="meta-pill">🔗 /survey/{{ s.slug }}</span>
+          <span class="meta-pill">🔗 /surveys/{{ s.slug }}</span>
         </div>
         <div class="survey-actions">
+          <a class="btn btn-ghost btn-sm" :href="`${siteUrl}/surveys/${s.slug}`" target="_blank" v-if="s.status === 'active'">🌐 Preview</a>
           <button class="btn btn-ghost btn-sm" @click="viewAnalytics(s)">📊 Analytics</button>
           <button class="btn btn-ghost btn-sm" @click="editQuestions(s)">❓ Questions</button>
           <button class="btn btn-ghost btn-sm" @click="openEdit(s)">✏️ Edit</button>
@@ -257,6 +258,8 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import api from '../api.js'
+
+const siteUrl = window.__PYGMY_SITE_URL__ || (window.location.protocol + '//' + window.location.hostname + ':5174')
 
 const surveys = ref([])
 const stats = ref({})

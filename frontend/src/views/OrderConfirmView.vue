@@ -107,6 +107,7 @@ import { useRoute } from 'vue-router'
 import { useSiteStore } from '../stores/site.js'
 import api from '../api.js'
 import OrderTimeline from '../components/OrderTimeline.vue'
+import { trackFunnelEvent } from '../composables/useTracking.js'
 
 const route = useRoute()
 const site  = useSiteStore()
@@ -121,6 +122,11 @@ onMounted(async () => {
   try {
     const { data } = await api.get(`/orders/confirm/${route.params.orderNumber}`)
     order.value = data
+    // Track funnel: order_placed
+    trackFunnelEvent('order_placed', {
+      orderNumber: data.order_number,
+      value: data.total,
+    })
     // Fetch upsell offer after a short delay
     setTimeout(async () => {
       try {
