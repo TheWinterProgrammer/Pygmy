@@ -651,6 +651,84 @@
         </div>
       </div>
 
+      <!-- Changelog Settings (Phase 57) -->
+      <div class="glass section">
+        <h2 style="margin-bottom:1.25rem;">📋 Changelog / What's New</h2>
+        <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1rem;">
+          Public changelog page at <code style="color:var(--accent)">/changelog</code>.
+          Manage entries at <RouterLink to="/changelog" style="color:var(--accent)">📋 Changelog</RouterLink>.
+        </p>
+        <label class="toggle-label" style="margin-bottom:1rem">
+          <input type="checkbox" v-model="changelogEnabled" />
+          <span>Show Changelog page publicly</span>
+        </label>
+        <div class="form-group">
+          <label>Page Title</label>
+          <input v-model="form.changelog_title" class="input" placeholder="What's New" />
+        </div>
+        <div class="form-group">
+          <label>Subtitle</label>
+          <input v-model="form.changelog_subtitle" class="input" placeholder="Stay up to date with the latest improvements." />
+        </div>
+      </div>
+
+      <!-- NPS Survey Settings (Phase 57) -->
+      <div class="glass section">
+        <h2 style="margin-bottom:1.25rem;">🌟 NPS Surveys</h2>
+        <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1rem;">
+          A floating satisfaction survey shown to visitors. View results at <RouterLink to="/nps" style="color:var(--accent)">🌟 NPS Surveys</RouterLink>.
+        </p>
+        <label class="toggle-label" style="margin-bottom:1rem">
+          <input type="checkbox" v-model="npsEnabled" />
+          <span>Enable NPS Survey widget</span>
+        </label>
+        <div v-if="npsEnabled" class="settings-grid">
+          <div class="form-group">
+            <label>Survey Question</label>
+            <input v-model="form.nps_question" class="input" placeholder="How likely are you to recommend us?" />
+          </div>
+          <div class="form-group">
+            <label>Follow-up Question</label>
+            <input v-model="form.nps_follow_up" class="input" placeholder="What's the main reason for your score?" />
+          </div>
+          <div class="form-group">
+            <label>Show after (seconds)</label>
+            <input v-model="form.nps_delay_days" class="input" type="number" min="0" max="365" placeholder="3" />
+            <small style="color:var(--muted)">Days after order delivery before showing (0 = show on any visit)</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Shipping Labels From Address (Phase 57) -->
+      <div class="glass section" style="grid-column:span 2">
+        <h2 style="margin-bottom:1.25rem;">🏷️ Shipping Labels — From Address</h2>
+        <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.25rem;">
+          Printed on shipping labels as the sender address. Print labels from the <RouterLink to="/fulfillment" style="color:var(--accent)">🚢 Fulfillment</RouterLink> queue.
+        </p>
+        <div class="settings-grid">
+          <div class="form-group">
+            <label>Sender Name / Company</label>
+            <input v-model="form.shipping_label_from_name" class="input" placeholder="Your Store Name" />
+          </div>
+          <div class="form-group">
+            <label>Street Address</label>
+            <input v-model="form.shipping_label_from_address" class="input" placeholder="123 Main Street" />
+          </div>
+          <div class="form-group">
+            <label>City</label>
+            <input v-model="form.shipping_label_from_city" class="input" placeholder="City" />
+          </div>
+          <div class="form-group">
+            <label>ZIP / Postal Code</label>
+            <input v-model="form.shipping_label_from_zip" class="input" placeholder="12345" />
+          </div>
+          <div class="form-group">
+            <label>Country</label>
+            <input v-model="form.shipping_label_from_country" class="input" placeholder="DE" />
+          </div>
+        </div>
+      </div>
+
       <!-- AI Content Helper (Phase 56) -->
       <div class="glass section" style="grid-column:span 2">
         <h2 style="margin-bottom:1.25rem;">🤖 AI Content Helper</h2>
@@ -987,6 +1065,16 @@ const bookingsEnabled = computed({
 const aiEnabled = computed({
   get: () => form.value.ai_enabled === '1',
   set: v => { form.value.ai_enabled = v ? '1' : '0' }
+})
+
+const changelogEnabled = computed({
+  get: () => form.value.changelog_enabled !== '0',
+  set: v => { form.value.changelog_enabled = v ? '1' : '0' }
+})
+
+const npsEnabled = computed({
+  get: () => form.value.nps_enabled === '1',
+  set: v => { form.value.nps_enabled = v ? '1' : '0' }
 })
 
 const giftRegistryEnabled = computed({

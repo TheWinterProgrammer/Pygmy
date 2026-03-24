@@ -123,6 +123,10 @@ const routes = [
     component: () => import('../views/VendorPortalView.vue')
   },
   {
+    path: '/changelog',
+    component: () => import('../views/ChangelogView.vue')
+  },
+  {
     path: '/account/login',
     component: () => import('../views/AccountLoginView.vue')
   },

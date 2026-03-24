@@ -309,6 +309,30 @@
         </div>
       </div>
 
+      <!-- NPS (Phase 57) -->
+      <div class="stat-card glass" v-if="stats.nps?.total > 0">
+        <div class="stat-icon">🌟</div>
+        <div class="stat-body">
+          <div class="stat-num" :style="stats.nps?.score >= 50 ? 'color:#4ade80' : stats.nps?.score >= 0 ? 'color:#fbbf24' : 'color:#f87171'">
+            {{ stats.nps?.score !== null ? stats.nps.score : '—' }}
+          </div>
+          <div class="stat-label">NPS Score (30d)</div>
+          <span style="color:var(--text-muted);font-size:.8rem;">{{ stats.nps?.total ?? 0 }} responses</span>
+          <RouterLink to="/nps" class="stat-link">→ NPS Surveys</RouterLink>
+        </div>
+      </div>
+
+      <!-- Changelog (Phase 57) -->
+      <div class="stat-card glass" v-if="(stats.changelog?.published ?? 0) > 0">
+        <div class="stat-icon">📋</div>
+        <div class="stat-body">
+          <div class="stat-num">{{ stats.changelog?.published ?? 0 }}</div>
+          <div class="stat-label">Published Releases</div>
+          <span style="color:var(--text-muted);font-size:.8rem;">public changelog</span>
+          <RouterLink to="/changelog" class="stat-link">→ Changelog</RouterLink>
+        </div>
+      </div>
+
       <!-- Phase 50: Gift Registries -->
       <div class="stat-card glass" v-if="(stats.gift_registries?.total ?? 0) > 0">
         <div class="stat-icon">🎁</div>
@@ -458,6 +482,8 @@
       <RouterLink to="/gift-registry" class="btn btn-ghost">🎁 Gift Registries</RouterLink>
       <RouterLink to="/auto-discounts" class="btn btn-ghost">⚡ Auto Discounts</RouterLink>
       <RouterLink to="/customer-ltv" class="btn btn-ghost">📊 Customer LTV</RouterLink>
+      <RouterLink to="/changelog" class="btn btn-ghost">📋 Changelog</RouterLink>
+      <RouterLink to="/nps" class="btn btn-ghost">🌟 NPS Surveys</RouterLink>
     </div>
 
     <!-- Quick Notes -->

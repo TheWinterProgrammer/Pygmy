@@ -255,6 +255,28 @@ router.get('/stats', authMiddleware, (req, res) => {
     autoDiscountsActive  = db.prepare(`SELECT COUNT(*) as c FROM auto_discounts WHERE active=1`).get()?.c ?? 0
   } catch {}
 
+  // NPS stats (Phase 57)
+  let npsScore = null, npsTotal = 0
+  try {
+    const npsRows = db.prepare(`
+      SELECT score, COUNT(*) as count FROM nps_surveys
+      WHERE responded_at >= datetime('now', '-30 days')
+      GROUP BY CASE WHEN score >= 9 THEN 'promoter' WHEN score >= 7 THEN 'passive' ELSE 'detractor' END
+    `).all()
+    npsTotal = db.prepare(`SELECT COUNT(*) as c FROM nps_surveys WHERE responded_at >= datetime('now', '-30 days')`).get()?.c ?? 0
+    if (npsTotal > 0) {
+      const promoters  = db.prepare(`SELECT COUNT(*) as c FROM nps_surveys WHERE score >= 9 AND responded_at >= datetime('now', '-30 days')`).get()?.c ?? 0
+      const detractors = db.prepare(`SELECT COUNT(*) as c FROM nps_surveys WHERE score <= 6 AND responded_at >= datetime('now', '-30 days')`).get()?.c ?? 0
+      npsScore = Math.round(((promoters - detractors) / npsTotal) * 100)
+    }
+  } catch {}
+
+  // Changelog stats (Phase 57)
+  let changelogPublished = 0
+  try {
+    changelogPublished = db.prepare(`SELECT COUNT(*) as c FROM changelog_entries WHERE status='published'`).get()?.c ?? 0
+  } catch {}
+
   // Recent bookings (for dashboard widget)
   let recentBookings = []
   try {
@@ -304,6 +326,8 @@ router.get('/stats', authMiddleware, (req, res) => {
     coupon_campaigns: { total: couponCampaignsTotal, active: couponCampaignsActive },
     gift_registries: { total: giftRegistriesTotal, active: giftRegistriesActive },
     auto_discounts: { active: autoDiscountsActive },
+    nps: { score: npsScore, total: npsTotal },
+    changelog: { published: changelogPublished },
     recentPosts,
     recentActivity,
     recentBookings

@@ -114,6 +114,9 @@ import stockHistoryRoutes from './routes/stock_history.js'
 import preordersRoutes from './routes/preorders.js'
 import orderShipmentsRoutes from './routes/order_shipments.js'
 import aiContentRoutes from './routes/ai_content.js'
+import changelogRoutes from './routes/changelog.js'
+import npsRoutes from './routes/nps.js'
+import shippingLabelsRoutes from './routes/shipping_labels.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -324,6 +327,9 @@ app.use('/api/stock-history', stockHistoryRoutes)
 app.use('/api/preorders', preordersRoutes)
 app.use('/api/order-shipments', orderShipmentsRoutes)
 app.use('/api/ai', aiContentRoutes)
+app.use('/api/changelog', changelogRoutes)
+app.use('/api/nps', npsRoutes)
+app.use('/api/shipping-labels', shippingLabelsRoutes)
 app.use('/', shoppingFeedRoutes)
 
 // ─── SEO (public) ─────────────────────────────────────────────────────────────

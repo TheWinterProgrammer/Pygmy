@@ -151,6 +151,20 @@ router.get('/sitemap.xml', (req, res) => {
   </url>`)
   }
 
+  // Changelog page (if any published entries exist)
+  try {
+    const hasChangelog = db.prepare(`SELECT COUNT(*) as c FROM changelog_entries WHERE status='published'`).get()?.c > 0
+    const changelogEnabled = db.prepare(`SELECT value FROM settings WHERE key='changelog_enabled'`).get()?.value
+    if (hasChangelog && changelogEnabled !== '0') {
+      urls.push(`
+  <url>
+    <loc>${escapeXml(siteUrl)}/changelog</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>`)
+    }
+  } catch {}
+
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.join('')}
 </urlset>`

@@ -303,6 +303,7 @@
           <button class="btn btn-ghost" @click="selected = null">Close</button>
           <button class="btn btn-ghost" @click="printInvoice(selected)" title="Open print-ready invoice">🖨️ Invoice</button>
           <button class="btn btn-ghost" @click="printPackingSlip(selected)" title="Open packing slip">📋 Packing Slip</button>
+          <button class="btn btn-ghost" @click="printShippingLabel(selected)" title="Open shipping label">🏷️ Shipping Label</button>
           <button class="btn btn-ghost" @click="openMessageModal(selected)" title="Send message to customer">📩 Message Customer</button>
           <button class="btn btn-ghost" @click="openTagsModal(selected)" title="Manage order tags">🏷️ Tags</button>
           <button class="btn btn-danger" @click="confirmDelete(selected)">Delete order</button>
@@ -679,6 +680,12 @@ function printPackingSlip(order) {
   const API = import.meta.env.VITE_API_URL || 'http://localhost:3200'
   // Open with token in URL query since packing slip is an HTML page
   window.open(`${API}/api/packing-slips/${order.order_number}?token=${encodeURIComponent(token)}`, '_blank')
+}
+
+function printShippingLabel(order) {
+  const token = localStorage.getItem('pygmy_token') || ''
+  const API = import.meta.env.VITE_API_URL || 'http://localhost:3200'
+  window.open(`${API}/api/shipping-labels/${order.order_number}?token=${encodeURIComponent(token)}`, '_blank')
 }
 
 function openMessageModal(order) {

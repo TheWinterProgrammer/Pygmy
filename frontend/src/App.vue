@@ -18,6 +18,7 @@
     <CookieBanner v-if="site.settings?.cookie_consent_enabled === '1'" :settings="site.settings" />
     <SitePopup />
     <SupportWidget />
+    <NpsWidget />
     <CompareDrawer />
     <PushPrompt />
     <InstallPrompt />
@@ -39,6 +40,7 @@ import CookieBanner from './components/CookieBanner.vue'
 import AnnouncementBar from './components/AnnouncementBar.vue'
 import SitePopup from './components/SitePopup.vue'
 import SupportWidget from './components/SupportWidget.vue'
+import NpsWidget from './components/NpsWidget.vue'
 import CompareDrawer from './components/CompareDrawer.vue'
 import PushPrompt from './components/PushPrompt.vue'
 import InstallPrompt from './components/InstallPrompt.vue'

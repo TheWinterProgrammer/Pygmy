@@ -189,6 +189,8 @@ const navItems = [
   { to: '/recommendations',          icon: '🔀',  label: 'Product Recommendations' },
   { to: '/order-analytics',          icon: '📊',  label: 'Order Analytics' },
   { to: '/customer-import',          icon: '📥',  label: 'Customer Import' },
+  { to: '/changelog',                icon: '📋',  label: 'Changelog' },
+  { to: '/nps',                      icon: '🌟',  label: 'NPS Surveys' },
   { to: '/settings',          icon: '⚙️',  label: 'Settings' },
 ]
 

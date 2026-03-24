@@ -2645,3 +2645,56 @@ db.prepare(`
 db.prepare(`CREATE INDEX IF NOT EXISTS idx_order_shipments_order ON order_shipments(order_id)`).run()
 
 console.log('Phase 56 schema ready')
+
+// ─── Phase 57 Schema ──────────────────────────────────────────────────────────
+
+// changelog / release notes
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS changelog_entries (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    version     TEXT NOT NULL,
+    title       TEXT NOT NULL,
+    content     TEXT NOT NULL DEFAULT '',
+    type        TEXT NOT NULL DEFAULT 'feature',
+    status      TEXT NOT NULL DEFAULT 'draft',
+    published_at TEXT,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_changelog_status ON changelog_entries(status, published_at DESC)`).run()
+
+// NPS surveys
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS nps_surveys (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_number  TEXT,
+    customer_email TEXT,
+    score         INTEGER NOT NULL CHECK(score BETWEEN 0 AND 10),
+    feedback      TEXT,
+    category      TEXT,
+    responded_at  TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_nps_score ON nps_surveys(score)`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_nps_email ON nps_surveys(customer_email)`).run()
+
+const phase57Defaults = {
+  changelog_enabled: '1',
+  changelog_title:   'What\'s New',
+  changelog_subtitle:'Stay up to date with the latest features and improvements.',
+  nps_enabled:       '0',
+  nps_delay_days:    '3',
+  nps_question:      'How likely are you to recommend us to a friend or colleague?',
+  nps_follow_up:     'What\'s the main reason for your score?',
+  shipping_label_from_name: '',
+  shipping_label_from_address: '',
+  shipping_label_from_city: '',
+  shipping_label_from_zip: '',
+  shipping_label_from_country: '',
+}
+for (const [key, value] of Object.entries(phase57Defaults)) {
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
+}
+
+console.log('Phase 57 schema ready')
