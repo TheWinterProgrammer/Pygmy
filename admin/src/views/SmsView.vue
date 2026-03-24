@@ -71,7 +71,7 @@
           <label>Order Confirmation Message</label>
           <textarea v-model="s.sms_order_message" class="input" rows="3"
             placeholder="Hi {{name}}, your order {{order_number}} has been placed! Total: {{total}}" />
-          <div class="hint">Variables: <code>{{'{{'}}name{{'}}'}}</code>, <code>{{'{{'}}order_number{{'}}'}}</code>, <code>{{'{{'}}total{{'}}'}}</code></div>
+          <div class="hint">Variables: <code>{{ fmtVar('name') }}</code>, <code>{{ fmtVar('order_number') }}</code>, <code>{{ fmtVar('total') }}</code></div>
         </div>
 
         <div class="field">
@@ -84,7 +84,7 @@
           <label>Shipped Message</label>
           <textarea v-model="s.sms_shipped_message" class="input" rows="3"
             placeholder="Hi {{name}}, your order {{order_number}} has shipped! Track: {{tracking_url}}" />
-          <div class="hint">Variables: <code>{{'{{'}}name{{'}}'}}</code>, <code>{{'{{'}}order_number{{'}}'}}</code>, <code>{{'{{'}}tracking_url{{'}}'}}</code></div>
+          <div class="hint">Variables: <code>{{ fmtVar('name') }}</code>, <code>{{ fmtVar('order_number') }}</code>, <code>{{ fmtVar('tracking_url') }}</code></div>
         </div>
 
         <div class="field">
@@ -243,6 +243,10 @@ async function sendTest() {
 
 function fmtDate(dt) {
   return new Date(dt).toLocaleString()
+}
+
+function fmtVar(v) {
+  return `{{${v}}}`
 }
 
 watch(logFilter, loadLogs)

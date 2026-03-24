@@ -44,6 +44,9 @@
             <span class="status-pill" :class="`status-${result.status}`">{{ statusLabel(result.status) }}</span>
           </div>
 
+          <!-- Order Status Timeline -->
+          <OrderTimeline :status="result.status" />
+
           <div class="result-meta">
             <div class="meta-row">
               <span class="meta-label">Customer</span>
@@ -129,6 +132,7 @@
 import { ref, reactive } from 'vue'
 import api from '../api.js'
 import { useSiteStore } from '../stores/site.js'
+import OrderTimeline from '../components/OrderTimeline.vue'
 
 const site = useSiteStore()
 

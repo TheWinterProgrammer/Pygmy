@@ -103,6 +103,18 @@ const routes = [
     component: () => import('../views/CollectionView.vue')
   },
   {
+    path: '/vendors',
+    component: () => import('../views/VendorsView.vue')
+  },
+  {
+    path: '/vendors/:slug',
+    component: () => import('../views/VendorView.vue')
+  },
+  {
+    path: '/vendor-portal',
+    component: () => import('../views/VendorPortalView.vue')
+  },
+  {
     path: '/account/login',
     component: () => import('../views/AccountLoginView.vue')
   },

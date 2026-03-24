@@ -211,7 +211,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import api from '../stores/api.js'
+import api from '../api.js'
 
 const vendors = ref([])
 const stats = ref(null)

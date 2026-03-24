@@ -25,6 +25,9 @@
           Order number: <strong class="order-num">{{ order.order_number }}</strong>
         </div>
 
+        <!-- Order Status Timeline -->
+        <OrderTimeline :status="order.status" />
+
         <!-- Items summary -->
         <div class="items-list">
           <div class="item-row" v-for="item in order.items" :key="item.product_id">
@@ -103,6 +106,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useSiteStore } from '../stores/site.js'
 import api from '../api.js'
+import OrderTimeline from '../components/OrderTimeline.vue'
 
 const route = useRoute()
 const site  = useSiteStore()

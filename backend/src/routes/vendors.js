@@ -159,6 +159,59 @@ router.get('/me/payouts', vendorAuthMiddleware, (req, res) => {
   res.json(rows)
 })
 
+// ─── Public: List Active Vendors (marketplace storefront) ─────────────────────
+router.get('/public', (req, res) => {
+  const enabled = db.prepare(`SELECT value FROM settings WHERE key='marketplace_enabled'`).get()?.value
+  if (enabled !== '1') return res.json({ vendors: [] })
+  const { q, limit = 24, offset = 0 } = req.query
+  let where = [`v.status = 'active'`]
+  const params = []
+  if (q) { where.push(`(v.name LIKE ? OR v.description LIKE ?)`); params.push(`%${q}%`, `%${q}%`) }
+  const clause = 'WHERE ' + where.join(' AND ')
+  const rows = db.prepare(`
+    SELECT v.id, v.name, v.slug, v.description, v.logo, v.banner, v.total_sales, v.created_at,
+           COUNT(p.id) as product_count
+    FROM vendors v
+    LEFT JOIN products p ON p.vendor_id = v.id AND p.status = 'published'
+    ${clause}
+    GROUP BY v.id
+    ORDER BY v.total_sales DESC, v.created_at DESC
+    LIMIT ? OFFSET ?
+  `).all(...params, +limit, +offset)
+  const total = db.prepare(`SELECT COUNT(*) as c FROM vendors v ${clause}`).get(...params)
+  res.json({ vendors: rows, total: total.c })
+})
+
+// ─── Public: Single Vendor Storefront ─────────────────────────────────────────
+router.get('/public/:slug', (req, res) => {
+  const enabled = db.prepare(`SELECT value FROM settings WHERE key='marketplace_enabled'`).get()?.value
+  if (enabled !== '1') return res.status(404).json({ error: 'Marketplace not enabled' })
+  const vendor = db.prepare(`
+    SELECT id, name, slug, description, logo, banner, total_sales, created_at
+    FROM vendors WHERE slug=? AND status='active'
+  `).get(req.params.slug)
+  if (!vendor) return res.status(404).json({ error: 'Vendor not found' })
+  const { q, category, limit = 24, offset = 0 } = req.query
+  let where = [`p.vendor_id = ?`, `p.status = 'published'`]
+  const pParams = [vendor.id]
+  if (q) { where.push(`(p.name LIKE ? OR p.excerpt LIKE ?)`); pParams.push(`%${q}%`, `%${q}%`) }
+  if (category) { where.push(`p.category_id = ?`); pParams.push(category) }
+  const clause = 'WHERE ' + where.join(' AND ')
+  const products = db.prepare(`
+    SELECT p.id, p.name, p.slug, p.excerpt, p.price, p.sale_price, p.cover_image,
+           p.tags, p.status, p.featured, p.stock_quantity, p.track_stock, p.allow_backorder,
+           pc.name as category_name
+    FROM products p
+    LEFT JOIN product_categories pc ON pc.id = p.category_id
+    ${clause}
+    ORDER BY p.featured DESC, p.created_at DESC
+    LIMIT ? OFFSET ?
+  `).all(...pParams, +limit, +offset)
+  const total = db.prepare(`SELECT COUNT(*) as c FROM products p ${clause}`).get(...pParams)
+  const productCount = db.prepare(`SELECT COUNT(*) as c FROM products WHERE vendor_id=? AND status='published'`).get(vendor.id)
+  res.json({ vendor: { ...vendor, product_count: productCount.c }, products, total: total.c })
+})
+
 // ─── Admin: List Vendors ──────────────────────────────────────────────────────
 router.get('/', adminAuth, (req, res) => {
   const { q, status, limit = 50, offset = 0 } = req.query

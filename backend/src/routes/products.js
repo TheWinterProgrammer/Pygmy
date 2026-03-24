@@ -105,7 +105,9 @@ router.get('/', (req, res) => {
     } catch { return false }
   })()
   const showAll = req.query.all === '1'
-  const { category, tag, featured, limit = 20, offset = 0 } = req.query
+  const { category, tag, featured, vendor, in_stock, sort = 'newest', limit = 20, offset = 0 } = req.query
+  const price_min = req.query.price_min || req.query.min_price
+  const price_max = req.query.price_max || req.query.max_price
 
   let sql = `
     SELECT p.*, pc.name AS category_name
@@ -126,8 +128,32 @@ router.get('/', (req, res) => {
     sql += ' AND pc.slug = ?'
     params.push(category)
   }
+  if (vendor) {
+    sql += ' AND p.vendor_id = (SELECT id FROM vendors WHERE slug = ?)'
+    params.push(vendor)
+  }
+  if (in_stock === '1') {
+    sql += ' AND (p.track_stock = 0 OR p.stock_quantity > 0 OR p.allow_backorder = 1)'
+  }
+  if (price_min) {
+    sql += ' AND COALESCE(NULLIF(p.sale_price,0), p.price) >= ?'
+    params.push(Number(price_min))
+  }
+  if (price_max) {
+    sql += ' AND COALESCE(NULLIF(p.sale_price,0), p.price) <= ?'
+    params.push(Number(price_max))
+  }
 
-  sql += ' ORDER BY p.created_at DESC LIMIT ? OFFSET ?'
+  const sortMap = {
+    newest: 'p.created_at DESC',
+    oldest: 'p.created_at ASC',
+    price_asc: 'COALESCE(NULLIF(p.sale_price,0), p.price) ASC',
+    price_desc: 'COALESCE(NULLIF(p.sale_price,0), p.price) DESC',
+    name_asc: 'p.name ASC',
+    name_desc: 'p.name DESC',
+    featured: 'p.featured DESC, p.created_at DESC',
+  }
+  sql += ` ORDER BY ${sortMap[sort] || sortMap.newest} LIMIT ? OFFSET ?`
   params.push(Number(limit), Number(offset))
 
   let rows = db.prepare(sql).all(...params)
