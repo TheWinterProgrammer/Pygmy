@@ -32,6 +32,7 @@
           <li v-if="site.settings.referral_enabled === '1'"><a href="/referral">🤝 Refer a Friend</a></li>
           <li v-if="site.settings.kb_enabled === '1'"><a href="/help">❓ Help Center</a></li>
           <li><a href="/affiliate-portal">💼 Affiliate Program</a></li>
+          <li v-if="site.settings.team_page_enabled === '1'"><a href="/team">👥 Our Team</a></li>
         </ul>
       </nav>
     </div>

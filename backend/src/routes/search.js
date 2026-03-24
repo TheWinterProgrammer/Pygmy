@@ -15,7 +15,7 @@ router.get('/', (req, res) => {
   const session_id = req.query.session_id || null
 
   if (!q || q.length < 2) {
-    return res.json({ posts: [], pages: [], products: [], events: [], query: q })
+    return res.json({ posts: [], pages: [], products: [], events: [], kb_articles: [], query: q })
   }
 
   const pattern = `%${q}%`
@@ -70,7 +70,22 @@ router.get('/', (req, res) => {
     LIMIT ?
   `).all(...(hasRelevance ? [pattern, pattern, pattern, pattern, pattern, limit] : [pattern, pattern, pattern, pattern, limit])) : []
 
-  const totalResults = posts.length + pages.length + products.length + events.length
+  // Search KB articles (published only)
+  const sortKb = sort === 'date' ? 'k.created_at DESC' : sort === 'name' ? 'k.title ASC' : 'CASE WHEN k.title LIKE ? THEN 0 ELSE 1 END, k.created_at DESC'
+  const kb_articles = (type === 'all' || type === 'kb_articles') ? (() => {
+    try {
+      return db.prepare(`
+        SELECT k.id, k.title, k.slug, k.excerpt, k.created_at
+        FROM kb_articles k
+        WHERE k.status = 'published'
+          AND (k.title LIKE ? OR k.content LIKE ?)
+        ORDER BY ${sortKb}
+        LIMIT ?
+      `).all(...(hasRelevance ? [pattern, pattern, pattern, limit] : [pattern, pattern, limit]))
+    } catch { return [] }
+  })() : []
+
+  const totalResults = posts.length + pages.length + products.length + events.length + kb_articles.length
 
   // Track search asynchronously (non-blocking)
   try {
@@ -80,7 +95,7 @@ router.get('/', (req, res) => {
     `).run(q.toLowerCase(), totalResults, session_id)
   } catch (_) {}
 
-  res.json({ posts, pages, products, events, query: q, total: totalResults, type, sort })
+  res.json({ posts, pages, products, events, kb_articles, query: q, total: totalResults, type, sort })
 })
 
 export default router

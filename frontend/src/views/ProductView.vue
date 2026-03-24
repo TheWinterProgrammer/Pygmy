@@ -505,12 +505,14 @@ import { useSiteStore } from '../stores/site.js'
 import { useCartStore } from '../stores/cart.js'
 import { useWishlistStore } from '../stores/wishlist.js'
 import { useCompareStore } from '../stores/compare.js'
+import { useCurrency } from '../composables/useCurrency.js'
 
 const route   = useRoute()
 const site    = useSiteStore()
 const cart      = useCartStore()
 const wishlist  = useWishlistStore()
 const compareStore = useCompareStore()
+const { fmt, ensureLoaded: ensureCurrency } = useCurrency()
 const product   = ref(null)
 const loading   = ref(true)
 const isPreview = ref(false)
@@ -760,7 +762,7 @@ const discountPct = computed(() => {
   return Math.round((1 - product.value.sale_price / product.value.price) * 100)
 })
 
-onMounted(load)
+onMounted(async () => { await ensureCurrency(); load() })
 watch(() => route.params.slug, load)
 
 async function load() {
@@ -853,10 +855,6 @@ useHead(computed(() => {
   }
 }))
 
-function fmt(n) {
-  if (n === null || n === undefined) return ''
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
-}
 </script>
 
 <style scoped>

@@ -61,12 +61,10 @@
 
 <script setup>
 import { useCartStore } from '../stores/cart.js'
+import { useCurrency } from '../composables/useCurrency.js'
 
 const cart = useCartStore()
-
-function fmt(v) {
-  return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(v || 0)
-}
+const { fmt } = useCurrency()
 </script>
 
 <style scoped>

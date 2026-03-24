@@ -272,6 +272,7 @@ import api from '../api.js'
 import { useCartStore } from '../stores/cart.js'
 import { useWishlistStore } from '../stores/wishlist.js'
 import { useCompareStore } from '../stores/compare.js'
+import { useCurrency } from '../composables/useCurrency.js'
 import FlashSaleBanner from '../components/FlashSaleBanner.vue'
 
 const route    = useRoute()
@@ -279,6 +280,7 @@ const router   = useRouter()
 const cart     = useCartStore()
 const wishlist = useWishlistStore()
 const compare  = useCompareStore()
+const { fmt, ensureLoaded: ensureCurrency } = useCurrency()
 
 const products       = ref([])
 const categories     = ref([])
@@ -413,6 +415,7 @@ function quickAdd(product) {
 }
 
 onMounted(async () => {
+  await ensureCurrency()
   const { data } = await api.get('/products/categories')
   categories.value = data
   await load()
@@ -484,10 +487,6 @@ function clearFilters() {
 function prev() { offset.value = Math.max(0, offset.value - limit); load() }
 function next() { offset.value += limit; load() }
 
-function fmt(n) {
-  if (n === null || n === undefined) return ''
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
-}
 </script>
 
 <style scoped>

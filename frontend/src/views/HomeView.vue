@@ -71,10 +71,10 @@
           <p class="product-excerpt text-muted" v-if="product.excerpt">{{ product.excerpt }}</p>
           <div class="product-price">
             <span v-if="product.sale_price" class="price-sale">
-              {{ site.settings.shop_currency_symbol || '€' }}{{ Number(product.sale_price).toFixed(2) }}
+              {{ fmt(product.sale_price) }}
             </span>
             <span :class="product.sale_price ? 'price-original-strike' : 'price-main'">
-              {{ site.settings.shop_currency_symbol || '€' }}{{ Number(product.price).toFixed(2) }}
+              {{ fmt(product.price) }}
             </span>
           </div>
         </div>

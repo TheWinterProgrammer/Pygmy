@@ -141,6 +141,10 @@ const routes = [
       { path: 'knowledge-base',    name: 'KnowledgeBase',    component: () => import('../views/KnowledgeBaseView.vue') },
       { path: 'knowledge-base/new', name: 'KbArticleNew',   component: () => import('../views/KbArticleEditView.vue') },
       { path: 'knowledge-base/:id/edit', name: 'KbArticleEdit', component: () => import('../views/KbArticleEditView.vue') },
+      { path: 'social-scheduler',  name: 'SocialScheduler',  component: () => import('../views/SocialSchedulerView.vue') },
+      { path: 'canned-responses',  name: 'CannedResponses',  component: () => import('../views/CannedResponsesView.vue') },
+      { path: 'team',              name: 'Team',             component: () => import('../views/TeamView.vue') },
+      { path: 'reporting-hub',      name: 'ReportingHub',     component: () => import('../views/ReportingHubView.vue') },
       { path: 'settings',          name: 'Settings',         component: () => import('../views/SettingsView.vue') },
     ]
   },

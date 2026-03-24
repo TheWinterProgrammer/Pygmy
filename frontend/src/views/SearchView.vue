@@ -68,7 +68,7 @@
       <!-- Results -->
       <template v-else-if="results">
         <!-- No results -->
-        <div class="empty-state glass" v-if="!results.posts.length && !results.pages.length && !results.products?.length && !results.events?.length">
+        <div class="empty-state glass" v-if="!results.posts.length && !results.pages.length && !results.products?.length && !results.events?.length && !results.kb_articles?.length">
           <div class="empty-icon">🔎</div>
           <p>No results found for <strong>"{{ results.query }}"</strong></p>
           <p class="text-muted">Try different keywords or check your spelling.</p>
@@ -156,6 +156,26 @@
             </div>
           </section>
 
+          <!-- KB Articles -->
+          <section v-if="shouldShow('kb_articles') && results.kb_articles?.length" class="result-section">
+            <h2 class="section-label">📚 Help Articles ({{ results.kb_articles.length }})</h2>
+            <div class="results-grid results-grid-pages">
+              <RouterLink
+                v-for="kb in results.kb_articles"
+                :key="kb.id"
+                :to="`/help/${kb.slug}`"
+                class="result-card glass"
+                @click="trackClick(kb.slug, 'kb_article')"
+              >
+                <div class="result-body">
+                  <div class="result-type">📚 Help Article</div>
+                  <h3 class="result-title" v-html="highlight(kb.title)"></h3>
+                  <p class="result-excerpt text-muted" v-if="kb.excerpt" v-html="highlight(kb.excerpt)"></p>
+                </div>
+              </RouterLink>
+            </div>
+          </section>
+
           <!-- Pages -->
           <section v-if="shouldShow('pages') && results.pages.length" class="result-section">
             <h2 class="section-label">📄 Pages ({{ results.pages.length }})</h2>
@@ -224,6 +244,7 @@ const typeFilters = [
   { value: 'posts', label: 'Posts', icon: '📝' },
   { value: 'products', label: 'Products', icon: '🛍️' },
   { value: 'events', label: 'Events', icon: '📆' },
+  { value: 'kb_articles', label: 'Help', icon: '📚' },
   { value: 'pages', label: 'Pages', icon: '📄' },
 ]
 
@@ -240,6 +261,7 @@ function getCount(type) {
   if (type === 'pages') return results.value.pages?.length || 0
   if (type === 'products') return results.value.products?.length || 0
   if (type === 'events') return results.value.events?.length || 0
+  if (type === 'kb_articles') return results.value.kb_articles?.length || 0
   return 0
 }
 
@@ -293,7 +315,7 @@ async function doSearch() {
     const { data } = await api.get('/search', { params })
     results.value = data
   } catch {
-    results.value = { posts: [], pages: [], products: [], events: [], query: query.value, total: 0 }
+    results.value = { posts: [], pages: [], products: [], events: [], kb_articles: [], query: query.value, total: 0 }
   }
   loading.value = false
 }

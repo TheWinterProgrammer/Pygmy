@@ -887,6 +887,42 @@
         </label>
       </div>
 
+      <!-- Phase 67: Team Page -->
+      <div class="glass section" style="grid-column:span 2">
+        <h2 style="margin-bottom:1.25rem;">👥 Team Page</h2>
+        <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.25rem;">
+          Show a public /team page with staff profiles. Manage members in the
+          <RouterLink to="/team" style="color:var(--accent)">👥 Team Members</RouterLink> panel.
+        </p>
+        <label class="toggle-label">
+          <input type="checkbox" v-model="teamPageEnabled" />
+          <span>Enable public team page</span>
+        </label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:1rem;">
+          <div class="form-group">
+            <label>Page Title</label>
+            <input v-model="form.team_page_title" class="input" placeholder="Meet the Team" />
+          </div>
+          <div class="form-group">
+            <label>Page Subtitle</label>
+            <input v-model="form.team_page_subtitle" class="input" placeholder="The people behind the magic" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Phase 67: Social Scheduler -->
+      <div class="glass section" style="grid-column:span 2">
+        <h2 style="margin-bottom:1.25rem;">📅 Social Media Scheduler</h2>
+        <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.25rem;">
+          Schedule posts across social platforms. Manage queues in the
+          <RouterLink to="/social-scheduler" style="color:var(--accent)">📅 Social Scheduler</RouterLink> panel.
+        </p>
+        <label class="toggle-label">
+          <input type="checkbox" v-model="socialSchedulerEnabled" />
+          <span>Enable social media scheduler</span>
+        </label>
+      </div>
+
       <div class="glass section profile-section">
         <h2 style="margin-bottom:1.25rem;">🔐 My Profile</h2>
         <div class="form-group">
@@ -1123,6 +1159,12 @@ const form = ref({
   live_chat_color: '#e04858',
   // Loyalty Rewards Catalog (Phase 65)
   loyalty_rewards_enabled: '1',
+  // Phase 67
+  team_page_enabled: '1',
+  team_page_title: 'Meet the Team',
+  team_page_subtitle: 'The people behind the magic',
+  social_scheduler_enabled: '1',
+  canned_responses_enabled: '1',
 })
 
 // Checkbox helpers (settings stored as '1'/'0')
@@ -1251,6 +1293,16 @@ const liveChatEnabled = computed({
 const loyaltyRewardsEnabled = computed({
   get: () => form.value.loyalty_rewards_enabled === '1',
   set: v => { form.value.loyalty_rewards_enabled = v ? '1' : '0' }
+})
+
+const teamPageEnabled = computed({
+  get: () => form.value.team_page_enabled === '1',
+  set: v => { form.value.team_page_enabled = v ? '1' : '0' }
+})
+
+const socialSchedulerEnabled = computed({
+  get: () => form.value.social_scheduler_enabled === '1',
+  set: v => { form.value.social_scheduler_enabled = v ? '1' : '0' }
 })
 
 const emailAccentHex = computed(() => {

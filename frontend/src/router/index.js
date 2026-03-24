@@ -179,6 +179,10 @@ const routes = [
     component: () => import('../views/PageView.vue')
   },
   {
+    path: '/team',
+    component: () => import('../views/TeamView.vue')
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
     component: () => import('../views/NotFoundView.vue')

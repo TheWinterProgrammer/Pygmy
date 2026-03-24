@@ -2956,3 +2956,89 @@ for (const [key, value] of Object.entries(phase66Defaults)) {
 }
 
 console.log('Phase 66 schema ready')
+
+// ─── Phase 67 Schema ──────────────────────────────────────────────────────────
+
+// Social Media Scheduler
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS social_accounts (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    platform   TEXT NOT NULL,
+    name       TEXT NOT NULL,
+    handle     TEXT NOT NULL,
+    access_token TEXT DEFAULT '',
+    active     INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now'))
+  )
+`).run()
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS social_posts (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    account_id   INTEGER REFERENCES social_accounts(id) ON DELETE CASCADE,
+    status       TEXT NOT NULL DEFAULT 'draft',
+    content      TEXT NOT NULL DEFAULT '',
+    media_url    TEXT DEFAULT '',
+    link_url     TEXT DEFAULT '',
+    scheduled_at TEXT DEFAULT NULL,
+    published_at TEXT DEFAULT NULL,
+    platform_post_id TEXT DEFAULT '',
+    error_msg    TEXT DEFAULT '',
+    created_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at   TEXT DEFAULT (datetime('now')),
+    updated_at   TEXT DEFAULT (datetime('now'))
+  )
+`).run()
+
+// Canned Responses
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS canned_responses (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    title      TEXT NOT NULL,
+    shortcut   TEXT NOT NULL DEFAULT '',
+    body       TEXT NOT NULL DEFAULT '',
+    category   TEXT NOT NULL DEFAULT 'general',
+    scope      TEXT NOT NULL DEFAULT 'both',
+    use_count  INTEGER DEFAULT 0,
+    active     INTEGER DEFAULT 1,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  )
+`).run()
+
+// Team Members
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS team_members (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT NOT NULL,
+    slug        TEXT NOT NULL UNIQUE,
+    role        TEXT NOT NULL DEFAULT '',
+    department  TEXT NOT NULL DEFAULT '',
+    bio         TEXT NOT NULL DEFAULT '',
+    photo       TEXT NOT NULL DEFAULT '',
+    email       TEXT NOT NULL DEFAULT '',
+    linkedin    TEXT NOT NULL DEFAULT '',
+    twitter     TEXT NOT NULL DEFAULT '',
+    github      TEXT NOT NULL DEFAULT '',
+    website     TEXT NOT NULL DEFAULT '',
+    status      TEXT NOT NULL DEFAULT 'active',
+    featured    INTEGER DEFAULT 0,
+    sort_order  INTEGER DEFAULT 0,
+    created_at  TEXT DEFAULT (datetime('now')),
+    updated_at  TEXT DEFAULT (datetime('now'))
+  )
+`).run()
+
+const phase67Defaults = {
+  social_scheduler_enabled: '1',
+  canned_responses_enabled: '1',
+  team_page_enabled: '1',
+  team_page_title: 'Meet the Team',
+  team_page_subtitle: 'The people behind the magic',
+}
+for (const [key, value] of Object.entries(phase67Defaults)) {
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
+}
+
+console.log('Phase 67 schema ready')

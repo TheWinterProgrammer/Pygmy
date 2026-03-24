@@ -161,7 +161,10 @@ const navItems = [
   { to: '/popups',        icon: '💬',  label: 'Pop-up Builder' },
   { to: '/support',            icon: '🎫',  label: 'Support Tickets' },
   { to: '/knowledge-base',     icon: '📚',  label: 'Knowledge Base' },
-  { to: '/content-calendar',  icon: '📅',  label: 'Content Calendar' },
+  { to: '/social-scheduler',   icon: '📅',  label: 'Social Scheduler' },
+  { to: '/canned-responses',   icon: '💬',  label: 'Canned Responses' },
+  { to: '/team',               icon: '👥',  label: 'Team Members' },
+  { to: '/content-calendar',  icon: '🗓️',  label: 'Content Calendar' },
   { to: '/site-health',       icon: '🩺',  label: 'Site Health' },
   { to: '/ab-testing',         icon: '🧪',  label: 'A/B Testing' },
   { to: '/search-analytics',   icon: '🔍',  label: 'Search Analytics' },
@@ -208,6 +211,7 @@ const navItems = [
   { to: '/live-chat',                icon: '💬',  label: 'Live Chat' },
   { to: '/loyalty-rewards',          icon: '🎁',  label: 'Loyalty Rewards' },
   { to: '/custom-404',               icon: '🔍',  label: 'Custom 404 Page' },
+  { to: '/reporting-hub',     icon: '📊',  label: 'Reporting Hub' },
   { to: '/settings',          icon: '⚙️',  label: 'Settings' },
 ]
 

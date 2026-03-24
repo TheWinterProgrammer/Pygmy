@@ -462,8 +462,10 @@ import { useSiteStore } from '../stores/site.js'
 import { useCustomerStore } from '../stores/customer.js'
 import api from '../api.js'
 import { useAffiliate } from '../composables/useAffiliate.js'
+import { useCurrency } from '../composables/useCurrency.js'
 
 const { getActiveCode, clearReferral } = useAffiliate()
+const { fmt, ensureLoaded: ensureCurrency } = useCurrency()
 const cart     = useCartStore()
 const site     = useSiteStore()
 const customer = useCustomerStore()
@@ -739,16 +741,6 @@ function updateDonationRoundup() {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function fmt(v) {
-  const sym      = site.settings?.shop_currency_symbol || '€'
-  const currency = site.settings?.shop_currency || 'EUR'
-  try {
-    return new Intl.NumberFormat('de-DE', { style: 'currency', currency }).format(v || 0)
-  } catch {
-    return `${sym}${Number(v || 0).toFixed(2)}`
-  }
-}
-
 function formatShippingAddress() {
   const parts = [
     form.address1,
@@ -785,6 +777,7 @@ function buildBillingAddressString() {
 
 // ── Mount ─────────────────────────────────────────────────────────────────────
 onMounted(async () => {
+  await ensureCurrency()
   // Track funnel: checkout_start
   trackFunnelEvent('checkout_start')
   try {
