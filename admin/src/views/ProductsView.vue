@@ -8,6 +8,7 @@
           ⬆️ Import CSV
           <input type="file" accept=".csv" style="display:none;" @change="importCsv" ref="csvFileInput" />
         </label>
+        <RouterLink to="/import-history" class="btn btn-ghost btn-sm" title="View import history">📥 Import History</RouterLink>
         <RouterLink to="/products/new" class="btn btn-primary">+ New Product</RouterLink>
       </div>
     </div>

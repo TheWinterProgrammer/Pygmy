@@ -283,9 +283,42 @@
 
           <!-- Notes -->
           <div class="section-card glass" style="margin-bottom:1rem;">
-            <h3 style="margin:0 0 .5rem;font-size:.95rem;color:var(--accent);">📝 Internal Notes</h3>
-            <textarea class="input" rows="3" v-model="editNotes" placeholder="Internal notes (not sent to customer)…" style="width:100%;box-sizing:border-box;"></textarea>
+            <h3 style="margin:0 0 .5rem;font-size:.95rem;color:var(--accent);">📝 Customer-Visible Notes</h3>
+            <textarea class="input" rows="2" v-model="editNotes" placeholder="Notes visible on invoice / confirmation…" style="width:100%;box-sizing:border-box;"></textarea>
             <button class="btn btn-ghost btn-sm" style="margin-top:.5rem;" @click="saveNotes" :disabled="saving">Save notes</button>
+          </div>
+
+          <!-- Admin Notes (internal threaded) -->
+          <div class="section-card glass" style="margin-bottom:1rem;">
+            <h3 style="margin:0 0 .75rem;font-size:.95rem;color:var(--accent);">🔒 Admin Notes <small style="font-weight:400;color:var(--muted);font-size:.8rem;">(internal only)</small></h3>
+            <div class="admin-notes-list" style="margin-bottom:.75rem;">
+              <div v-if="adminNotesLoading" style="color:var(--muted);font-size:.85rem;">Loading…</div>
+              <div v-else-if="!adminNotes.length" style="color:var(--muted);font-size:.85rem;font-style:italic;">No internal notes yet.</div>
+              <div v-for="note in adminNotes" :key="note.id" class="admin-note-item" :class="{ pinned: note.pinned }">
+                <div class="note-header">
+                  <span class="note-type-badge" :class="note.note_type">{{ noteTypeLabel(note.note_type) }}</span>
+                  <span class="note-author">{{ note.admin_name }}</span>
+                  <span class="note-date">{{ fmtDateRelative(note.created_at) }}</span>
+                  <button class="btn-icon" :title="note.pinned ? 'Unpin' : 'Pin'" @click="toggleNotePin(note)">{{ note.pinned ? '📌' : '📍' }}</button>
+                  <button class="btn-icon" title="Delete note" @click="deleteAdminNote(note)">🗑️</button>
+                </div>
+                <div class="note-body">{{ note.note }}</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:.5rem;flex-direction:column;">
+              <div style="display:flex;gap:.5rem;">
+                <select v-model="newNoteType" class="input input-sm" style="width:130px">
+                  <option value="note">📝 Note</option>
+                  <option value="action">⚡ Action</option>
+                  <option value="issue">⚠️ Issue</option>
+                  <option value="resolved">✅ Resolved</option>
+                </select>
+                <textarea v-model="newNoteText" class="input" rows="2" placeholder="Add internal note…" style="flex:1;resize:vertical;"></textarea>
+              </div>
+              <button class="btn btn-ghost btn-sm" style="align-self:flex-end" @click="addAdminNote" :disabled="!newNoteText.trim() || savingNote">
+                {{ savingNote ? 'Saving…' : '+ Add Note' }}
+              </button>
+            </div>
           </div>
 
           <!-- Order Timeline -->
@@ -445,7 +478,7 @@ async function applyBulkStatus() {
   bulkLoading.value = true
   try {
     const ids = [...selectedOrders.value]
-    await Promise.all(ids.map(id => apiFetch(`/orders/${id}`, { method: 'PUT', body: JSON.stringify({ status: bulkStatus.value }) })))
+    await apiFetch('/orders/bulk-status', { method: 'POST', body: JSON.stringify({ ids, status: bulkStatus.value }) })
     await load()
     selectedOrders.value = new Set()
     bulkStatus.value = ''
@@ -489,6 +522,13 @@ const messageText = ref('')
 const messageSubject = ref('')
 const sendingMessage = ref(false)
 const messageSentOk = ref(false)
+
+// Admin Notes (Phase 75)
+const adminNotes = ref([])
+const adminNotesLoading = ref(false)
+const newNoteText = ref('')
+const newNoteType = ref('note')
+const savingNote = ref(false)
 
 const STATUSES = [
   { value: 'pending',    label: '⏳ Pending' },

@@ -2,7 +2,10 @@
   <div>
     <div class="page-header">
       <h1>🎟️ Coupons</h1>
-      <button class="btn btn-primary" @click="openCreate">+ New Coupon</button>
+      <div style="display:flex;gap:.75rem;align-items:center">
+        <RouterLink to="/coupon-analytics" class="btn btn-ghost">📊 Analytics</RouterLink>
+        <button class="btn btn-primary" @click="openCreate">+ New Coupon</button>
+      </div>
     </div>
 
     <!-- Stats strip -->

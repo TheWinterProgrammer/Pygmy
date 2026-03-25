@@ -332,6 +332,29 @@
         </div>
       </div>
 
+      <!-- Customers Also Bought -->
+      <div class="related-section" v-if="alsoBought.length">
+        <h2 class="related-title">🛒 Customers Also Bought</h2>
+        <div class="related-grid">
+          <RouterLink
+            v-for="rec in alsoBought"
+            :key="rec.id"
+            :to="`/shop/${rec.slug}`"
+            class="related-card glass"
+          >
+            <img v-if="rec.cover_image" :src="rec.cover_image" class="related-img" />
+            <div class="related-img-placeholder" v-else>📦</div>
+            <div class="related-info">
+              <div class="related-name">{{ rec.name }}</div>
+              <div class="related-price">
+                <span v-if="rec.sale_price && rec.sale_price < rec.price" class="sale-price">€{{ Number(rec.sale_price).toFixed(2) }}</span>
+                <span :class="rec.sale_price && rec.sale_price < rec.price ? 'original-price strikethrough' : 'regular-price'">€{{ Number(rec.price).toFixed(2) }}</span>
+              </div>
+            </div>
+          </RouterLink>
+        </div>
+      </div>
+
       <!-- Specifications Section -->
       <div v-if="specGroups && Object.keys(specGroups).length" class="specs-section">
         <h2 class="specs-title">📋 Specifications</h2>
@@ -348,7 +371,39 @@
         </div>
       </div>
 
-      <!-- Reviews Section -->
+      <!-- Price History Section -->
+      <div class="price-history-section" v-if="priceHistory.length > 1 && settings.price_history_enabled !== '0'">
+        <h2 class="section-title">📈 Price History</h2>
+        <div class="glass price-history-card">
+          <div class="price-chart-row">
+            <div class="price-chart">
+              <div class="chart-bars">
+                <div v-for="(entry, i) in priceChartData" :key="i" class="chart-bar-col"
+                  :title="'€' + entry.price.toFixed(2) + ' — ' + entry.shortDate">
+                  <div class="chart-bar" :style="{ height: entry.heightPct + '%' }"></div>
+                  <div class="chart-date">{{ entry.shortDate }}</div>
+                </div>
+              </div>
+            </div>
+            <div class="price-history-stats">
+              <div class="ph-stat">
+                <div class="ph-val">€{{ priceHistoryMin.toFixed(2) }}</div>
+                <div class="ph-label">Lowest</div>
+              </div>
+              <div class="ph-stat">
+                <div class="ph-val">€{{ priceHistoryMax.toFixed(2) }}</div>
+                <div class="ph-label">Highest</div>
+              </div>
+              <div class="ph-stat">
+                <div class="ph-val">{{ priceHistory.length }}</div>
+                <div class="ph-label">Changes</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+<!-- Reviews Section -->
       <div class="reviews-section">
         <h2 class="reviews-title">Customer Reviews</h2>
 
@@ -386,6 +441,16 @@
             </div>
             <div class="review-title" v-if="r.title">{{ r.title }}</div>
             <p class="review-body text-muted">{{ r.body }}</p>
+            <!-- Review Photos -->
+            <div v-if="r.photos && r.photos.length" class="review-photos">
+              <img v-for="(photo, pi) in r.photos" :key="pi" :src="photo" :alt="'Review photo ' + (pi+1)"
+                class="review-photo" @click="openPhotoLightbox(r.photos, pi)" />
+            </div>
+            <!-- Admin Reply -->
+            <div v-if="r.admin_reply" class="admin-reply">
+              <span class="reply-label">💬 Store Reply:</span>
+              <p>{{ r.admin_reply }}</p>
+            </div>
           </div>
         </div>
         <div class="no-reviews text-muted" v-else-if="!loadingReviews">
@@ -437,9 +502,27 @@
               <span class="field-error" v-if="reviewErrors.body">{{ reviewErrors.body }}</span>
             </div>
 
+            <!-- Review Photos Upload -->
+            <div class="field" v-if="settings.review_photos_enabled !== '0'">
+              <label class="label">Photos (optional, up to {{ settings.review_photos_max || 3 }})</label>
+              <div class="photo-upload-area">
+                <div class="photo-previews" v-if="reviewPhotoUrls.length">
+                  <div v-for="(url, pi) in reviewPhotoUrls" :key="pi" class="photo-thumb-wrap">
+                    <img :src="url" class="photo-thumb" :alt="'Photo ' + (pi+1)" />
+                    <button type="button" class="photo-remove" @click="removeReviewPhoto(pi)">✕</button>
+                  </div>
+                </div>
+                <label v-if="reviewPhotoUrls.length < (parseInt(settings.review_photos_max) || 3)" class="photo-upload-btn">
+                  📷 Add Photo
+                  <input type="file" accept="image/*" multiple style="display:none" @change="uploadReviewPhotos" :disabled="uploadingPhotos" />
+                </label>
+                <span v-if="uploadingPhotos" class="upload-hint">Uploading...</span>
+              </div>
+            </div>
+
             <div class="field-error" v-if="reviewErrors.global">{{ reviewErrors.global }}</div>
 
-            <button type="submit" class="btn btn-primary" :disabled="submittingReview">
+            <button type="submit" class="btn btn-primary" :disabled="submittingReview || uploadingPhotos">
               {{ submittingReview ? 'Submitting…' : 'Submit Review' }}
             </button>
           </form>
@@ -489,11 +572,20 @@
     <!-- Recently Viewed -->
     <RecentlyViewed :exclude-id="product?.id ?? null" />
   </div>
+
+  <!-- Review Photo Lightbox -->
+  <div v-if="lightboxOpen" class="photo-lightbox-overlay" @click.self="closeLightbox" @keydown.esc="closeLightbox">
+    <button class="lightbox-close" @click="closeLightbox">✕</button>
+    <button class="lightbox-nav prev" @click="prevLightboxPhoto" v-if="lightboxIndex > 0">‹</button>
+    <img :src="lightboxPhotos[lightboxIndex]" class="lightbox-img" :alt="'Photo ' + (lightboxIndex + 1)" />
+    <button class="lightbox-nav next" @click="nextLightboxPhoto" v-if="lightboxIndex < lightboxPhotos.length - 1">›</button>
+    <div class="lightbox-counter">{{ lightboxIndex + 1 }} / {{ lightboxPhotos.length }}</div>
+  </div>
 </template>
 
 <script setup>
 import { ref, computed, reactive, onMounted, watch } from 'vue'
-import { trackFunnelEvent } from '../composables/useTracking.js'
+import { trackFunnelEvent, trackJourneyEvent } from '../composables/useTracking.js'
 import FlashSaleBanner from '../components/FlashSaleBanner.vue'
 import RecentlyViewed from '../components/RecentlyViewed.vue'
 import SocialProof from '../components/SocialProof.vue'
@@ -554,6 +646,7 @@ async function subscribeBackInStock() {
 
 // Recommendations
 const recommendations = ref([])
+const alsoBought = ref([])
 
 // Subscribe & Save
 const subPlans = ref([])
@@ -671,6 +764,80 @@ const submittingReview = ref(false)
 const reviewHover     = ref(0)
 const reviewForm      = reactive({ author_name: '', author_email: '', rating: 5, title: '', body: '' })
 const reviewErrors    = reactive({ author_name: '', body: '', global: '' })
+const reviewPhotoUrls = ref([])
+const uploadingPhotos = ref(false)
+// Photo lightbox
+const lightboxPhotos = ref([])
+const lightboxIndex  = ref(0)
+const lightboxOpen   = ref(false)
+
+function openPhotoLightbox (photos, index) {
+  lightboxPhotos.value = photos
+  lightboxIndex.value  = index
+  lightboxOpen.value   = true
+}
+
+function closeLightbox () { lightboxOpen.value = false }
+
+function prevLightboxPhoto () {
+  if (lightboxIndex.value > 0) lightboxIndex.value--
+}
+
+function nextLightboxPhoto () {
+  if (lightboxIndex.value < lightboxPhotos.value.length - 1) lightboxIndex.value++
+}
+
+function removeReviewPhoto (i) {
+  reviewPhotoUrls.value.splice(i, 1)
+}
+
+async function uploadReviewPhotos (e) {
+  const files = [...e.target.files]
+  if (!files.length) return
+  const maxPhotos = parseInt(settings.value?.review_photos_max || 3)
+  const available = maxPhotos - reviewPhotoUrls.value.length
+  const toUpload  = files.slice(0, available)
+  uploadingPhotos.value = true
+  try {
+    for (const file of toUpload) {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch('/api/media', { method: 'POST', body: fd })
+      const data = await res.json()
+      const url = data.url || (Array.isArray(data) && data[0]?.url)
+      if (url) reviewPhotoUrls.value.push(url)
+    }
+  } catch { /* ignore */ } finally {
+    uploadingPhotos.value = false
+    e.target.value = ''
+  }
+}
+
+// ─── Price History ────────────────────────────────────────────────────────────
+const priceHistory = ref([])
+
+const priceHistoryMin = computed(() => Math.min(...priceHistory.value.map(e => e.price)))
+const priceHistoryMax = computed(() => Math.max(...priceHistory.value.map(e => e.price)))
+
+const priceChartData = computed(() => {
+  const entries = [...priceHistory.value].reverse().slice(-20)
+  const min = Math.min(...entries.map(e => e.price))
+  const max = Math.max(...entries.map(e => e.price))
+  const range = max - min || 1
+  return entries.map(e => ({
+    ...e,
+    heightPct: Math.max(10, ((e.price - min) / range) * 75 + 15),
+    shortDate: new Date(e.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+  }))
+})
+
+async function loadPriceHistory (productId) {
+  try {
+    const res = await fetch(`/api/price-history?product_id=${productId}&limit=30`)
+    const data = await res.json()
+    priceHistory.value = data.history || []
+  } catch { priceHistory.value = [] }
+}
 
 async function loadReviews(productId) {
   loadingReviews.value = true
@@ -702,8 +869,10 @@ async function submitReview() {
       rating:       reviewForm.rating,
       title:        reviewForm.title.trim(),
       body:         reviewForm.body.trim(),
+      photos:       reviewPhotoUrls.value,
     })
     reviewSubmitted.value = true
+    reviewPhotoUrls.value = []
   } catch (err) {
     reviewErrors.global = err.response?.data?.error || 'Something went wrong. Please try again.'
   } finally {
@@ -740,6 +909,7 @@ function addToCart() {
   setTimeout(() => { addedFlash.value = false }, 2000)
   // Track funnel: add_to_cart
   trackFunnelEvent('add_to_cart', { productId: product.value.id, productSlug: product.value.slug })
+  trackJourneyEvent('add_to_cart', { entityType: 'product', entityId: product.value.id, entitySlug: product.value.slug })
 }
 
 const allImages = computed(() => {
@@ -783,19 +953,26 @@ async function load() {
     }).catch(() => {})
     // Track funnel: product_view
     trackFunnelEvent('product_view', { productId: data.id, productSlug: data.slug })
+    // Track customer journey
+    trackJourneyEvent('product_view', { entityType: 'product', entityId: data.id, entitySlug: data.slug })
     // Track recently viewed
     try {
       let sid = localStorage.getItem('pygmy_sid')
       if (!sid) { sid = Math.random().toString(36).slice(2); localStorage.setItem('pygmy_sid', sid) }
       api.post('/recently-viewed', { session_id: sid, product_id: data.id }).catch(() => {})
     } catch {}
-    // Load reviews + Q&A + specs
+    // Load reviews + Q&A + specs + price history
     loadReviews(data.id)
     loadQa(data.id)
     loadSpecs(data.id)
+    loadPriceHistory(data.id)
     // Load recommendations
     api.get(`/recommendations/auto?product_id=${data.id}&limit=4`)
       .then(r => { recommendations.value = r.data || [] })
+    // Load "also bought" co-purchase recs
+    api.get(`/recommendations/also-bought?product_id=${data.id}&limit=4`)
+      .then(r => { alsoBought.value = r.data || [] })
+      .catch(() => {})
       .catch(() => { recommendations.value = [] })
     // Load variants
     try {
@@ -1256,6 +1433,8 @@ useHead(computed(() => {
 .review-stars { display: flex; gap: .1rem; }
 .review-title { font-weight: 600; font-size: .92rem; margin-bottom: .35rem; }
 .review-body { font-size: .9rem; line-height: 1.65; margin: 0; }
+.admin-reply { background: rgba(255,255,255,.05); border-left: 3px solid var(--accent); border-radius: 0 .5rem .5rem 0; padding: .75rem 1rem; margin-top: .75rem; font-size: .88rem; }
+.reply-label { font-weight: 600; color: var(--accent); display: block; margin-bottom: .25rem; font-size: .8rem; }
 
 .no-reviews { font-size: .9rem; margin-bottom: 2rem; }
 
@@ -1275,4 +1454,44 @@ useHead(computed(() => {
   color: rgba(255,255,255,.15); transition: color 0.15s; padding: 0 .1rem;
 }
 .star-pick.active, .star-pick:hover { color: hsl(44,90%,55%); }
+
+/* Price History Section */
+.price-history-section { margin-top: 2.5rem; margin-bottom: 1rem; }
+.section-title { font-size: 1.3rem; font-weight: 700; margin-bottom: 1rem; }
+.price-history-card { padding: 1.5rem; border-radius: 1rem; }
+.price-chart-row { display: flex; gap: 2rem; align-items: flex-end; }
+.price-chart { flex: 1; }
+.chart-bars { display: flex; align-items: flex-end; gap: 4px; height: 80px; }
+.chart-bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; }
+.chart-bar { width: 100%; background: var(--accent, hsl(355,70%,58%)); border-radius: 3px 3px 0 0; opacity: .65; transition: opacity .2s; }
+.chart-bar-col:hover .chart-bar { opacity: 1; }
+.chart-date { font-size: .65rem; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40px; text-align: center; }
+.price-history-stats { display: flex; flex-direction: column; gap: .75rem; min-width: 120px; }
+.ph-stat { text-align: center; background: rgba(255,255,255,.04); border-radius: .75rem; padding: .5rem .75rem; }
+.ph-val { font-size: 1.1rem; font-weight: 700; }
+.ph-label { font-size: .75rem; color: #888; }
+
+/* Review photos in review cards */
+.review-photos { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .75rem; }
+.review-photo { width: 80px; height: 80px; object-fit: cover; border-radius: .6rem; cursor: pointer; border: 1px solid rgba(255,255,255,.1); transition: transform .2s; }
+.review-photo:hover { transform: scale(1.05); }
+
+/* Photo upload in review form */
+.photo-upload-area { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.photo-previews { display: flex; gap: .5rem; flex-wrap: wrap; }
+.photo-thumb-wrap { position: relative; }
+.photo-thumb { width: 72px; height: 72px; object-fit: cover; border-radius: .6rem; border: 1px solid rgba(255,255,255,.1); }
+.photo-remove { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border-radius: 50%; border: none; background: rgba(239,68,68,.9); color: #fff; cursor: pointer; font-size: .7rem; display: flex; align-items: center; justify-content: center; }
+.photo-upload-btn { display: inline-flex; align-items: center; gap: .4rem; padding: .5rem 1rem; border: 1px dashed rgba(255,255,255,.25); border-radius: .75rem; cursor: pointer; font-size: .85rem; color: #aaa; transition: border-color .2s, color .2s; }
+.photo-upload-btn:hover { border-color: var(--accent); color: #fff; }
+.upload-hint { font-size: .8rem; color: #888; }
+
+/* Photo Lightbox */
+.photo-lightbox-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.9); z-index: 9999; display: flex; align-items: center; justify-content: center; }
+.lightbox-img { max-width: 90vw; max-height: 85vh; object-fit: contain; border-radius: 1rem; }
+.lightbox-close { position: absolute; top: 1.5rem; right: 1.5rem; background: rgba(255,255,255,.15); border: none; color: #fff; font-size: 1.5rem; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.lightbox-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,.15); border: none; color: #fff; font-size: 2rem; width: 50px; height: 50px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.lightbox-nav.prev { left: 1.5rem; }
+.lightbox-nav.next { right: 1.5rem; }
+.lightbox-counter { position: absolute; bottom: 1.5rem; left: 50%; transform: translateX(-50%); color: rgba(255,255,255,.6); font-size: .85rem; }
 </style>

@@ -107,7 +107,7 @@ import { useRoute } from 'vue-router'
 import { useSiteStore } from '../stores/site.js'
 import api from '../api.js'
 import OrderTimeline from '../components/OrderTimeline.vue'
-import { trackFunnelEvent } from '../composables/useTracking.js'
+import { trackFunnelEvent, trackJourneyEvent } from '../composables/useTracking.js'
 
 const route = useRoute()
 const site  = useSiteStore()
@@ -127,6 +127,7 @@ onMounted(async () => {
       orderNumber: data.order_number,
       value: data.total,
     })
+    trackJourneyEvent('purchase', { pagePath: '/order/' + data.order_number })
     // Fetch upsell offer after a short delay
     setTimeout(async () => {
       try {

@@ -268,3 +268,54 @@ router.delete('/:id', authMiddleware, (req, res) => {
 })
 
 export default router
+
+// ─── Coupon Analytics ─────────────────────────────────────────────────────────
+// GET /api/coupons/analytics/summary?days=30
+router.get('/analytics/summary', authMiddleware, (req, res) => {
+  const days = parseInt(req.query.days) || 30
+  const since = new Date(Date.now() - days * 86400000).toISOString()
+
+  const totalUses = db.prepare(`SELECT COUNT(*) as c FROM coupon_usage WHERE used_at >= ?`).get(since)?.c || 0
+  const totalSaved = db.prepare(`SELECT COALESCE(SUM(discount_amount),0) as s FROM coupon_usage WHERE used_at >= ?`).get(since)?.s || 0
+  const uniqueCoupons = db.prepare(`SELECT COUNT(DISTINCT coupon_id) as c FROM coupon_usage WHERE used_at >= ?`).get(since)?.c || 0
+  const uniqueCustomers = db.prepare(`SELECT COUNT(DISTINCT customer_email) as c FROM coupon_usage WHERE used_at >= ?`).get(since)?.c || 0
+
+  // Daily usage
+  const daily = db.prepare(`
+    SELECT date(used_at) as day, COUNT(*) as uses, COALESCE(SUM(discount_amount),0) as saved
+    FROM coupon_usage WHERE used_at >= ?
+    GROUP BY date(used_at)
+    ORDER BY day ASC
+  `).all(since)
+
+  // Top coupons
+  const topCoupons = db.prepare(`
+    SELECT c.code, c.type, c.value, COUNT(cu.id) as uses, COALESCE(SUM(cu.discount_amount),0) as total_saved
+    FROM coupon_usage cu
+    JOIN coupons c ON c.id = cu.coupon_id
+    WHERE cu.used_at >= ?
+    GROUP BY cu.coupon_id
+    ORDER BY uses DESC
+    LIMIT 10
+  `).all(since)
+
+  // Top customers
+  const topCustomers = db.prepare(`
+    SELECT customer_email, COUNT(*) as uses, COALESCE(SUM(discount_amount),0) as total_saved
+    FROM coupon_usage WHERE used_at >= ?
+    GROUP BY customer_email
+    ORDER BY uses DESC
+    LIMIT 10
+  `).all(since)
+
+  // Coupon type breakdown
+  const byType = db.prepare(`
+    SELECT c.type, COUNT(cu.id) as uses, COALESCE(SUM(cu.discount_amount),0) as saved
+    FROM coupon_usage cu
+    JOIN coupons c ON c.id = cu.coupon_id
+    WHERE cu.used_at >= ?
+    GROUP BY c.type
+  `).all(since)
+
+  res.json({ totalUses, totalSaved, uniqueCoupons, uniqueCustomers, daily, topCoupons, topCustomers, byType })
+})

@@ -167,6 +167,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useSiteStore } from '../stores/site.js'
 import api from '../api.js'
 import { useCurrency } from '../composables/useCurrency.js'
+import { trackJourneyEvent } from '../composables/useTracking.js'
 
 const site = useSiteStore()
 const { fmt, ensureLoaded: ensureCurrency } = useCurrency()
@@ -195,6 +196,7 @@ const heroBg = computed(() => {
 
 onMounted(async () => {
   await ensureCurrency()
+  trackJourneyEvent('page_view', { pagePath: '/', entityType: 'home' })
   try {
     const { data } = await api.get('/posts?limit=6')
     posts.value = data.posts

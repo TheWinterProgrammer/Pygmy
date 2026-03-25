@@ -21,6 +21,7 @@
       <nav class="footer-nav">
         <ul>
           <li><a href="/order/lookup">📦 Track Order</a></li>
+          <li v-if="site.settings.quote_requests_enabled !== '0'"><a href="/quote-request">📋 Request a Quote</a></li>
           <li><a href="/support">🎫 Support</a></li>
           <li><a href="/contact">Contact</a></li>
           <li><a href="/search">Search</a></li>
@@ -32,6 +33,8 @@
           <li v-if="site.settings.referral_enabled === '1'"><a href="/referral">🤝 Refer a Friend</a></li>
           <li v-if="site.settings.kb_enabled === '1'"><a href="/help">❓ Help Center</a></li>
           <li><a href="/affiliate-portal">💼 Affiliate Program</a></li>
+          <li><a href="/disputes">⚖️ Open a Dispute</a></li>
+          <li><a href="/feedback">💡 Feedback Board</a></li>
           <li v-if="site.settings.team_page_enabled === '1'"><a href="/team">👥 Our Team</a></li>
         </ul>
       </nav>

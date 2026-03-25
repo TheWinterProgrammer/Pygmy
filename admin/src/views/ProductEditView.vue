@@ -261,6 +261,17 @@
             <label>SKU <small style="color:var(--text-muted)">(optional)</small></label>
             <input v-model="form.sku" class="input" placeholder="PROD-001" />
           </div>
+          <div class="form-group">
+            <label>Cost Price <small style="color:var(--text-muted)">(optional — for margin tracking)</small></label>
+            <input v-model.number="form.cost_price" class="input" type="number" min="0" step="0.01" placeholder="0.00" />
+            <div v-if="form.cost_price && form.price" class="margin-preview">
+              <span>Margin:</span>
+              <span :style="{ color: marginColor }">
+                {{ marginPct }}% ({{ currencySymbol }}{{ marginAmt }})
+              </span>
+              <RouterLink to="/margin" class="text-link" style="margin-left:auto;font-size:.8rem">View Margin Report →</RouterLink>
+            </div>
+          </div>
         </div>
 
         <!-- Category & tags -->
@@ -532,7 +543,7 @@ const tagsInput   = ref('')
 
 const form = ref({
   name: '', slug: '', excerpt: '', description: '',
-  price: null, sale_price: null, sku: '',
+  price: null, sale_price: null, sku: '', cost_price: null,
   cover_image: '', gallery: [], video_url: '',
   category_id: null, tags: [], status: 'draft',
   featured: false, meta_title: '', meta_desc: '',
@@ -542,6 +553,28 @@ const form = ref({
   is_digital: false,
   preorder_enabled: false, preorder_message: 'Pre-order now — ships when available',
   preorder_release_date: '', preorder_limit: 0, preorder_count: 0,
+})
+
+const currencySymbol = ref('€')
+const marginPct = computed(() => {
+  const cost = form.value.cost_price
+  const price = form.value.sale_price || form.value.price
+  if (!cost || !price || price <= 0) return null
+  return ((price - cost) / price * 100).toFixed(1)
+})
+const marginAmt = computed(() => {
+  const cost = form.value.cost_price
+  const price = form.value.sale_price || form.value.price
+  if (!cost || !price) return null
+  return (price - cost).toFixed(2)
+})
+const marginColor = computed(() => {
+  const p = parseFloat(marginPct.value)
+  if (!p) return 'var(--muted)'
+  if (p < 0) return '#ef4444'
+  if (p < 20) return '#f59e0b'
+  if (p < 40) return '#60a5fa'
+  return '#34d399'
 })
 
 onMounted(async () => {
@@ -583,6 +616,7 @@ onMounted(async () => {
         preorder_release_date: product.preorder_release_date ? product.preorder_release_date.slice(0,10) : '',
         preorder_limit: product.preorder_limit || 0,
         preorder_count: product.preorder_count || 0,
+        cost_price: product.cost_price ?? null,
       }
       tagsInput.value = (product.tags || []).join(', ')
     } catch {
@@ -673,6 +707,7 @@ async function save(status) {
       preorder_message: form.value.preorder_message,
       preorder_release_date: form.value.preorder_release_date || null,
       preorder_limit: parseInt(form.value.preorder_limit) || 0,
+      cost_price: form.value.cost_price !== undefined && form.value.cost_price !== '' ? form.value.cost_price : null,
     }
     if (isNew.value) {
       const { data } = await api.post('/products', payload)
@@ -890,6 +925,9 @@ async function deleteCustomOption(oi, id) {
   .opt-adj, .opt-sku, .opt-stock { display: none; }
 }
 .opt-label, .opt-adj, .opt-sku, .opt-stock { font-size: .82rem; }
+.margin-preview { display: flex; align-items: center; gap: .5rem; margin-top: .5rem; font-size: .85rem; padding: .4rem .75rem; background: rgba(255,255,255,.04); border-radius: .5rem; }
+.text-link { color: var(--accent); text-decoration: none; font-size: .8rem; }
+.text-link:hover { text-decoration: underline; }
 .btn-icon {
   background: none;
   border: none;

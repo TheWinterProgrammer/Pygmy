@@ -185,6 +185,8 @@ const ALL_ITEMS = [
   { icon: '🗄️', label: 'Backup',    path: '/backup',         group: 'Site' },
   { icon: '🛡️', label: 'GDPR Privacy Center', path: '/gdpr', group: 'Site' },
   { icon: '💌', label: 'Win-back Campaigns', path: '/winback', group: 'Marketing' },
+  { icon: '📋', label: 'Quote Requests (B2B)', path: '/quote-requests', group: 'Sales' },
+  { icon: '📉', label: 'Price History', path: '/price-history', group: 'Products' },
   // ── Settings ─────────────────────────────────────────────────────────────
   { icon: '⚙️', label: 'Settings',  path: '/settings',      group: 'Settings' },
   { icon: '🧾', label: 'Tax Rates', path: '/tax-rates',      group: 'Settings' },

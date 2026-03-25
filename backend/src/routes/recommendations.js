@@ -180,3 +180,42 @@ router.post('/reorder', authMiddleware, (req, res) => {
 })
 
 export default router
+
+// ─── Algorithmic "Also Bought" (co-purchase) ─────────────────────────────────
+// GET /api/recommendations/also-bought?product_id=&limit=4
+router.get('/also-bought', (req, res) => {
+  const { product_id, limit = 4 } = req.query
+  if (!product_id) return res.status(400).json({ error: 'product_id required' })
+
+  // Find orders containing this product, then get other products in those orders
+  const rows = db.prepare(`
+    WITH target_orders AS (
+      SELECT DISTINCT o.id
+      FROM orders o
+      WHERE JSON_EXTRACT(o.items, '$') IS NOT NULL
+        AND o.items LIKE '%"product_id":' || ? || '%'
+      LIMIT 500
+    ),
+    co_products AS (
+      SELECT CAST(json_extract(ji.value, '$.product_id') AS INTEGER) as pid,
+             COUNT(*) as co_count
+      FROM target_orders to2
+      JOIN orders o ON o.id = to2.id
+      JOIN json_each(o.items) ji
+      WHERE CAST(json_extract(ji.value, '$.product_id') AS INTEGER) != ?
+        AND CAST(json_extract(ji.value, '$.product_id') AS INTEGER) IS NOT NULL
+      GROUP BY pid
+      ORDER BY co_count DESC
+    )
+    SELECT p.id, p.name, p.slug, p.price, p.sale_price, p.cover_image,
+           p.status, p.excerpt, p.stock_quantity, p.track_stock, p.allow_backorder,
+           cp.co_count
+    FROM co_products cp
+    JOIN products p ON p.id = cp.pid
+    WHERE p.status = 'published'
+    ORDER BY cp.co_count DESC
+    LIMIT ?
+  `).all(product_id, product_id, parseInt(limit) || 4)
+
+  res.json(rows.map(parseProduct))
+})

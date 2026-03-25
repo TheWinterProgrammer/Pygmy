@@ -4,12 +4,56 @@
       <h1>Dashboard</h1>
       <div style="display:flex;align-items:center;gap:0.75rem;">
         <span class="text-muted">Welcome back, {{ auth.user?.name || 'Admin' }} 👋</span>
+        <button class="btn btn-ghost btn-sm" @click="showCustomizer = true" title="Customize widgets">
+          🎛️ Customize
+        </button>
         <button class="btn btn-ghost btn-sm" @click="loadStats" title="Refresh stats" style="padding:2px 8px;font-size:0.78rem;">
           🔄 Refresh
         </button>
         <span v-if="lastRefreshed" style="font-size:0.72rem;color:var(--text-muted);">Updated {{ lastRefreshed }}</span>
       </div>
     </div>
+
+    <!-- Widget Customizer Modal -->
+    <Teleport to="body">
+      <div v-if="showCustomizer" class="modal-overlay" @click.self="showCustomizer = false">
+        <div class="modal-box glass-modal">
+          <div class="modal-header">
+            <h3>🎛️ Customize Dashboard Widgets</h3>
+            <button class="btn-close" @click="showCustomizer = false">✕</button>
+          </div>
+          <p style="font-size:.83rem;color:var(--text-muted);margin-bottom:1rem;">
+            Toggle visibility of stat cards. Drag to reorder.
+          </p>
+          <div class="widget-list">
+            <div
+              v-for="w in customizerWidgets"
+              :key="w.id"
+              class="widget-item"
+              :class="{ 'widget-hidden': hiddenWidgets.has(w.id) }"
+              draggable="true"
+              @dragstart="wDragStart($event, w.id)"
+              @dragover.prevent
+              @drop="wDrop($event, w.id)"
+            >
+              <span class="widget-drag">⠿</span>
+              <span class="widget-icon">{{ w.icon }}</span>
+              <span class="widget-label">{{ w.label }}</span>
+              <label class="widget-toggle">
+                <input type="checkbox"
+                  :checked="!hiddenWidgets.has(w.id)"
+                  @change="toggleWidget(w.id)" />
+                <span class="toggle-track"></span>
+              </label>
+            </div>
+          </div>
+          <div class="modal-footer" style="margin-top:1.25rem;display:flex;gap:.5rem;justify-content:flex-end;">
+            <button class="btn btn-ghost btn-sm" @click="resetWidgets">Reset to Default</button>
+            <button class="btn btn-primary" @click="saveWidgetPrefs">Save Layout</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
     <!-- Low Stock Alert Banner -->
     <div v-if="lowStockProducts.length" class="low-stock-banner glass">
@@ -39,35 +83,35 @@
     </div>
 
     <div class="stats-grid" v-if="stats">
-      <div class="stat-card glass">
+      <div class="stat-card glass" v-if="!hiddenWidgets.has('pages')">
         <div class="stat-icon">📄</div>
         <div class="stat-body">
           <div class="stat-num">{{ stats.pages.total }}</div>
           <div class="stat-label">Pages <span class="badge badge-published">{{ stats.pages.published }} live</span></div>
         </div>
       </div>
-      <div class="stat-card glass">
+      <div class="stat-card glass" v-if="!hiddenWidgets.has('posts')">
         <div class="stat-icon">✍️</div>
         <div class="stat-body">
           <div class="stat-num">{{ stats.posts.total }}</div>
           <div class="stat-label">Posts <span class="badge badge-published">{{ stats.posts.published }} live</span></div>
         </div>
       </div>
-      <div class="stat-card glass">
+      <div class="stat-card glass" v-if="!hiddenWidgets.has('media')">
         <div class="stat-icon">🖼️</div>
         <div class="stat-body">
           <div class="stat-num">{{ stats.media.total }}</div>
           <div class="stat-label">Media files</div>
         </div>
       </div>
-      <div class="stat-card glass">
+      <div class="stat-card glass" v-if="!hiddenWidgets.has('navigation')">
         <div class="stat-icon">🧭</div>
         <div class="stat-body">
           <div class="stat-num">{{ stats.navigation.total }}</div>
           <div class="stat-label">Nav items</div>
         </div>
       </div>
-      <div class="stat-card glass">
+      <div class="stat-card glass" v-if="!hiddenWidgets.has('comments')">
         <div class="stat-icon">💬</div>
         <div class="stat-body">
           <div class="stat-num">{{ stats.comments?.total ?? 0 }}</div>
@@ -77,14 +121,14 @@
           </div>
         </div>
       </div>
-      <div class="stat-card glass">
+      <div class="stat-card glass" v-if="!hiddenWidgets.has('products')">
         <div class="stat-icon">🛍️</div>
         <div class="stat-body">
           <div class="stat-num">{{ stats.products?.total ?? 0 }}</div>
           <div class="stat-label">Products <span class="badge badge-published">{{ stats.products?.published ?? 0 }} live</span></div>
         </div>
       </div>
-      <div class="stat-card glass">
+      <div class="stat-card glass" v-if="!hiddenWidgets.has('contacts')">
         <div class="stat-icon">✉️</div>
         <div class="stat-body">
           <div class="stat-num">{{ stats.contacts?.total ?? 0 }}</div>
@@ -94,21 +138,21 @@
           </div>
         </div>
       </div>
-      <div class="stat-card glass">
+      <div class="stat-card glass" v-if="!hiddenWidgets.has('users')">
         <div class="stat-icon">👥</div>
         <div class="stat-body">
           <div class="stat-num">{{ stats.users?.total ?? 0 }}</div>
           <div class="stat-label">Users</div>
         </div>
       </div>
-      <div class="stat-card glass">
+      <div class="stat-card glass" v-if="!hiddenWidgets.has('scheduled')">
         <div class="stat-icon">⏰</div>
         <div class="stat-body">
           <div class="stat-num">{{ stats.posts?.scheduled ?? 0 }}</div>
           <div class="stat-label">Scheduled Posts</div>
         </div>
       </div>
-      <div class="stat-card glass accent-card">
+      <div class="stat-card glass accent-card" v-if="!hiddenWidgets.has('analytics')">
         <div class="stat-icon">👁️</div>
         <div class="stat-body">
           <div class="stat-num">{{ fmt(stats.analytics?.week ?? 0) }}</div>
@@ -119,14 +163,14 @@
         </div>
         <Sparkline v-if="stats.sparklines?.views?.length" :data="stats.sparklines.views" :width="72" :height="28" color="hsl(228,70%,72%)" fill="hsl(228,70%,72%)" class="stat-sparkline" />
       </div>
-      <div class="stat-card glass">
+      <div class="stat-card glass" v-if="!hiddenWidgets.has('redirects')">
         <div class="stat-icon">🔀</div>
         <div class="stat-body">
           <div class="stat-num">{{ stats.redirects?.total ?? 0 }}</div>
           <div class="stat-label">Redirects</div>
         </div>
       </div>
-      <div class="stat-card glass">
+      <div class="stat-card glass" v-if="!hiddenWidgets.has('newsletter')">
         <div class="stat-icon">📨</div>
         <div class="stat-body">
           <div class="stat-num">{{ stats.newsletter?.active ?? 0 }}</div>
@@ -136,7 +180,7 @@
           </div>
         </div>
       </div>
-      <div class="stat-card glass" :class="{ 'accent-card': stats.forms?.unread > 0 }">
+      <div class="stat-card glass" v-if="!hiddenWidgets.has('forms')" :class="{ 'accent-card': stats.forms?.unread > 0 }">
         <div class="stat-icon">📋</div>
         <div class="stat-body">
           <div class="stat-num">
@@ -149,7 +193,7 @@
           </div>
         </div>
       </div>
-      <div class="stat-card glass">
+      <div class="stat-card glass" v-if="!hiddenWidgets.has('events')">
         <div class="stat-icon">📆</div>
         <div class="stat-body">
           <div class="stat-num">{{ stats.events?.total ?? 0 }}</div>
@@ -160,7 +204,7 @@
           </div>
         </div>
       </div>
-      <div class="stat-card glass" :class="{ 'accent-card': (stats.orders?.pending ?? 0) > 0 }">
+      <div class="stat-card glass" v-if="!hiddenWidgets.has('orders')" :class="{ 'accent-card': (stats.orders?.pending ?? 0) > 0 }">
         <div class="stat-icon">📦</div>
         <div class="stat-body">
           <div class="stat-num">
@@ -187,7 +231,7 @@
         <Sparkline v-if="stats.sparklines?.revenue?.length" :data="stats.sparklines.revenue" :width="72" :height="28" color="hsl(140,60%,55%)" fill="hsl(140,60%,55%)" class="stat-sparkline" />
       </div>
 
-      <div class="stat-card glass">
+      <div class="stat-card glass" v-if="!hiddenWidgets.has('coupons')">
         <div class="stat-icon">🎟️</div>
         <div class="stat-body">
           <div class="stat-num">{{ stats.coupons?.active ?? 0 }}</div>
@@ -209,7 +253,7 @@
         </div>
       </div>
 
-      <div class="stat-card glass" :class="{ 'accent-card': (stats.abandoned_carts?.count ?? 0) > 0 }">
+      <div class="stat-card glass" v-if="!hiddenWidgets.has('carts')" :class="{ 'accent-card': (stats.abandoned_carts?.count ?? 0) > 0 }">
         <div class="stat-icon">🛒</div>
         <div class="stat-body">
           <div class="stat-num">
@@ -223,7 +267,7 @@
         </div>
       </div>
 
-      <div class="stat-card glass">
+      <div class="stat-card glass" v-if="!hiddenWidgets.has('tax')">
         <div class="stat-icon">🧾</div>
         <div class="stat-body">
           <div class="stat-num">{{ stats.tax_rates?.active ?? 0 }}</div>
@@ -544,7 +588,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from '../stores/auth.js'
 import api from '../api.js'
 import QuickNotes from '../components/QuickNotes.vue'
@@ -556,6 +600,96 @@ const lastRefreshed = ref(null)
 const lowStockProducts = ref([])
 let refreshTimer = null
 
+// ─── Widget Customizer ────────────────────────────────────────────────────────
+const showCustomizer = ref(false)
+const hiddenWidgets = ref(new Set())
+const widgetOrder = ref([])
+const savingPrefs = ref(false)
+
+// All available dashboard widgets for the customizer
+const ALL_WIDGETS = [
+  { id: 'pages',      icon: '📄', label: 'Pages' },
+  { id: 'posts',      icon: '✍️', label: 'Posts' },
+  { id: 'media',      icon: '🖼️', label: 'Media Files' },
+  { id: 'navigation', icon: '🧭', label: 'Navigation Items' },
+  { id: 'comments',   icon: '💬', label: 'Comments' },
+  { id: 'products',   icon: '🛍️', label: 'Products' },
+  { id: 'contacts',   icon: '✉️', label: 'Contact Messages' },
+  { id: 'users',      icon: '👥', label: 'Users' },
+  { id: 'scheduled',  icon: '⏰', label: 'Scheduled Posts' },
+  { id: 'analytics',  icon: '👁️', label: 'Page Views' },
+  { id: 'redirects',  icon: '🔀', label: 'Redirects' },
+  { id: 'newsletter', icon: '📨', label: 'Newsletter Subscribers' },
+  { id: 'forms',      icon: '📋', label: 'Custom Forms' },
+  { id: 'events',     icon: '📆', label: 'Events' },
+  { id: 'orders',     icon: '📦', label: 'Orders' },
+  { id: 'coupons',    icon: '🎟️', label: 'Coupons' },
+  { id: 'customers',  icon: '🧑‍💼', label: 'Customers' },
+  { id: 'carts',      icon: '🛒', label: 'Abandoned Carts' },
+  { id: 'tax',        icon: '🧾', label: 'Tax Rates' },
+]
+
+// Ordered widgets for customizer (respects saved order)
+const customizerWidgets = computed(() => {
+  if (!widgetOrder.value.length) return ALL_WIDGETS
+  const ordered = []
+  const indexed = Object.fromEntries(ALL_WIDGETS.map(w => [w.id, w]))
+  widgetOrder.value.forEach(id => { if (indexed[id]) ordered.push(indexed[id]) })
+  ALL_WIDGETS.forEach(w => { if (!widgetOrder.value.includes(w.id)) ordered.push(w) })
+  return ordered
+})
+
+function toggleWidget(id) {
+  const s = new Set(hiddenWidgets.value)
+  if (s.has(id)) s.delete(id)
+  else s.add(id)
+  hiddenWidgets.value = s
+}
+
+async function saveWidgetPrefs() {
+  savingPrefs.value = true
+  try {
+    await api.put('/widget-prefs', {
+      layout: widgetOrder.value,
+      hidden: [...hiddenWidgets.value]
+    })
+    showCustomizer.value = false
+  } catch {}
+  savingPrefs.value = false
+}
+
+function resetWidgets() {
+  hiddenWidgets.value = new Set()
+  widgetOrder.value = []
+}
+
+async function loadWidgetPrefs() {
+  try {
+    const { data } = await api.get('/widget-prefs')
+    if (data.hidden?.length) hiddenWidgets.value = new Set(data.hidden)
+    if (data.layout?.length) widgetOrder.value = data.layout
+  } catch {}
+}
+
+// Drag to reorder in customizer
+let wDraggingId = null
+function wDragStart(e, id) {
+  wDraggingId = id
+  e.dataTransfer.effectAllowed = 'move'
+}
+function wDrop(e, targetId) {
+  e.preventDefault()
+  if (!wDraggingId || wDraggingId === targetId) { wDraggingId = null; return }
+  const list = customizerWidgets.value.map(w => w.id)
+  const fromIdx = list.indexOf(wDraggingId)
+  const toIdx = list.indexOf(targetId)
+  list.splice(fromIdx, 1)
+  list.splice(toIdx, 0, wDraggingId)
+  widgetOrder.value = list
+  wDraggingId = null
+}
+
+// ─── Stats loading ─────────────────────────────────────────────────────────────
 async function loadStats() {
   try {
     const { data } = await api.get('/dashboard/stats')
@@ -577,6 +711,7 @@ async function loadLowStock() {
 onMounted(() => {
   loadStats()
   loadLowStock()
+  loadWidgetPrefs()
   // Auto-refresh every 60 seconds
   refreshTimer = setInterval(loadStats, 60_000)
 })
@@ -718,4 +853,64 @@ function timeAgo(iso) {
 }
 .inv-badge-red { background: hsl(355,70%,18%); color: hsl(355,70%,65%); }
 .inv-badge-yellow { background: hsl(45,90%,15%); color: hsl(45,90%,65%); }
+
+/* Widget Customizer Modal */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.6);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 999;
+  backdrop-filter: blur(4px);
+}
+.modal-box {
+  width: 480px;
+  max-width: 94vw;
+  max-height: 80vh;
+  overflow-y: auto;
+  border-radius: 1.25rem;
+  padding: 1.5rem;
+}
+.modal-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: .75rem;
+}
+.modal-header h3 { font-size: 1.1rem; }
+.btn-close { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.1rem; }
+.btn-close:hover { color: white; }
+
+.widget-list { display: flex; flex-direction: column; gap: .35rem; }
+.widget-item {
+  display: flex; align-items: center; gap: .65rem;
+  padding: .5rem .75rem;
+  background: rgba(255,255,255,.04);
+  border-radius: .6rem;
+  border: 1px solid rgba(255,255,255,.07);
+  cursor: default;
+  transition: background .12s;
+}
+.widget-item:hover { background: rgba(255,255,255,.07); }
+.widget-item.widget-hidden { opacity: .45; }
+.widget-drag { color: var(--text-muted); cursor: grab; font-size: 1rem; }
+.widget-icon { font-size: 1rem; width: 24px; text-align: center; }
+.widget-label { flex: 1; font-size: .84rem; }
+.widget-toggle { position: relative; display: inline-block; width: 36px; height: 20px; flex-shrink: 0; }
+.widget-toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-track {
+  position: absolute; inset: 0;
+  background: rgba(255,255,255,.15);
+  border-radius: 9rem;
+  cursor: pointer;
+  transition: background .2s;
+}
+.toggle-track::after {
+  content: '';
+  position: absolute;
+  width: 14px; height: 14px;
+  left: 3px; top: 3px;
+  background: white;
+  border-radius: 50%;
+  transition: transform .2s;
+}
+.widget-toggle input:checked + .toggle-track { background: var(--accent); }
+.widget-toggle input:checked + .toggle-track::after { transform: translateX(16px); }
 </style>

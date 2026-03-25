@@ -1221,3 +1221,107 @@ router.get('/stats/summary', authMiddleware, (req, res) => {
 export default router
 
 // NOTE: kanban endpoint is appended below
+
+// ─── Bulk Order Status Update ────────────────────────────────────────────────
+// POST /api/orders/bulk-status { ids[], status }
+router.post('/bulk-status', authMiddleware, (req, res) => {
+  const { ids, status } = req.body
+  if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: 'ids[] required' })
+  if (!ORDER_STATUSES.includes(status)) return res.status(400).json({ error: 'Invalid status' })
+
+  const updateStmt = db.prepare(`UPDATE orders SET status = ?, updated_at = datetime('now') WHERE id = ?`)
+  const updated = []
+  const failed = []
+
+  const updateBulk = db.transaction(() => {
+    for (const id of ids) {
+      try {
+        const order = db.prepare('SELECT id, order_number, status FROM orders WHERE id = ?').get(id)
+        if (!order) { failed.push(id); continue }
+        updateStmt.run(status, id)
+        updated.push({ id, order_number: order.order_number, old_status: order.status })
+      } catch { failed.push(id) }
+    }
+  })
+  updateBulk()
+
+  res.json({ updated: updated.length, failed: failed.length, orders: updated })
+})
+
+// POST /api/orders/bulk-fulfill — mark multiple orders as shipped with tracking
+// Body: { orders: [{id, tracking_number?, tracking_carrier?, tracking_url?, notes?}], status? }
+router.post('/bulk-fulfill', authMiddleware, async (req, res) => {
+  const { orders: orderList, status = 'shipped' } = req.body
+  if (!Array.isArray(orderList) || !orderList.length) return res.status(400).json({ error: 'orders[] required' })
+
+  const results = []
+  const errors = []
+
+  const fulfill = db.transaction(() => {
+    for (const item of orderList) {
+      try {
+        const order = db.prepare('SELECT id, order_number, status, customer_email, customer_name FROM orders WHERE id = ?').get(item.id)
+        if (!order) { errors.push({ id: item.id, error: 'Not found' }); continue }
+
+        // Update order status + tracking
+        db.prepare(`
+          UPDATE orders SET
+            status = COALESCE(?, status),
+            tracking_number = COALESCE(?, tracking_number),
+            tracking_carrier = COALESCE(?, tracking_carrier),
+            tracking_url = COALESCE(?, tracking_url),
+            fulfillment_notes = COALESCE(?, fulfillment_notes),
+            updated_at = datetime('now')
+          WHERE id = ?
+        `).run(
+          status,
+          item.tracking_number || null,
+          item.tracking_carrier || null,
+          item.tracking_url || null,
+          item.notes || null,
+          item.id
+        )
+
+        // Log to timeline
+        try {
+          db.prepare(`
+            INSERT INTO order_timeline (order_id, event_type, message, created_by)
+            VALUES (?, 'status_change', ?, 'admin')
+          `).run(item.id, `Order marked as ${status} via bulk fulfill${item.tracking_number ? ` | Tracking: ${item.tracking_number}` : ''}`)
+        } catch {}
+
+        results.push({ id: item.id, order_number: order.order_number, status })
+      } catch (e) {
+        errors.push({ id: item.id, error: e.message })
+      }
+    }
+  })
+
+  fulfill()
+  res.json({ fulfilled: results.length, errors: errors.length, results, errors })
+})
+
+// GET /api/orders/fulfillment-queue — orders pending fulfillment
+router.get('/fulfillment-queue', authMiddleware, (req, res) => {
+  const { limit = 50, offset = 0 } = req.query
+  const orders = db.prepare(`
+    SELECT id, order_number, status, customer_name, customer_email, shipping_address,
+           tracking_number, tracking_carrier, created_at,
+           (SELECT COUNT(*) FROM json_each(items)) as item_count
+    FROM orders
+    WHERE status IN ('pending', 'processing')
+    ORDER BY created_at ASC
+    LIMIT ? OFFSET ?
+  `).all(parseInt(limit), parseInt(offset))
+
+  const total = db.prepare(`SELECT COUNT(*) as c FROM orders WHERE status IN ('pending', 'processing')`).get()?.c || 0
+
+  orders.forEach(o => {
+    try { o.items = JSON.parse(o.items || '[]') } catch { o.items = [] }
+    try { o.shipping_address = JSON.parse(o.shipping_address || '{}') } catch {}
+  })
+
+  res.json({ orders, total })
+})
+
+export default router

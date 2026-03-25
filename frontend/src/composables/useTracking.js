@@ -55,9 +55,41 @@ export function installHeatmapTracker () {
   }, { passive: true, capture: true })
 }
 
+// ─── Customer Journey Tracking ───────────────────────────────────────────────
+// Tracks page views and key events to the customer journey backend
+// Call on page mounts with entity data
+export function trackJourneyEvent (eventType, {
+  pagePath = window.location.pathname,
+  entityType = '',
+  entityId = null,
+  entitySlug = '',
+  customerId = null,
+} = {}) {
+  try {
+    // Get UTM params from URL
+    const params = new URLSearchParams(window.location.search)
+    const referrer = typeof document !== 'undefined' ? document.referrer : ''
+
+    api.post('/customer-journey/track', {
+      session_id: getSessionId(),
+      customer_id: customerId,
+      event_type: eventType,
+      page_path: pagePath,
+      entity_type: entityType,
+      entity_id: entityId,
+      entity_slug: entitySlug,
+      referrer,
+      utm_source: params.get('utm_source') || '',
+      utm_medium: params.get('utm_medium') || '',
+      utm_campaign: params.get('utm_campaign') || '',
+    }).catch(() => {})
+  } catch {}
+}
+
 export function useTracking () {
   return {
     trackFunnelEvent,
+    trackJourneyEvent,
     getSessionId,
   }
 }

@@ -191,6 +191,21 @@ const routes = [
     component: () => import('../views/TeamView.vue')
   },
   {
+    path: '/quote-request',
+    name: 'QuoteRequest',
+    component: () => import('../views/QuoteRequestView.vue')
+  },
+  {
+    path: '/disputes',
+    name: 'Disputes',
+    component: () => import('../views/DisputeView.vue')
+  },
+  {
+    path: '/feedback',
+    name: 'FeedbackBoard',
+    component: () => import('../views/FeedbackBoardView.vue')
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
     component: () => import('../views/NotFoundView.vue')

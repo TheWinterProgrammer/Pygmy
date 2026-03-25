@@ -237,6 +237,16 @@ const navItems = [
   { to: '/csat',              icon: '😊',  label: 'CSAT Ratings' },
   { to: '/gdpr',              icon: '🛡️',  label: 'GDPR Privacy Center' },
   { to: '/winback',           icon: '💌',  label: 'Win-back Campaigns' },
+  { to: '/coupon-analytics',  icon: '📊',  label: 'Coupon Analytics' },
+  { to: '/import-history',    icon: '📥',  label: 'Import History' },
+  { to: '/customer-journey',  icon: '🗺️',  label: 'Customer Journey' },
+  { to: '/quote-requests',    icon: '📋',  label: 'Quote Requests' },
+  { to: '/price-history',     icon: '📉',  label: 'Price History' },
+  { to: '/batch-fulfill',     icon: '🚀',  label: 'Batch Fulfillment' },
+  { to: '/disputes',          icon: '⚖️',  label: 'Order Disputes' },
+  { to: '/feedback',          icon: '💬',  label: 'Feedback Board' },
+  { to: '/reorder',           icon: '📦',  label: 'Reorder Points' },
+  { to: '/product-labels',    icon: '🏷️',  label: 'Label Printer' },
   { to: '/settings',          icon: '⚙️',  label: 'Settings' },
 ]
 

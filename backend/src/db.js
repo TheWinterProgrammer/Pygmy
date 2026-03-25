@@ -3200,3 +3200,253 @@ for (const [key, value] of Object.entries(phase70Defaults)) {
 }
 
 console.log('Phase 70 schema ready')
+
+// ─── Phase 71 Schema ──────────────────────────────────────────────────────────
+
+// Journey events tracked inline in customer_journey.js router
+
+// Shortcut Definitions (static — just for documentation + frontend display)
+// No table needed — shortcuts are hardcoded in the frontend
+
+// Admin dashboard widget layout preferences
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS dashboard_widget_prefs (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id   INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    layout    TEXT NOT NULL DEFAULT '[]',
+    hidden    TEXT NOT NULL DEFAULT '[]',
+    updated_at TEXT DEFAULT (datetime('now'))
+  )
+`).run()
+
+const phase71Defaults = {
+  customer_journey_enabled: '1',
+  journey_track_logged_out: '1',
+}
+for (const [key, value] of Object.entries(phase71Defaults)) {
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
+}
+
+console.log('Phase 71 schema ready')
+
+// ─── Phase 72 Schema ──────────────────────────────────────────────────────────
+
+// Add admin_reply column to product_reviews (safe migration)
+try {
+  db.prepare(`ALTER TABLE product_reviews ADD COLUMN admin_reply TEXT NOT NULL DEFAULT ''`).run()
+  db.prepare(`ALTER TABLE product_reviews ADD COLUMN admin_reply_at TEXT`).run()
+} catch {}
+
+// Import history for CSV product imports
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS import_history (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    filename    TEXT NOT NULL DEFAULT '',
+    mode        TEXT NOT NULL DEFAULT 'merge',
+    created     INTEGER NOT NULL DEFAULT 0,
+    updated     INTEGER NOT NULL DEFAULT 0,
+    skipped     INTEGER NOT NULL DEFAULT 0,
+    errors      TEXT NOT NULL DEFAULT '[]',
+    imported_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at  TEXT DEFAULT (datetime('now'))
+  )
+`).run()
+
+const phase72Defaults = {
+  review_replies_enabled: '1',
+  also_bought_enabled: '1',
+  also_bought_limit: '4',
+}
+for (const [key, value] of Object.entries(phase72Defaults)) {
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
+}
+
+console.log('Phase 72 schema ready')
+
+// ─── Phase 73 Schema ──────────────────────────────────────────────────────────
+
+// Quote Requests (B2B)
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS quote_requests (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    reference       TEXT NOT NULL UNIQUE,
+    customer_name   TEXT NOT NULL DEFAULT '',
+    customer_email  TEXT NOT NULL DEFAULT '',
+    customer_phone  TEXT NOT NULL DEFAULT '',
+    company_name    TEXT NOT NULL DEFAULT '',
+    items           TEXT NOT NULL DEFAULT '[]',
+    notes           TEXT NOT NULL DEFAULT '',
+    status          TEXT NOT NULL DEFAULT 'pending',
+    admin_notes     TEXT NOT NULL DEFAULT '',
+    quoted_amount   REAL,
+    valid_until     TEXT,
+    customer_id     INTEGER REFERENCES customers(id) ON DELETE SET NULL,
+    created_at      TEXT DEFAULT (datetime('now')),
+    updated_at      TEXT DEFAULT (datetime('now'))
+  )
+`).run()
+
+// Review Photos — photos attached to product reviews
+try {
+  db.prepare(`ALTER TABLE product_reviews ADD COLUMN photos TEXT NOT NULL DEFAULT '[]'`).run()
+} catch {}
+
+// Price History — track price changes per product
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS product_price_history (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id  INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    price       REAL NOT NULL DEFAULT 0,
+    sale_price  REAL,
+    changed_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    changed_by_name TEXT NOT NULL DEFAULT '',
+    note        TEXT NOT NULL DEFAULT '',
+    created_at  TEXT DEFAULT (datetime('now'))
+  )
+`).run()
+db.prepare(`CREATE INDEX IF NOT EXISTS idx_price_history_product ON product_price_history(product_id, created_at DESC)`).run()
+
+const phase73Defaults = {
+  quote_requests_enabled:   '1',
+  quote_valid_days:         '30',
+  quote_intro_text:         'Request a custom quote for bulk orders or special pricing.',
+  review_photos_enabled:    '1',
+  review_photos_max:        '3',
+  price_history_enabled:    '1',
+}
+for (const [key, value] of Object.entries(phase73Defaults)) {
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
+}
+
+console.log('Phase 73 schema ready')
+
+// ─── Phase 74 Schema ──────────────────────────────────────────────────────────
+
+// Customer Feedback Board
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS feedback_items (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    title           TEXT NOT NULL DEFAULT '',
+    description     TEXT NOT NULL DEFAULT '',
+    category        TEXT NOT NULL DEFAULT 'general',
+    status          TEXT NOT NULL DEFAULT 'open',
+    votes           INTEGER NOT NULL DEFAULT 0,
+    customer_id     INTEGER REFERENCES customers(id) ON DELETE SET NULL,
+    customer_name   TEXT NOT NULL DEFAULT 'Anonymous',
+    customer_email  TEXT NOT NULL DEFAULT '',
+    admin_response  TEXT NOT NULL DEFAULT '',
+    admin_response_at TEXT,
+    is_pinned       INTEGER NOT NULL DEFAULT 0,
+    created_at      TEXT DEFAULT (datetime('now')),
+    updated_at      TEXT DEFAULT (datetime('now'))
+  )
+`).run()
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS feedback_votes (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    feedback_id   INTEGER NOT NULL REFERENCES feedback_items(id) ON DELETE CASCADE,
+    voter_session TEXT NOT NULL DEFAULT '',
+    voter_email   TEXT NOT NULL DEFAULT '',
+    created_at    TEXT DEFAULT (datetime('now')),
+    UNIQUE(feedback_id, voter_session)
+  )
+`).run()
+
+// Order Disputes
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS order_disputes (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    reference       TEXT NOT NULL UNIQUE,
+    order_id        INTEGER REFERENCES orders(id) ON DELETE SET NULL,
+    order_number    TEXT NOT NULL DEFAULT '',
+    customer_name   TEXT NOT NULL DEFAULT '',
+    customer_email  TEXT NOT NULL DEFAULT '',
+    reason          TEXT NOT NULL DEFAULT '',
+    description     TEXT NOT NULL DEFAULT '',
+    evidence_urls   TEXT NOT NULL DEFAULT '[]',
+    status          TEXT NOT NULL DEFAULT 'open',
+    resolution      TEXT NOT NULL DEFAULT '',
+    refund_amount   REAL,
+    admin_notes     TEXT NOT NULL DEFAULT '',
+    resolved_at     TEXT,
+    created_at      TEXT DEFAULT (datetime('now')),
+    updated_at      TEXT DEFAULT (datetime('now'))
+  )
+`).run()
+
+// Inventory reorder_point column (safe migration)
+try {
+  db.prepare(`ALTER TABLE products ADD COLUMN reorder_point INTEGER NOT NULL DEFAULT 0`).run()
+} catch {}
+try {
+  db.prepare(`ALTER TABLE products ADD COLUMN reorder_qty INTEGER NOT NULL DEFAULT 0`).run()
+} catch {}
+try {
+  db.prepare(`ALTER TABLE products ADD COLUMN reorder_supplier_id INTEGER REFERENCES suppliers(id) ON DELETE SET NULL`).run()
+} catch {}
+
+// Reorder alerts log
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS reorder_alerts (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id  INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    stock_qty   INTEGER NOT NULL DEFAULT 0,
+    reorder_point INTEGER NOT NULL DEFAULT 0,
+    notified    INTEGER NOT NULL DEFAULT 0,
+    notified_at TEXT,
+    created_at  TEXT DEFAULT (datetime('now'))
+  )
+`).run()
+
+const phase74Defaults = {
+  feedback_board_enabled:  '1',
+  feedback_board_title:    'Feedback & Ideas',
+  feedback_board_subtitle: 'Share your ideas and vote on what you want to see next.',
+  disputes_enabled:        '1',
+  reorder_alerts_enabled:  '1',
+  reorder_alert_email:     '',
+}
+for (const [key, value] of Object.entries(phase74Defaults)) {
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
+}
+
+console.log('Phase 74 schema ready')
+
+// ─── Phase 74b Schema (product labels) ────────────────────────────────────────
+try {
+  db.prepare(`ALTER TABLE products ADD COLUMN barcode TEXT`).run()
+} catch {}
+
+// ─── Phase 75 Schema ──────────────────────────────────────────────────────────
+
+// Product cost price (for margin tracking)
+try { db.prepare(`ALTER TABLE products ADD COLUMN cost_price REAL`).run() } catch {}
+
+// Order admin notes (internal threaded notes, not customer-visible)
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS order_admin_notes (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id    INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    admin_id    INTEGER,
+    admin_name  TEXT NOT NULL DEFAULT 'Admin',
+    note        TEXT NOT NULL DEFAULT '',
+    note_type   TEXT NOT NULL DEFAULT 'note',
+    pinned      INTEGER NOT NULL DEFAULT 0,
+    created_at  TEXT DEFAULT (datetime('now')),
+    updated_at  TEXT DEFAULT (datetime('now'))
+  )
+`).run()
+
+// Changelog public visibility
+const phase75Defaults = {
+  margin_tracking_enabled: '1',
+  changelog_public:        '0',
+  changelog_public_title:  "What's New",
+  changelog_public_subtitle: 'Latest updates and improvements.',
+}
+for (const [key, value] of Object.entries(phase75Defaults)) {
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
+}
+
+console.log('Phase 75 schema ready')

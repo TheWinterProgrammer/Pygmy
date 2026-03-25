@@ -145,10 +145,20 @@ import csatRoutes from './routes/csat.js'
 import adminSearchRoutes from './routes/admin_search.js'
 import gdprRoutes from './routes/gdpr.js'
 import winbackRoutes from './routes/winback.js'
+import widgetPrefsRoutes from './routes/widget_prefs.js'
 import notificationPrefsRoutes from './routes/notification_prefs.js'
 import newsletterTemplatesRoutes from './routes/newsletter_templates.js'
 import stockImportRoutes from './routes/stock_import.js'
 import scheduledQueueRoutes from './routes/scheduled_queue.js'
+import customerJourneyRoutes from './routes/customer_journey.js'
+import quoteRequestsRoutes from './routes/quote_requests.js'
+import priceHistoryRoutes from './routes/price_history.js'
+import feedbackRoutes from './routes/feedback.js'
+import disputesRoutes from './routes/disputes.js'
+import productLabelsRoutes from './routes/product_labels.js'
+import reorderRoutes from './routes/reorder.js'
+import marginRoutes from './routes/margin.js'
+import orderAdminNotesRoutes from './routes/order_admin_notes.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -408,10 +418,20 @@ app.use('/api/csat', csatRoutes)
 app.use('/api/admin-search', adminSearchRoutes)
 app.use('/api/gdpr', gdprRoutes)
 app.use('/api/winback', winbackRoutes)
+app.use('/api/widget-prefs', widgetPrefsRoutes)
 app.use('/api/notification-prefs', notificationPrefsRoutes)
 app.use('/api/newsletter-templates', newsletterTemplatesRoutes)
 app.use('/api/stock-import', stockImportRoutes)
 app.use('/api/scheduled-queue', scheduledQueueRoutes)
+app.use('/api/customer-journey', customerJourneyRoutes)
+app.use('/api/quote-requests', quoteRequestsRoutes)
+app.use('/api/price-history', priceHistoryRoutes)
+app.use('/api/feedback', feedbackRoutes)
+app.use('/api/disputes', disputesRoutes)
+app.use('/api/product-labels', productLabelsRoutes)
+app.use('/api/reorder', reorderRoutes)
+app.use('/api/margin', marginRoutes)
+app.use('/api/order-admin-notes', orderAdminNotesRoutes)
 app.use('/api/sitemap', seoRoutes)
 app.use('/', shoppingFeedRoutes)
 

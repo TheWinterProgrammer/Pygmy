@@ -270,6 +270,7 @@ router.post('/', authMiddleware, (req, res) => {
     preorder_message = 'Pre-order now — ships when available',
     preorder_release_date = null,
     preorder_limit = 0,
+    cost_price = null,
   } = req.body
 
   if (!name?.trim()) return res.status(400).json({ error: 'name required' })
@@ -289,8 +290,8 @@ router.post('/', authMiddleware, (req, res) => {
       (name, slug, excerpt, description, price, sale_price, sku, cover_image, gallery,
        category_id, tags, status, featured, meta_title, meta_desc, publish_at,
        track_stock, stock_quantity, allow_backorder, low_stock_threshold, is_digital, video_url,
-       preorder_enabled, preorder_message, preorder_release_date, preorder_limit)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+       preorder_enabled, preorder_message, preorder_release_date, preorder_limit, cost_price)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `).run(
     name.trim(), slug, excerpt, description,
     price, sale_price, sku, cover_image,
@@ -307,10 +308,22 @@ router.post('/', authMiddleware, (req, res) => {
     preorder_message || 'Pre-order now — ships when available',
     preorder_release_date || null,
     parseInt(preorder_limit) || 0,
+    cost_price !== undefined && cost_price !== '' && cost_price !== null ? Number(cost_price) : null,
   )
 
   const product = db.prepare('SELECT * FROM products WHERE id = ?').get(info.lastInsertRowid)
   logActivity(req.user?.id, req.user?.name, 'created product', 'product', product.id, product.name)
+
+  // Log initial price to history
+  if (price !== null) {
+    try {
+      db.prepare(`
+        INSERT INTO product_price_history (product_id, price, sale_price, changed_by, changed_by_name, note)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(product.id, price, sale_price || null, req.user?.id || null, req.user?.name || 'admin', 'Initial price set')
+    } catch {}
+  }
+
   res.status(201).json(parseProduct(product))
 })
 
@@ -354,6 +367,7 @@ router.put('/:id', authMiddleware, (req, res) => {
       track_stock = ?, stock_quantity = ?, allow_backorder = ?, low_stock_threshold = ?,
       is_digital = ?, video_url = ?,
       preorder_enabled = ?, preorder_message = ?, preorder_release_date = ?, preorder_limit = ?,
+      cost_price = ?,
       updated_at = datetime('now')
     WHERE id = ?
   `).run(
@@ -383,6 +397,7 @@ router.put('/:id', authMiddleware, (req, res) => {
     preorder_message !== undefined ? preorder_message : (existing.preorder_message || 'Pre-order now — ships when available'),
     preorder_release_date !== undefined ? preorder_release_date : existing.preorder_release_date,
     preorder_limit !== undefined ? (parseInt(preorder_limit) || 0) : (existing.preorder_limit || 0),
+    cost_price !== undefined ? (cost_price !== '' && cost_price !== null ? Number(cost_price) : null) : existing.cost_price,
     existing.id
   )
 
@@ -423,6 +438,25 @@ router.put('/:id', authMiddleware, (req, res) => {
     const newPrice  = updated.sale_price  || updated.price
     if (newPrice < prevPrice) {
       autoNotifyPriceDrop(updated.id, newPrice).catch(() => {})
+    }
+  } catch {}
+
+  // Log price change to price history
+  try {
+    const priceChanged = (price !== undefined && parseFloat(price) !== parseFloat(existing.price)) ||
+                         (sale_price !== undefined && parseFloat(sale_price || 0) !== parseFloat(existing.sale_price || 0))
+    if (priceChanged) {
+      db.prepare(`
+        INSERT INTO product_price_history (product_id, price, sale_price, changed_by, changed_by_name, note)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(
+        updated.id,
+        updated.price,
+        updated.sale_price || null,
+        req.user?.id || null,
+        req.user?.name || 'admin',
+        'Price updated'
+      )
     }
   } catch {}
 
@@ -630,6 +664,23 @@ router.post('/import/csv', authMiddleware, csvUpload.single('file'), (req, res) 
   }
 
   logActivity(req.user, 'import_csv', 'product', null, `Imported ${report.created} new, ${report.updated} updated`)
+
+  // Save import to history
+  try {
+    db.prepare(`
+      INSERT INTO import_history (filename, mode, created, updated, skipped, errors, imported_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      req.file.originalname || 'products.csv',
+      mode,
+      report.created,
+      report.updated,
+      report.skipped,
+      JSON.stringify(report.errors || []),
+      req.user?.id || null
+    )
+  } catch {}
+
   res.json({ ok: true, mode, report })
 })
 
@@ -716,4 +767,22 @@ router.post('/:id/duplicate', authMiddleware, (req, res) => {
 
   const newProduct = db.prepare('SELECT * FROM products WHERE id = ?').get(result.lastInsertRowid)
   res.status(201).json(newProduct)
+})
+
+// ─── GET /api/products/import/history ────────────────────────────────────────
+router.get('/import/history', authMiddleware, (req, res) => {
+  const rows = db.prepare(`
+    SELECT ih.*, u.name as imported_by_name
+    FROM import_history ih
+    LEFT JOIN users u ON u.id = ih.imported_by
+    ORDER BY ih.created_at DESC
+    LIMIT 50
+  `).all()
+
+  const parsed = rows.map(r => ({
+    ...r,
+    errors: (() => { try { return JSON.parse(r.errors || '[]') } catch { return [] } })(),
+  }))
+
+  res.json(parsed)
 })

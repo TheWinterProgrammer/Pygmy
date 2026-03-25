@@ -56,7 +56,25 @@
             <td class="actions">
               <button v-if="r.status !== 'approved'" class="btn btn-xs btn-success" @click="updateStatus(r, 'approved')">Approve</button>
               <button v-if="r.status !== 'rejected'" class="btn btn-xs btn-ghost" @click="updateStatus(r, 'rejected')">Reject</button>
+              <button class="btn btn-xs btn-ghost" @click="openReply(r)" title="Reply">💬</button>
               <button class="btn btn-xs btn-ghost danger" @click="confirmDelete(r)" title="Delete">🗑</button>
+            </td>
+          </tr>
+          <!-- Reply row -->
+          <tr v-if="replyTarget?.id === r.id" class="reply-row">
+            <td colspan="7">
+              <div class="reply-form">
+                <div v-if="r.admin_reply" class="existing-reply">
+                  <strong>Current reply:</strong> {{ r.admin_reply }}
+                  <button class="btn btn-xs btn-ghost danger" @click="deleteReply(r)" style="margin-left:.5rem">Remove</button>
+                </div>
+                <label class="form-label">{{ r.admin_reply ? 'Update Reply' : 'Add Reply' }}</label>
+                <textarea v-model="replyText" class="form-input" rows="3" placeholder="Write your public reply…"></textarea>
+                <div class="reply-actions">
+                  <button class="btn btn-ghost btn-sm" @click="replyTarget = null">Cancel</button>
+                  <button class="btn btn-primary btn-sm" @click="submitReply(r)" :disabled="!replyText.trim()">Save Reply</button>
+                </div>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -97,6 +115,8 @@ const reviews   = ref([])
 const stats     = ref({ total: 0, pending: 0 })
 const loading   = ref(false)
 const deleteTarget = ref(null)
+const replyTarget  = ref(null)
+const replyText    = ref('')
 
 async function loadReviews() {
   loading.value = true
@@ -118,6 +138,26 @@ async function updateStatus(review, status) {
 
 function confirmDelete(review) {
   deleteTarget.value = review
+}
+
+function openReply(review) {
+  if (replyTarget.value?.id === review.id) { replyTarget.value = null; return }
+  replyTarget.value = review
+  replyText.value = review.admin_reply || ''
+}
+
+async function submitReply(review) {
+  if (!replyText.value.trim()) return
+  await api.post(`/reviews/${review.id}/reply`, { reply: replyText.value })
+  replyTarget.value = null
+  replyText.value = ''
+  await loadReviews()
+}
+
+async function deleteReply(review) {
+  await api.delete(`/reviews/${review.id}/reply`)
+  replyTarget.value = null
+  await loadReviews()
 }
 
 async function deleteReview() {
@@ -213,4 +253,10 @@ onMounted(loadReviews)
 .modal-actions { display: flex; gap: .75rem; justify-content: flex-end; }
 .btn-danger { background: hsl(355,70%,30%); color: hsl(355,70%,80%); }
 .btn-danger:hover { background: hsl(355,70%,40%); }
+
+.reply-row td { padding: 0 !important; background: rgba(255,255,255,.02); }
+.reply-form { padding: 1rem 1.5rem; display: flex; flex-direction: column; gap: .75rem; }
+.existing-reply { background: rgba(255,255,255,.05); padding: .75rem; border-radius: .5rem; font-size: .85rem; }
+.reply-actions { display: flex; gap: .75rem; justify-content: flex-end; }
+.form-label { font-size: .85rem; font-weight: 600; }
 </style>
