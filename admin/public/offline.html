@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Offline — Pygmy CMS</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Poppins', 'Inter', system-ui, sans-serif;
+      background: hsl(228, 4%, 10%);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .card {
+      background: rgba(255,255,255,.06);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 1.5rem;
+      padding: 3rem;
+      text-align: center;
+      max-width: 400px;
+    }
+    .icon { font-size: 3.5rem; margin-bottom: 1.5rem; }
+    h1 { font-size: 1.75rem; font-weight: 700; margin-bottom: .75rem; }
+    p { color: rgba(255,255,255,.6); line-height: 1.6; margin-bottom: 1.5rem; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      background: hsl(355, 70%, 58%);
+      color: white;
+      border: none;
+      border-radius: .75rem;
+      padding: .75rem 1.5rem;
+      font-size: 1rem;
+      cursor: pointer;
+      font-family: inherit;
+      text-decoration: none;
+    }
+    .btn:hover { opacity: .9; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">📡</div>
+    <h1>You're Offline</h1>
+    <p>Pygmy CMS requires an internet connection to function. Please check your connection and try again.</p>
+    <a href="/" class="btn">↻ Try Again</a>
+  </div>
+</body>
+</html>

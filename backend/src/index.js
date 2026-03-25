@@ -159,6 +159,9 @@ import productLabelsRoutes from './routes/product_labels.js'
 import reorderRoutes from './routes/reorder.js'
 import marginRoutes from './routes/margin.js'
 import orderAdminNotesRoutes from './routes/order_admin_notes.js'
+import translationsRoutes from './routes/translations.js'
+import unifiedInboxRoutes from './routes/unified_inbox.js'
+import barcodesRoutes from './routes/barcodes.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -432,6 +435,9 @@ app.use('/api/product-labels', productLabelsRoutes)
 app.use('/api/reorder', reorderRoutes)
 app.use('/api/margin', marginRoutes)
 app.use('/api/order-admin-notes', orderAdminNotesRoutes)
+app.use('/api/translations', translationsRoutes)
+app.use('/api/unified-inbox', unifiedInboxRoutes)
+app.use('/api/barcodes', barcodesRoutes)
 app.use('/api/sitemap', seoRoutes)
 app.use('/', shoppingFeedRoutes)
 

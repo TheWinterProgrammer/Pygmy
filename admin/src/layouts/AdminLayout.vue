@@ -247,6 +247,12 @@ const navItems = [
   { to: '/feedback',          icon: '💬',  label: 'Feedback Board' },
   { to: '/reorder',           icon: '📦',  label: 'Reorder Points' },
   { to: '/product-labels',    icon: '🏷️',  label: 'Label Printer' },
+  { to: '/margin',            icon: '💹',  label: 'Profit Margins' },
+  { to: '/orders/kanban',     icon: '📋',  label: 'Order Kanban' },
+  { to: '/unified-inbox',     icon: '📬',  label: 'Unified Inbox' },
+  { to: '/translations',      icon: '🌐',  label: 'Translations' },
+  { to: '/barcodes',          icon: '📷',  label: 'QR Code Generator' },
+  { to: '/social-calendar',   icon: '📅',  label: 'Social Calendar' },
   { to: '/settings',          icon: '⚙️',  label: 'Settings' },
 ]
 

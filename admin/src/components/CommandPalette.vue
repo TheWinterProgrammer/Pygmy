@@ -187,6 +187,12 @@ const ALL_ITEMS = [
   { icon: '💌', label: 'Win-back Campaigns', path: '/winback', group: 'Marketing' },
   { icon: '📋', label: 'Quote Requests (B2B)', path: '/quote-requests', group: 'Sales' },
   { icon: '📉', label: 'Price History', path: '/price-history', group: 'Products' },
+  { icon: '📬', label: 'Unified Inbox', path: '/unified-inbox', group: 'Support' },
+  { icon: '🌐', label: 'Content Translations', path: '/translations', group: 'Content' },
+  { icon: '📷', label: 'QR Code / Barcode Generator', path: '/barcodes', group: 'Products' },
+  { icon: '📅', label: 'Social Media Calendar', path: '/social-calendar', group: 'Marketing' },
+  { icon: '💹', label: 'Profit Margin Tracker', path: '/margin', group: 'Finance' },
+  { icon: '📋', label: 'Order Kanban Board', path: '/orders/kanban', group: 'Orders' },
   // ── Settings ─────────────────────────────────────────────────────────────
   { icon: '⚙️', label: 'Settings',  path: '/settings',      group: 'Settings' },
   { icon: '🧾', label: 'Tax Rates', path: '/tax-rates',      group: 'Settings' },

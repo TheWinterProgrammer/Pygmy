@@ -1,0 +1,38 @@
+{
+  "name": "Pygmy CMS Admin",
+  "short_name": "Pygmy Admin",
+  "description": "Pygmy CMS administration panel",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1b1e",
+  "theme_color": "#e05469",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "url": "/",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Orders",
+      "short_name": "Orders",
+      "url": "/orders",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Posts",
+      "short_name": "Posts",
+      "url": "/posts",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    }
+  ]
+}

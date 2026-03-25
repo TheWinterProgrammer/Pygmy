@@ -80,7 +80,7 @@ router.delete('/accounts/:id', auth, (req, res) => {
 // ─── Social Posts ─────────────────────────────────────────────────────────────
 
 router.get('/', auth, (req, res) => {
-  const { status, account_id, limit = 50, offset = 0 } = req.query
+  const { status, account_id, from, to, limit = 50, offset = 0 } = req.query
   let sql = `
     SELECT p.*, a.platform, a.name AS account_name, a.handle
     FROM social_posts p
@@ -89,11 +89,15 @@ router.get('/', auth, (req, res) => {
   const params = []
   if (status) { sql += ` AND p.status = ?`; params.push(status) }
   if (account_id) { sql += ` AND p.account_id = ?`; params.push(account_id) }
+  if (from) { sql += ` AND date(p.scheduled_at) >= date(?)`; params.push(from) }
+  if (to) { sql += ` AND date(p.scheduled_at) <= date(?)`; params.push(to) }
   sql += ` ORDER BY COALESCE(p.scheduled_at, p.created_at) DESC LIMIT ? OFFSET ?`
   params.push(Number(limit), Number(offset))
   const posts = db.prepare(sql).all(...params)
   const total = db.prepare(`SELECT COUNT(*) AS n FROM social_posts WHERE 1=1${status ? ' AND status=?' : ''}${account_id ? ' AND account_id=?' : ''}`).get(...params.slice(0, -2)).n
-  res.json({ posts, total })
+  // Return flat array for calendar compatibility
+  if (req.query.limit && Number(req.query.limit) > 100) res.json(posts)
+  else res.json({ posts, total })
 })
 
 router.get('/stats', auth, (req, res) => {
