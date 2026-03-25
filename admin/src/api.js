@@ -23,3 +23,15 @@ api.interceptors.response.use(
 )
 
 export default api
+
+// Composable wrapper for views that use { get, post, put, del } pattern
+export function useApi() {
+  return {
+    get:    (url, config) => api.get(url, config),
+    post:   (url, data, config) => api.post(url, data, config),
+    put:    (url, data, config) => api.put(url, data, config),
+    patch:  (url, data, config) => api.patch(url, data, config),
+    del:    (url, config) => api.delete(url, config),
+    delete: (url, config) => api.delete(url, config),
+  }
+}

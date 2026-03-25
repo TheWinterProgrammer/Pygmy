@@ -252,8 +252,11 @@ const navItems = [
   { to: '/unified-inbox',     icon: '📬',  label: 'Unified Inbox' },
   { to: '/translations',      icon: '🌐',  label: 'Translations' },
   { to: '/barcodes',          icon: '📷',  label: 'QR Code Generator' },
-  { to: '/social-calendar',   icon: '📅',  label: 'Social Calendar' },
-  { to: '/settings',          icon: '⚙️',  label: 'Settings' },
+  { to: '/social-calendar',         icon: '📅',  label: 'Social Calendar' },
+  { to: '/churn',                   icon: '📉',  label: 'Churn Risk / RFM' },
+  { to: '/segment-email',           icon: '📧',  label: 'Segment Email' },
+  { to: '/product-configurator',    icon: '🔧',  label: 'Product Configurator' },
+  { to: '/settings',                icon: '⚙️',  label: 'Settings' },
 ]
 
 function handleLogout() {

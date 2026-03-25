@@ -162,6 +162,9 @@ import orderAdminNotesRoutes from './routes/order_admin_notes.js'
 import translationsRoutes from './routes/translations.js'
 import unifiedInboxRoutes from './routes/unified_inbox.js'
 import barcodesRoutes from './routes/barcodes.js'
+import churnRoutes from './routes/churn.js'
+import segmentEmailRoutes from './routes/segment_email.js'
+import productConfiguratorRoutes from './routes/product_configurator.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -438,6 +441,9 @@ app.use('/api/order-admin-notes', orderAdminNotesRoutes)
 app.use('/api/translations', translationsRoutes)
 app.use('/api/unified-inbox', unifiedInboxRoutes)
 app.use('/api/barcodes', barcodesRoutes)
+app.use('/api/churn', churnRoutes)
+app.use('/api/segment-email', segmentEmailRoutes)
+app.use('/api/product-configurator', productConfiguratorRoutes)
 app.use('/api/sitemap', seoRoutes)
 app.use('/', shoppingFeedRoutes)
 

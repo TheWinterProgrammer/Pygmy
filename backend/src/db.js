@@ -3450,3 +3450,50 @@ for (const [key, value] of Object.entries(phase75Defaults)) {
 }
 
 console.log('Phase 75 schema ready')
+
+// ── Phase 73 ─────────────────────────────────────────────────────────────────
+
+// Product Configurators
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS product_configurators (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id  INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    name        TEXT NOT NULL DEFAULT '',
+    description TEXT DEFAULT '',
+    steps       TEXT NOT NULL DEFAULT '[]',
+    active      INTEGER NOT NULL DEFAULT 1,
+    created_at  TEXT DEFAULT (datetime('now')),
+    updated_at  TEXT DEFAULT (datetime('now'))
+  )
+`).run()
+
+// Segment bulk email campaigns
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS segment_email_campaigns (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    name             TEXT NOT NULL DEFAULT '',
+    subject          TEXT NOT NULL DEFAULT '',
+    html_body        TEXT NOT NULL DEFAULT '',
+    filter_type      TEXT NOT NULL DEFAULT 'all',
+    filters          TEXT DEFAULT '{}',
+    recipient_count  INTEGER NOT NULL DEFAULT 0,
+    sent_count       INTEGER NOT NULL DEFAULT 0,
+    status           TEXT NOT NULL DEFAULT 'pending',
+    created_by       INTEGER,
+    created_at       TEXT DEFAULT (datetime('now')),
+    completed_at     TEXT
+  )
+`).run()
+
+const phase73Defaults = {
+  churn_analysis_enabled: '1',
+  configurator_enabled:   '1',
+  language_switcher:      '0',
+  default_language:       'en',
+  available_languages:    '["en"]',
+}
+for (const [key, value] of Object.entries(phase73Defaults)) {
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
+}
+
+console.log('Phase 73 schema ready')

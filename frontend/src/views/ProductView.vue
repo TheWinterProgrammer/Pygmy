@@ -254,6 +254,63 @@
             </span>
           </div>
 
+          <!-- Product Configurator -->
+          <div class="configurator-section" v-if="configurator">
+            <h4 class="config-title">🔧 {{ configurator.name }}</h4>
+            <p class="config-desc" v-if="configurator.description">{{ configurator.description }}</p>
+            <div v-for="(step, si) in configurator.steps" :key="si" class="config-step">
+              <label class="config-step-label">
+                {{ step.label }}
+                <span class="config-required" v-if="step.required">*</span>
+              </label>
+              <!-- Dropdown -->
+              <select v-if="step.type === 'select'" class="config-select"
+                @change="e => setConfigStep(si, step, e.target.value)">
+                <option value="">— choose —</option>
+                <option v-for="ch in step.choices" :key="ch.label"
+                  :value="ch.label">
+                  {{ ch.label }}{{ ch.price_adj ? (ch.price_adj > 0 ? ' (+' + fmt(ch.price_adj) + ')' : ' (' + fmt(ch.price_adj) + ')') : '' }}
+                </option>
+              </select>
+              <!-- Radio pills -->
+              <div v-else-if="step.type === 'radio'" class="config-pills">
+                <button v-for="ch in step.choices" :key="ch.label"
+                  class="config-pill"
+                  :class="{ active: configSelections[si]?.value === ch.label }"
+                  @click="setConfigStep(si, step, ch.label, ch.price_adj)">
+                  {{ ch.label }}
+                  <span v-if="ch.price_adj" class="config-pill-adj">
+                    {{ ch.price_adj > 0 ? '+' : '' }}{{ fmt(ch.price_adj) }}
+                  </span>
+                </button>
+              </div>
+              <!-- Checkboxes -->
+              <div v-else-if="step.type === 'checkbox'" class="config-checks">
+                <label v-for="ch in step.choices" :key="ch.label" class="config-check-label">
+                  <input type="checkbox" :value="ch.label"
+                    @change="e => toggleConfigCheck(si, step, ch, e.target.checked)" />
+                  {{ ch.label }}
+                  <span v-if="ch.price_adj" class="config-check-adj">
+                    {{ ch.price_adj > 0 ? '+' : '' }}{{ fmt(ch.price_adj) }}
+                  </span>
+                </label>
+              </div>
+              <!-- Text input -->
+              <input v-else-if="step.type === 'text'" class="config-text"
+                :placeholder="step.placeholder || ''"
+                @input="e => setConfigStep(si, step, e.target.value)" />
+              <!-- Color picker -->
+              <div v-else-if="step.type === 'color'" class="config-color-row">
+                <input type="color" @input="e => setConfigStep(si, step, e.target.value)" />
+                <span class="config-color-val">{{ configSelections[si]?.value || 'Pick a color' }}</span>
+              </div>
+            </div>
+            <div v-if="configPriceAdj !== 0" class="config-price-adj">
+              Configuration adds: {{ configPriceAdj > 0 ? '+' : '' }}{{ fmt(configPriceAdj) }}
+            </div>
+            <div v-if="configError" class="config-error">{{ configError }}</div>
+          </div>
+
           <!-- Add to Cart -->
           <div class="atc-row" v-if="product.price !== null">
             <div class="qty-selector" v-if="product.in_stock || !product.track_stock || (product.preorder_enabled && product.preorder_available)">
@@ -684,6 +741,73 @@ const selectedVariants = ref({})    // { variantGroupId: optionId }
 const selectedOptMap   = ref({})    // { variantGroupId: option object }
 const variantError     = ref('')
 
+// Product Configurator
+const configurator     = ref(null)  // null = no configurator
+const configSelections = ref({})    // { stepIndex: { label, price_adj, value } }
+const configError      = ref('')
+const configPriceAdj   = computed(() => {
+  let total = 0
+  for (const sel of Object.values(configSelections.value)) {
+    if (!sel) continue
+    if (Array.isArray(sel)) {
+      total += sel.reduce((s, x) => s + (Number(x.price_adj) || 0), 0)
+    } else {
+      total += Number(sel.price_adj) || 0
+    }
+  }
+  return total
+})
+
+function setConfigStep(si, step, value, priceAdj = 0) {
+  // Find price_adj from choices if not provided
+  if (!priceAdj && step.choices) {
+    const match = step.choices.find(c => c.label === value)
+    if (match) priceAdj = match.price_adj || 0
+  }
+  configSelections.value = { ...configSelections.value, [si]: { label: step.label, value, price_adj: priceAdj } }
+  configError.value = ''
+}
+
+function toggleConfigCheck(si, step, choice, checked) {
+  const existing = Array.isArray(configSelections.value[si]) ? [...configSelections.value[si]] : []
+  if (checked) {
+    existing.push({ label: choice.label, price_adj: choice.price_adj || 0 })
+  } else {
+    const idx = existing.findIndex(e => e.label === choice.label)
+    if (idx !== -1) existing.splice(idx, 1)
+  }
+  configSelections.value = { ...configSelections.value, [si]: existing }
+  configError.value = ''
+}
+
+function validateConfig() {
+  if (!configurator.value) return true
+  for (const [si, step] of (configurator.value.steps || []).entries()) {
+    if (!step.required) continue
+    const sel = configSelections.value[si]
+    if (!sel || (Array.isArray(sel) && sel.length === 0) || sel.value === '') {
+      configError.value = `Please complete: ${step.label}`
+      return false
+    }
+  }
+  return true
+}
+
+function configSummary() {
+  if (!configurator.value) return null
+  const parts = []
+  for (const [si, step] of (configurator.value.steps || []).entries()) {
+    const sel = configSelections.value[si]
+    if (!sel) continue
+    if (Array.isArray(sel)) {
+      if (sel.length) parts.push(`${step.label}: ${sel.map(s => s.label).join(', ')}`)
+    } else if (sel.value) {
+      parts.push(`${step.label}: ${sel.value}`)
+    }
+  }
+  return parts.join(' | ')
+}
+
 function selectVariant(groupId, groupName, opt) {
   selectedVariants.value[groupId] = opt.id
   selectedOptMap.value[groupId] = { ...opt, groupName }
@@ -903,7 +1027,16 @@ function addToCart() {
       return
     }
   }
-  cart.addItem(product.value, qty.value, variantInfo.value)
+  // Validate configurator
+  if (configurator.value && !validateConfig()) return
+
+  // Build variant info, including configurator summary + price adjustment
+  const vInfo = variantInfo.value
+  const confSummaryStr = configSummary()
+  const finalVariantInfo = confSummaryStr
+    ? { ...(vInfo || {}), config_summary: confSummaryStr, config_price_adj: configPriceAdj.value }
+    : vInfo
+  cart.addItem(product.value, qty.value, finalVariantInfo)
   cart.open()
   addedFlash.value = true
   setTimeout(() => { addedFlash.value = false }, 2000)
@@ -1008,6 +1141,14 @@ async function load() {
       customOptionValues.value = {}
     } catch {
       customOptions.value = []
+    }
+    // Load product configurator
+    try {
+      const { data: conf } = await api.get(`/product-configurator/public/${data.id}`)
+      configurator.value = conf || null
+      configSelections.value = {}
+    } catch {
+      configurator.value = null
     }
   } catch {
     product.value = null
@@ -1258,6 +1399,34 @@ useHead(computed(() => {
 }
 .preorder-msg { font-size: .9rem; color: #93c5fd; flex: 1; }
 .preorder-date { font-size: .8rem; color: #888; white-space: nowrap; }
+
+/* Product Configurator */
+.configurator-section {
+  padding: 1.25rem;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 1rem;
+  margin-bottom: 1.25rem;
+}
+.config-title { margin: 0 0 0.5rem; font-size: 1rem; font-weight: 600; }
+.config-desc { font-size: 0.85rem; opacity: 0.6; margin: 0 0 1rem; }
+.config-step { margin-bottom: 1rem; }
+.config-step-label { display: block; font-size: 0.82rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.7; margin-bottom: 0.5rem; }
+.config-required { color: var(--accent); margin-left: 2px; }
+.config-select { width: 100%; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 0.5rem; padding: 0.5rem 0.75rem; color: inherit; font-size: 0.9rem; }
+.config-pills { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.config-pill { padding: 0.35rem 0.9rem; border-radius: 99px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); cursor: pointer; font-size: 0.85rem; color: inherit; display: flex; align-items: center; gap: 0.4rem; }
+.config-pill:hover { background: rgba(255,255,255,0.12); }
+.config-pill.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.config-pill-adj { font-size: 0.75rem; opacity: 0.8; }
+.config-checks { display: flex; flex-direction: column; gap: 0.4rem; }
+.config-check-label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; cursor: pointer; }
+.config-check-adj { font-size: 0.78rem; opacity: 0.6; }
+.config-text { width: 100%; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 0.5rem; padding: 0.5rem 0.75rem; color: inherit; font-size: 0.9rem; }
+.config-color-row { display: flex; align-items: center; gap: 0.75rem; }
+.config-color-val { font-size: 0.85rem; opacity: 0.6; }
+.config-price-adj { font-size: 0.85rem; color: #68d391; margin-top: 0.5rem; font-weight: 500; }
+.config-error { color: var(--accent); font-size: 0.85rem; margin-top: 0.5rem; }
 
 .atc-row {
   display: flex;

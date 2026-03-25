@@ -170,6 +170,9 @@ const routes = [
       { path: 'translations',      name: 'Translations',     component: () => import('../views/TranslationsView.vue') },
       { path: 'barcodes',          name: 'Barcodes',         component: () => import('../views/BarcodesView.vue') },
       { path: 'social-calendar',   name: 'SocialCalendar',   component: () => import('../views/SocialCalendarView.vue') },
+      { path: 'churn',             name: 'Churn',            component: () => import('../views/ChurnView.vue') },
+      { path: 'segment-email',     name: 'SegmentEmail',     component: () => import('../views/SegmentEmailView.vue') },
+      { path: 'product-configurator', name: 'ProductConfigurator', component: () => import('../views/ProductConfiguratorView.vue') },
       { path: 'settings',          name: 'Settings',         component: () => import('../views/SettingsView.vue') },
     ]
   },
