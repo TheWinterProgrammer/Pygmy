@@ -910,6 +910,56 @@
         </div>
       </div>
 
+      <!-- Phase 68: CSAT Widget -->
+      <div class="glass section" style="grid-column:span 2">
+        <h2 style="margin-bottom:1.25rem;">😊 CSAT Widget</h2>
+        <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.25rem;">
+          Show a floating customer satisfaction widget on public pages to collect feedback.
+          View analytics in the <RouterLink to="/csat" style="color:var(--accent)">😊 CSAT Ratings</RouterLink> panel.
+        </p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+          <label class="toggle-label" style="grid-column:span 2">
+            <input type="checkbox" v-model="csatEnabled" />
+            <span>Enable CSAT widget on public site</span>
+          </label>
+          <div class="form-group">
+            <label>Widget Type</label>
+            <select v-model="form.csat_type" class="input">
+              <option value="thumbs">👍👎 Thumbs (Yes/No)</option>
+              <option value="stars">★★★★★ Stars (1–5)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Position</label>
+            <select v-model="form.csat_position" class="input">
+              <option value="bottom-right">Bottom Right</option>
+              <option value="bottom-left">Bottom Left</option>
+              <option value="bottom-center">Bottom Center</option>
+            </select>
+          </div>
+          <div class="form-group" style="grid-column:span 2">
+            <label>Question</label>
+            <input v-model="form.csat_question" class="input" placeholder="Was this page helpful?" />
+          </div>
+          <div class="form-group">
+            <label>Delay (ms after page load)</label>
+            <input v-model="form.csat_delay_ms" class="input" type="number" min="0" max="30000" step="500" />
+          </div>
+          <div class="form-group">
+            <label>Thank You Message</label>
+            <input v-model="form.csat_thank_you_message" class="input" placeholder="Thanks for your feedback!" />
+          </div>
+          <div class="form-group" style="grid-column:span 2">
+            <label>Comment Placeholder</label>
+            <input v-model="form.csat_comment_placeholder" class="input" placeholder="Tell us more (optional)…" />
+          </div>
+          <label class="toggle-label" style="grid-column:span 2">
+            <input type="checkbox" v-model="csatShowComment" />
+            <span>Show optional comment field after rating</span>
+          </label>
+        </div>
+      </div>
+
       <!-- Phase 67: Social Scheduler -->
       <div class="glass section" style="grid-column:span 2">
         <h2 style="margin-bottom:1.25rem;">📅 Social Media Scheduler</h2>
@@ -1165,6 +1215,15 @@ const form = ref({
   team_page_subtitle: 'The people behind the magic',
   social_scheduler_enabled: '1',
   canned_responses_enabled: '1',
+  // Phase 68
+  csat_enabled: '0',
+  csat_question: 'Was this page helpful?',
+  csat_type: 'thumbs',
+  csat_delay_ms: '3000',
+  csat_show_comment: '1',
+  csat_comment_placeholder: 'Tell us more (optional)…',
+  csat_thank_you_message: 'Thanks for your feedback!',
+  csat_position: 'bottom-right',
 })
 
 // Checkbox helpers (settings stored as '1'/'0')
@@ -1303,6 +1362,16 @@ const teamPageEnabled = computed({
 const socialSchedulerEnabled = computed({
   get: () => form.value.social_scheduler_enabled === '1',
   set: v => { form.value.social_scheduler_enabled = v ? '1' : '0' }
+})
+
+// Phase 68 — CSAT
+const csatEnabled = computed({
+  get: () => form.value.csat_enabled === '1',
+  set: v => { form.value.csat_enabled = v ? '1' : '0' }
+})
+const csatShowComment = computed({
+  get: () => form.value.csat_show_comment === '1',
+  set: v => { form.value.csat_show_comment = v ? '1' : '0' }
 })
 
 const emailAccentHex = computed(() => {

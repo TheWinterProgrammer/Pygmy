@@ -40,6 +40,9 @@
           <button class="topbar-btn topbar-search-btn" title="Command Palette (Ctrl+K)" @click="palette?.open()">
             🔍 <kbd>⌘K</kbd>
           </button>
+          <button class="topbar-btn theme-toggle" :title="isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'" @click="toggleTheme">
+            {{ isDark ? '☀️' : '🌙' }}
+          </button>
           <NotificationBell />
           <a href="http://localhost:5174" target="_blank" class="topbar-btn" title="View site">🌐</a>
         </div>
@@ -62,6 +65,22 @@ import NotificationBell from '../components/NotificationBell.vue'
 import CommandPalette from '../components/CommandPalette.vue'
 
 const palette = ref(null)
+
+// ─── Theme toggle ─────────────────────────────────────────────────────────────
+const isDark = ref(localStorage.getItem('pygmy-admin-theme') !== 'light')
+
+function applyTheme() {
+  document.documentElement.setAttribute('data-theme', isDark.value ? 'dark' : 'light')
+}
+
+function toggleTheme() {
+  isDark.value = !isDark.value
+  localStorage.setItem('pygmy-admin-theme', isDark.value ? 'dark' : 'light')
+  applyTheme()
+}
+
+// Apply on mount
+applyTheme()
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -118,6 +137,7 @@ const navItems = [
   { to: '/analytics',  icon: '📈', label: 'Analytics' },
   { to: '/redirects',  icon: '🔀', label: 'Redirects' },
   { to: '/newsletter', icon: '📨', label: 'Newsletter' },
+  { to: '/newsletter-templates', icon: '🎨', label: 'Email Templates' },
   { to: '/tags',       icon: '🏷️',  label: 'Tags' },
   { to: '/forms',      icon: '📋', label: 'Forms' },
   { to: '/webhooks',      icon: '🔗', label: 'Webhooks' },
@@ -133,6 +153,7 @@ const navItems = [
   { to: '/affiliates',    icon: '🤝',  label: 'Affiliates' },
   { to: '/inventory',     icon: '🏭',  label: 'Bulk Inventory' },
   { to: '/stock-alerts',  icon: '🔔',  label: 'Back-in-Stock' },
+  { to: '/stock-import',  icon: '📥',  label: 'Stock CSV Import' },
   { to: '/price-alerts',  icon: '📉',  label: 'Price Alerts' },
   { to: '/product-badges', icon: '🏷️', label: 'Product Badges' },
   { to: '/social-proof',  icon: '👥',  label: 'Social Proof' },
@@ -164,6 +185,7 @@ const navItems = [
   { to: '/social-scheduler',   icon: '📅',  label: 'Social Scheduler' },
   { to: '/canned-responses',   icon: '💬',  label: 'Canned Responses' },
   { to: '/team',               icon: '👥',  label: 'Team Members' },
+  { to: '/scheduled-queue',    icon: '⏰',  label: 'Scheduled Queue' },
   { to: '/content-calendar',  icon: '🗓️',  label: 'Content Calendar' },
   { to: '/site-health',       icon: '🩺',  label: 'Site Health' },
   { to: '/ab-testing',         icon: '🧪',  label: 'A/B Testing' },
@@ -212,6 +234,9 @@ const navItems = [
   { to: '/loyalty-rewards',          icon: '🎁',  label: 'Loyalty Rewards' },
   { to: '/custom-404',               icon: '🔍',  label: 'Custom 404 Page' },
   { to: '/reporting-hub',     icon: '📊',  label: 'Reporting Hub' },
+  { to: '/csat',              icon: '😊',  label: 'CSAT Ratings' },
+  { to: '/gdpr',              icon: '🛡️',  label: 'GDPR Privacy Center' },
+  { to: '/winback',           icon: '💌',  label: 'Win-back Campaigns' },
   { to: '/settings',          icon: '⚙️',  label: 'Settings' },
 ]
 

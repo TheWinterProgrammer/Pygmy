@@ -360,6 +360,19 @@
         </div>
       </div>
 
+      <!-- Phase 68: CSAT -->
+      <div class="stat-card glass" v-if="(stats.csat?.total ?? 0) > 0">
+        <div class="stat-icon">😊</div>
+        <div class="stat-body">
+          <div class="stat-num" :style="stats.csat?.score >= 70 ? 'color:#4ade80' : stats.csat?.score >= 40 ? 'color:#fbbf24' : 'color:#f87171'">
+            {{ stats.csat?.score != null ? stats.csat.score + '%' : '—' }}
+          </div>
+          <div class="stat-label">Satisfaction Score</div>
+          <span style="color:var(--text-muted);font-size:.8rem;">{{ stats.csat?.total ?? 0 }} ratings (30d)</span>
+          <RouterLink to="/csat" class="stat-link">→ CSAT Ratings</RouterLink>
+        </div>
+      </div>
+
       <!-- Phase 50: Gift Registries -->
       <div class="stat-card glass" v-if="(stats.gift_registries?.total ?? 0) > 0">
         <div class="stat-icon">🎁</div>

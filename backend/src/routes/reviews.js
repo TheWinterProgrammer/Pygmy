@@ -83,6 +83,75 @@ router.post('/', (req, res) => {
   })
 })
 
+// ─── Admin: Review analytics ─────────────────────────────────────────────────
+// GET /api/reviews/analytics?days=30
+router.get('/analytics', authMiddleware, (req, res) => {
+  const days = Math.min(parseInt(req.query.days) || 30, 365)
+
+  // Overall stats
+  const overall = db.prepare(`
+    SELECT
+      COUNT(*) as total,
+      SUM(CASE WHEN status='approved' THEN 1 ELSE 0 END) as approved,
+      SUM(CASE WHEN status='pending'  THEN 1 ELSE 0 END) as pending,
+      SUM(CASE WHEN status='rejected' THEN 1 ELSE 0 END) as rejected,
+      ROUND(AVG(CASE WHEN status='approved' THEN rating END), 2) as avg_rating,
+      SUM(CASE WHEN status='approved' AND rating=5 THEN 1 ELSE 0 END) as r5,
+      SUM(CASE WHEN status='approved' AND rating=4 THEN 1 ELSE 0 END) as r4,
+      SUM(CASE WHEN status='approved' AND rating=3 THEN 1 ELSE 0 END) as r3,
+      SUM(CASE WHEN status='approved' AND rating=2 THEN 1 ELSE 0 END) as r2,
+      SUM(CASE WHEN status='approved' AND rating=1 THEN 1 ELSE 0 END) as r1
+    FROM product_reviews
+  `).get()
+
+  // Daily review submissions for the period
+  const daily = db.prepare(`
+    SELECT date(created_at) as day, COUNT(*) as count,
+           ROUND(AVG(rating), 2) as avg_rating
+    FROM product_reviews
+    WHERE created_at >= datetime('now', ? || ' days')
+    GROUP BY day
+    ORDER BY day ASC
+  `).all(`-${days}`)
+
+  // Top rated products (min 3 reviews)
+  const topProducts = db.prepare(`
+    SELECT p.id, p.name, p.slug, p.cover_image,
+           COUNT(r.id) as review_count,
+           ROUND(AVG(r.rating), 2) as avg_rating
+    FROM product_reviews r
+    JOIN products p ON r.product_id = p.id
+    WHERE r.status = 'approved'
+    GROUP BY r.product_id
+    HAVING review_count >= 1
+    ORDER BY avg_rating DESC, review_count DESC
+    LIMIT 10
+  `).all()
+
+  // Lowest rated products (min 2 reviews)
+  const worstProducts = db.prepare(`
+    SELECT p.id, p.name, p.slug,
+           COUNT(r.id) as review_count,
+           ROUND(AVG(r.rating), 2) as avg_rating
+    FROM product_reviews r
+    JOIN products p ON r.product_id = p.id
+    WHERE r.status = 'approved'
+    GROUP BY r.product_id
+    HAVING review_count >= 2
+    ORDER BY avg_rating ASC, review_count DESC
+    LIMIT 5
+  `).all()
+
+  // Recent period stats
+  const period = db.prepare(`
+    SELECT COUNT(*) as count, ROUND(AVG(rating), 2) as avg_rating
+    FROM product_reviews
+    WHERE status = 'approved' AND created_at >= datetime('now', ? || ' days')
+  `).get(`-${days}`)
+
+  res.json({ overall, daily, topProducts, worstProducts, period })
+})
+
 // ─── Admin: List all reviews ──────────────────────────────────────────────────
 // GET /api/reviews/admin
 router.get('/admin', authMiddleware, (req, res) => {

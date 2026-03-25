@@ -2,6 +2,7 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* ─── Dark theme (default) ────────────────────────────────────────────────── */
 :root {
   --bg:          hsl(228, 4%, 10%);
   --surface:     hsl(228, 4%, 15%);
@@ -17,6 +18,42 @@
   --radius-sm:   0.5rem;
   --sidebar-w:   240px;
   --font:        'Poppins', sans-serif;
+}
+
+/* ─── Light theme ─────────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg:          hsl(220, 20%, 97%);
+  --surface:     hsl(220, 20%, 100%);
+  --surface2:    hsl(220, 15%, 94%);
+  --accent:      hsl(355, 70%, 50%);
+  --accent-dim:  hsl(355, 70%, 42%);
+  --text:        hsl(228, 15%, 14%);
+  --text-muted:  hsl(228, 10%, 45%);
+  --border:      rgba(0,0,0,0.08);
+  --glass-bg:    rgba(0,0,0,0.03);
+  --glass-border:rgba(0,0,0,0.10);
+}
+
+[data-theme="light"] .glass {
+  background: rgba(255,255,255,0.80);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-color: rgba(0,0,0,0.10);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+
+[data-theme="light"] .sidebar {
+  background: rgba(255,255,255,0.90);
+  border-right-color: rgba(0,0,0,0.08);
+}
+
+[data-theme="light"] .admin-topbar {
+  background: rgba(255,255,255,0.75);
+  border-bottom-color: rgba(0,0,0,0.08);
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: hsl(220, 15%, 80%);
 }
 
 html, body, #app { height: 100%; }

@@ -18,6 +18,7 @@
               @keydown.enter.prevent="runSelected"
               @keydown.esc.prevent="close"
             />
+            <span v-if="liveLoading" class="cp-loading">⟳</span>
             <kbd class="cp-esc" @click="close">Esc</kbd>
           </div>
 
@@ -35,8 +36,11 @@
                   @click="runItem(item)"
                 >
                   <span class="cp-item-icon">{{ item.icon }}</span>
-                  <span class="cp-item-label">{{ item.label }}</span>
-                  <span class="cp-item-path" v-if="item.path">{{ item.path }}</span>
+                  <div class="cp-item-text">
+                    <span class="cp-item-label">{{ item.label }}</span>
+                    <span class="cp-item-subtitle" v-if="item.subtitle">{{ item.subtitle }}</span>
+                  </div>
+                  <span class="cp-item-path" v-if="item.path && !item.subtitle">{{ item.path }}</span>
                   <kbd v-if="item._flatIdx === activeIdx" class="cp-enter-hint">↵</kbd>
                 </div>
               </template>
@@ -58,13 +62,52 @@
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '../stores/auth.js'
 
 const router = useRouter()
+const auth = useAuthStore()
 const open = ref(false)
 const query = ref('')
 const activeIdx = ref(0)
 const inputRef = ref(null)
 const resultsRef = ref(null)
+
+// Live content search results
+const liveResults = ref([])
+const liveLoading = ref(false)
+let liveTimer = null
+
+async function fetchLive(q) {
+  if (!q || q.length < 2) { liveResults.value = []; return }
+  liveLoading.value = true
+  try {
+    const r = await fetch(`/api/admin-search?q=${encodeURIComponent(q)}&limit=4`, {
+      headers: { Authorization: `Bearer ${auth.token}` }
+    })
+    const data = await r.json()
+    const items = []
+    for (const post of data.posts ?? []) {
+      items.push({ icon: '✍️', label: post.title, subtitle: 'Post · ' + post.status, path: `/posts/${post.id}`, group: 'Content' })
+    }
+    for (const page of data.pages ?? []) {
+      items.push({ icon: '📄', label: page.title, subtitle: 'Page · ' + page.status, path: `/pages/${page.id}`, group: 'Content' })
+    }
+    for (const product of data.products ?? []) {
+      items.push({ icon: '🛍️', label: product.title, subtitle: `Product · €${product.price}`, path: `/products/${product.id}`, group: 'Commerce' })
+    }
+    for (const order of data.orders ?? []) {
+      items.push({ icon: '📦', label: order.order_number, subtitle: `${order.customer_name} · ${order.status}`, path: `/orders`, group: 'Commerce' })
+    }
+    for (const cust of data.customers ?? []) {
+      items.push({ icon: '🧑', label: cust.title, subtitle: cust.subtitle, path: `/customers`, group: 'Customers' })
+    }
+    liveResults.value = items.map((it, i) => ({ ...it, id: 'live_' + i, _flatIdx: 9999 + i, _live: true }))
+  } catch {
+    liveResults.value = []
+  } finally {
+    liveLoading.value = false
+  }
+}
 
 // All navigable items in the admin panel
 const ALL_ITEMS = [
@@ -123,6 +166,7 @@ const ALL_ITEMS = [
   { icon: '🔍', label: 'Search Analytics', path: '/search-analytics', group: 'Analytics' },
   { icon: '🧪', label: 'A/B Testing', path: '/ab-testing', group: 'Analytics' },
   { icon: '⚡', label: 'Performance', path: '/performance', group: 'Analytics' },
+  { icon: '😊', label: 'CSAT Ratings', path: '/csat', group: 'Analytics' },
   { icon: '📅', label: 'Bookings',   path: '/bookings',     group: 'Analytics' },
   { icon: '📈', label: 'Stock Forecast', path: '/stock-forecast', group: 'Analytics' },
   { icon: '👥', label: 'Social Proof', path: '/social-proof', group: 'Analytics' },
@@ -139,6 +183,8 @@ const ALL_ITEMS = [
   { icon: '📅', label: 'Content Calendar', path: '/content-calendar', group: 'Site' },
   { icon: '🩺', label: 'Site Health', path: '/site-health', group: 'Site' },
   { icon: '🗄️', label: 'Backup',    path: '/backup',         group: 'Site' },
+  { icon: '🛡️', label: 'GDPR Privacy Center', path: '/gdpr', group: 'Site' },
+  { icon: '💌', label: 'Win-back Campaigns', path: '/winback', group: 'Marketing' },
   // ── Settings ─────────────────────────────────────────────────────────────
   { icon: '⚙️', label: 'Settings',  path: '/settings',      group: 'Settings' },
   { icon: '🧾', label: 'Tax Rates', path: '/tax-rates',      group: 'Settings' },
@@ -157,21 +203,28 @@ const itemsWithIdx = computed(() => {
   return ALL_ITEMS.map(it => ({ ...it, id: it.path, _flatIdx: idx++ }))
 })
 
-const filtered = computed(() => {
+const navFiltered = computed(() => {
   const q = query.value.trim().toLowerCase()
   if (!q) return itemsWithIdx.value
   return itemsWithIdx.value.filter(it =>
     it.label.toLowerCase().includes(q) ||
     it.group.toLowerCase().includes(q) ||
     it.path.toLowerCase().includes(q)
-  ).map((it, i) => ({ ...it, _flatIdx: i }))
+  ).slice(0, 12).map((it, i) => ({ ...it, _flatIdx: i }))
+})
+
+const filtered = computed(() => {
+  const nav = navFiltered.value
+  const live = query.value.trim().length >= 2 ? liveResults.value.map((it, i) => ({ ...it, _flatIdx: nav.length + i })) : []
+  return [...nav, ...live]
 })
 
 const groupedResults = computed(() => {
   const groups = {}
   for (const item of filtered.value) {
-    if (!groups[item.group]) groups[item.group] = { label: item.group, items: [] }
-    groups[item.group].items.push(item)
+    const key = item._live ? '🔍 Live Results' : item.group
+    if (!groups[key]) groups[key] = { label: key, items: [] }
+    groups[key].items.push(item)
   }
   return Object.values(groups)
 })
@@ -209,8 +262,16 @@ function close() {
   open.value = false
 }
 
-// Reset selection when query changes
-watch(query, () => { activeIdx.value = 0 })
+// Reset selection + debounce live search when query changes
+watch(query, (q) => {
+  activeIdx.value = 0
+  clearTimeout(liveTimer)
+  if (q.trim().length >= 2) {
+    liveTimer = setTimeout(() => fetchLive(q.trim()), 250)
+  } else {
+    liveResults.value = []
+  }
+})
 
 // Global keyboard shortcut: Ctrl+K / Cmd+K
 function onKeydown(e) {
@@ -309,7 +370,11 @@ defineExpose({ open: open_palette, close })
 }
 .cp-item.active { background: rgba(var(--accent-rgb, 220,60,60), 0.18); }
 .cp-item-icon { font-size: 1rem; flex-shrink: 0; }
-.cp-item-label { flex: 1; }
+.cp-item-text { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.cp-item-label { font-size: .9rem; }
+.cp-item-subtitle { font-size: .73rem; color: rgba(255,255,255,0.4); }
+.cp-loading { font-size: .9rem; color: rgba(255,255,255,0.4); animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 .cp-item-path {
   color: rgba(255,255,255,0.3);
   font-size: 0.75rem;

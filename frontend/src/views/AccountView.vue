@@ -362,6 +362,28 @@
               </div>
             </div>
           </template>
+        <!-- ── Notification Preferences Tab ── -->
+        <div v-if="activeTab === 'notifications'">
+          <h2 class="tab-title">🔔 Email Preferences</h2>
+          <p class="muted" style="margin-bottom:1.5rem">Choose which emails you'd like to receive from us.</p>
+          <div v-if="notifPrefsLoading" class="loading">Loading…</div>
+          <div v-else-if="notifPrefs" class="notif-prefs-grid">
+            <label v-for="(info, key) in notifPrefLabels" :key="key" class="notif-pref-row glass">
+              <div class="notif-pref-info">
+                <span class="notif-pref-label">{{ info.label }}</span>
+                <span class="notif-pref-desc muted">{{ info.desc }}</span>
+              </div>
+              <div class="notif-toggle-wrap">
+                <input type="checkbox" v-model="notifPrefs[key]" :true-value="1" :false-value="0"
+                       @change="saveNotifPrefs" class="notif-toggle-input" :id="`np-${key}`" />
+                <label :for="`np-${key}`" class="notif-toggle-label"></label>
+              </div>
+            </label>
+          </div>
+          <div v-if="notifPrefsSaved" class="notif-saved">✅ Preferences saved</div>
+          <div style="margin-top:1.5rem">
+            <router-link to="/privacy" class="privacy-link">🛡️ Manage your privacy &amp; data rights →</router-link>
+          </div>
         </div>
         </div>
       </main>
@@ -572,6 +594,7 @@ const tabs = [
   { id: 'cart', icon: '🛒', label: 'Saved Cart' },
   { id: 'credit', icon: '💳', label: 'Store Credit' },
   { id: 'referral', icon: '🔗', label: 'Referral' },
+  { id: 'notifications', icon: '🔔', label: 'Notifications' },
 ]
 const activeTab = ref('orders')
 
@@ -869,6 +892,41 @@ function fmtDate(d) {
   return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
+// ── Notification Preferences ──────────────────────────────────────────────────
+const notifPrefs = ref(null)
+const notifPrefsLoading = ref(false)
+const notifPrefsSaved = ref(false)
+
+const notifPrefLabels = {
+  order_updates:  { label: 'Order updates',        desc: 'Shipping confirmations and status changes' },
+  promotions:     { label: 'Promotions & offers',  desc: 'Sale announcements and discount codes' },
+  newsletter:     { label: 'Newsletter',           desc: 'Blog posts, news, and general updates' },
+  back_in_stock:  { label: 'Back-in-stock alerts', desc: 'Restock notifications for items you're watching' },
+  price_drops:    { label: 'Price drop alerts',    desc: 'Notifications when watched items go on sale' },
+  loyalty:        { label: 'Loyalty & rewards',    desc: 'Points earned and rewards catalog updates' },
+  digest:         { label: 'Digest emails',        desc: 'Weekly/monthly roundup of updates' },
+}
+
+async function loadNotifPrefs () {
+  notifPrefsLoading.value = true
+  try {
+    const { data } = await api.get('/notification-prefs/me', { headers: { Authorization: `Bearer ${store.token}` } })
+    notifPrefs.value = data
+  } catch (_) {
+  } finally {
+    notifPrefsLoading.value = false
+  }
+}
+
+async function saveNotifPrefs () {
+  if (!notifPrefs.value) return
+  try {
+    await api.put('/notification-prefs/me', notifPrefs.value, { headers: { Authorization: `Bearer ${store.token}` } })
+    notifPrefsSaved.value = true
+    setTimeout(() => { notifPrefsSaved.value = false }, 3000)
+  } catch (_) {}
+}
+
 onMounted(async () => {
   if (!store.isLoggedIn) { router.push('/account/login'); return }
   await site.init()
@@ -879,6 +937,7 @@ onMounted(async () => {
   loadCredit()
   loadReferral()
   loadSubs()
+  loadNotifPrefs()
   profile.first_name = store.customer?.first_name || ''
   profile.last_name = store.customer?.last_name || ''
   profile.phone = store.customer?.phone || ''

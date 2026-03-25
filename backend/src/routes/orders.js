@@ -1167,6 +1167,40 @@ router.post('/:id/message', authMiddleware, async (req, res) => {
   }
 })
 
+// ─── Admin: Kanban board data ────────────────────────────────────────────────
+// GET /api/orders/kanban — orders grouped by status (limit per column)
+router.get('/kanban', authMiddleware, (req, res) => {
+  const statuses = ['pending', 'processing', 'shipped', 'completed', 'cancelled', 'refunded']
+  const limit = Math.min(parseInt(req.query.limit) || 20, 100)
+  const q = req.query.q || ''
+  const pattern = q ? `%${q}%` : null
+
+  const result = {}
+  for (const status of statuses) {
+    const params = [status]
+    let sql = `
+      SELECT id, order_number, customer_name, customer_email, total, items, status,
+             created_at, shipping_address, coupon_code, discount_amount
+      FROM orders
+      WHERE status = ?
+    `
+    if (pattern) {
+      sql += ' AND (order_number LIKE ? OR customer_name LIKE ? OR customer_email LIKE ?)'
+      params.push(pattern, pattern, pattern)
+    }
+    sql += ' ORDER BY created_at DESC LIMIT ?'
+    params.push(limit)
+    const orders = db.prepare(sql).all(...params)
+    orders.forEach(o => {
+      try { o.items = JSON.parse(o.items) } catch { o.items = [] }
+      try { o.shipping_address = JSON.parse(o.shipping_address) } catch { o.shipping_address = {} }
+    })
+    const count = db.prepare(`SELECT COUNT(*) as c FROM orders WHERE status = ?`).get(status).c
+    result[status] = { orders, count }
+  }
+  res.json(result)
+})
+
 // ─── Admin: Stats ─────────────────────────────────────────────────────────────
 // GET /api/orders/stats
 router.get('/stats/summary', authMiddleware, (req, res) => {
@@ -1185,3 +1219,5 @@ router.get('/stats/summary', authMiddleware, (req, res) => {
 })
 
 export default router
+
+// NOTE: kanban endpoint is appended below

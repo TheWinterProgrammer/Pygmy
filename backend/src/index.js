@@ -141,6 +141,14 @@ import kbRoutes from './routes/kb.js'
 import socialSchedulerRoutes from './routes/social_scheduler.js'
 import cannedResponsesRoutes from './routes/canned_responses.js'
 import teamRoutes from './routes/team.js'
+import csatRoutes from './routes/csat.js'
+import adminSearchRoutes from './routes/admin_search.js'
+import gdprRoutes from './routes/gdpr.js'
+import winbackRoutes from './routes/winback.js'
+import notificationPrefsRoutes from './routes/notification_prefs.js'
+import newsletterTemplatesRoutes from './routes/newsletter_templates.js'
+import stockImportRoutes from './routes/stock_import.js'
+import scheduledQueueRoutes from './routes/scheduled_queue.js'
 import db from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -396,6 +404,14 @@ app.use('/api/kb', kbRoutes)
 app.use('/api/social-scheduler', socialSchedulerRoutes)
 app.use('/api/canned-responses', cannedResponsesRoutes)
 app.use('/api/team', teamRoutes)
+app.use('/api/csat', csatRoutes)
+app.use('/api/admin-search', adminSearchRoutes)
+app.use('/api/gdpr', gdprRoutes)
+app.use('/api/winback', winbackRoutes)
+app.use('/api/notification-prefs', notificationPrefsRoutes)
+app.use('/api/newsletter-templates', newsletterTemplatesRoutes)
+app.use('/api/stock-import', stockImportRoutes)
+app.use('/api/scheduled-queue', scheduledQueueRoutes)
 app.use('/api/sitemap', seoRoutes)
 app.use('/', shoppingFeedRoutes)
 

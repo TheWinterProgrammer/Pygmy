@@ -522,3 +522,52 @@ export async function sendNewsletterCampaign({ to, name, subject, content, unsub
     console.warn(`📧 Newsletter send to ${to} failed (non-fatal):`, err.message)
   }
 }
+
+// ─── Customer Welcome Email ───────────────────────────────────────────────────
+export async function sendCustomerWelcomeEmail({ email, first_name, siteName, siteUrl, customMessage }) {
+  const cfg = getSmtpConfig()
+  if (!cfg) return
+
+  const greeting = first_name ? `Hi ${first_name},` : 'Welcome!'
+  const loginUrl = `${siteUrl.replace(/\/$/, '')}/account/login`
+  const defaultMsg = `Thank you for creating an account. You can now track your orders, save addresses, and manage your wishlist.`
+  const bodyMsg = customMessage || defaultMsg
+
+  try {
+    const transport = nodemailer.createTransport({
+      host: cfg.smtp_host,
+      port: parseInt(cfg.smtp_port) || 587,
+      secure: parseInt(cfg.smtp_port) === 465,
+      auth: { user: cfg.smtp_user, pass: cfg.smtp_pass },
+    })
+
+    await transport.sendMail({
+      from: cfg.smtp_from || cfg.smtp_user,
+      to: email,
+      subject: `Welcome to ${siteName}! 🎉`,
+      text: `${greeting}\n\n${bodyMsg}\n\nSign in: ${loginUrl}`,
+      html: `
+        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb">
+          <div style="background:hsl(355,70%,58%);color:#fff;padding:2rem;text-align:center">
+            <h1 style="margin:0;font-size:1.8rem">Welcome to ${siteName}! 🎉</h1>
+          </div>
+          <div style="padding:2rem">
+            <p style="font-size:1.1rem">${greeting}</p>
+            <p style="line-height:1.6;color:#444">${bodyMsg}</p>
+            <div style="text-align:center;margin:2rem 0">
+              <a href="${loginUrl}" style="background:hsl(355,70%,58%);color:#fff;padding:0.8rem 2rem;border-radius:8px;text-decoration:none;font-weight:700;display:inline-block">
+                Sign In to Your Account →
+              </a>
+            </div>
+            <p style="font-size:0.85rem;color:#888">If you didn't create this account, you can safely ignore this email.</p>
+          </div>
+          <div style="background:#f9fafb;padding:1rem 2rem;text-align:center;font-size:0.8rem;color:#9ca3af">
+            ${siteName} · <a href="${siteUrl}" style="color:#9ca3af">${siteUrl}</a>
+          </div>
+        </div>
+      `,
+    })
+  } catch (err) {
+    console.warn(`📧 Welcome email to ${email} failed (non-fatal):`, err.message)
+  }
+}

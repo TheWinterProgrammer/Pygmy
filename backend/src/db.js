@@ -3042,3 +3042,161 @@ for (const [key, value] of Object.entries(phase67Defaults)) {
 }
 
 console.log('Phase 67 schema ready')
+
+// ─── Phase 68 Schema ──────────────────────────────────────────────────────────
+
+// CSAT (Customer Satisfaction) feedback
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS csat_ratings (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    page_path   TEXT NOT NULL DEFAULT '/',
+    rating      INTEGER NOT NULL,
+    comment     TEXT NOT NULL DEFAULT '',
+    session_id  TEXT NOT NULL DEFAULT '',
+    ip          TEXT NOT NULL DEFAULT '',
+    created_at  TEXT DEFAULT (datetime('now'))
+  )
+`).run()
+
+const phase68Defaults = {
+  csat_enabled: '0',
+  csat_question: 'Was this page helpful?',
+  csat_type: 'thumbs',
+  csat_delay_ms: '3000',
+  csat_show_comment: '1',
+  csat_comment_placeholder: 'Tell us more (optional)\u2026',
+  csat_thank_you_message: 'Thanks for your feedback!',
+  csat_position: 'bottom-right',
+}
+for (const [key, value] of Object.entries(phase68Defaults)) {
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
+}
+
+console.log('Phase 68 schema ready')
+
+// ─── Phase 69 Schema ──────────────────────────────────────────────────────────
+
+// GDPR Privacy Requests
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS privacy_requests (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    type         TEXT NOT NULL DEFAULT 'export',
+    customer_id  INTEGER REFERENCES customers(id) ON DELETE SET NULL,
+    email        TEXT NOT NULL DEFAULT '',
+    status       TEXT NOT NULL DEFAULT 'pending',
+    token        TEXT NOT NULL DEFAULT '',
+    notes        TEXT NOT NULL DEFAULT '',
+    admin_notes  TEXT NOT NULL DEFAULT '',
+    completed_at TEXT DEFAULT NULL,
+    created_at   TEXT DEFAULT (datetime('now')),
+    updated_at   TEXT DEFAULT (datetime('now'))
+  )
+`).run()
+
+// Win-back Campaigns
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS winback_campaigns (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name            TEXT NOT NULL DEFAULT 'Win-back Campaign',
+    days_inactive   INTEGER NOT NULL DEFAULT 90,
+    coupon_code     TEXT NOT NULL DEFAULT '',
+    discount_pct    REAL NOT NULL DEFAULT 0,
+    subject         TEXT NOT NULL DEFAULT 'We miss you!',
+    body            TEXT NOT NULL DEFAULT '',
+    status          TEXT NOT NULL DEFAULT 'draft',
+    sent_count      INTEGER DEFAULT 0,
+    open_count      INTEGER DEFAULT 0,
+    convert_count   INTEGER DEFAULT 0,
+    last_sent_at    TEXT DEFAULT NULL,
+    created_at      TEXT DEFAULT (datetime('now')),
+    updated_at      TEXT DEFAULT (datetime('now'))
+  )
+`).run()
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS winback_sends (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    campaign_id  INTEGER NOT NULL REFERENCES winback_campaigns(id) ON DELETE CASCADE,
+    customer_id  INTEGER REFERENCES customers(id) ON DELETE SET NULL,
+    email        TEXT NOT NULL DEFAULT '',
+    coupon_code  TEXT NOT NULL DEFAULT '',
+    sent_at      TEXT DEFAULT (datetime('now')),
+    opened       INTEGER DEFAULT 0,
+    converted    INTEGER DEFAULT 0
+  )
+`).run()
+
+// Customer Notification Preferences
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS notification_prefs (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id   INTEGER NOT NULL UNIQUE REFERENCES customers(id) ON DELETE CASCADE,
+    order_updates INTEGER DEFAULT 1,
+    promotions    INTEGER DEFAULT 1,
+    newsletter    INTEGER DEFAULT 1,
+    back_in_stock INTEGER DEFAULT 1,
+    price_drops   INTEGER DEFAULT 1,
+    loyalty       INTEGER DEFAULT 1,
+    digest        INTEGER DEFAULT 1,
+    created_at    TEXT DEFAULT (datetime('now')),
+    updated_at    TEXT DEFAULT (datetime('now'))
+  )
+`).run()
+
+const phase69Defaults = {
+  gdpr_privacy_page_title: 'Your Privacy',
+  gdpr_privacy_page_subtitle: 'Manage your personal data',
+  gdpr_data_export_enabled: '1',
+  gdpr_deletion_enabled: '1',
+  gdpr_deletion_delay_days: '30',
+  gdpr_dpo_email: '',
+  winback_enabled: '1',
+  notification_prefs_enabled: '1',
+}
+for (const [key, value] of Object.entries(phase69Defaults)) {
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
+}
+
+console.log('Phase 69 schema ready')
+
+// ─── Phase 70 Schema ──────────────────────────────────────────────────────────
+
+// Newsletter Email Templates
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS email_templates_newsletter (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT NOT NULL DEFAULT 'My Template',
+    subject     TEXT NOT NULL DEFAULT '',
+    html_blocks TEXT NOT NULL DEFAULT '[]',
+    preview_text TEXT NOT NULL DEFAULT '',
+    category    TEXT NOT NULL DEFAULT 'general',
+    active      INTEGER DEFAULT 1,
+    created_at  TEXT DEFAULT (datetime('now')),
+    updated_at  TEXT DEFAULT (datetime('now'))
+  )
+`).run()
+
+// Stock update import log
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS stock_imports (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    filename    TEXT NOT NULL DEFAULT '',
+    total       INTEGER DEFAULT 0,
+    updated     INTEGER DEFAULT 0,
+    skipped     INTEGER DEFAULT 0,
+    errors      TEXT NOT NULL DEFAULT '[]',
+    created_at  TEXT DEFAULT (datetime('now'))
+  )
+`).run()
+
+const phase70Defaults = {
+  welcome_email_enabled:   '0',
+  welcome_email_message:   '',
+  newsletter_from_name:    '',
+  newsletter_reply_to:     '',
+}
+for (const [key, value] of Object.entries(phase70Defaults)) {
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`).run(key, value)
+}
+
+console.log('Phase 70 schema ready')

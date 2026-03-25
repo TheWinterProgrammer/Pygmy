@@ -159,6 +159,14 @@ const routes = [
     component: () => import('../views/ChangelogView.vue')
   },
   {
+    path: '/privacy',
+    component: () => import('../views/PrivacyView.vue')
+  },
+  {
+    path: '/privacy/download/:token',
+    component: () => import('../views/PrivacyDownloadView.vue')
+  },
+  {
     path: '/account/login',
     component: () => import('../views/AccountLoginView.vue')
   },

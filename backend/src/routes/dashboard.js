@@ -277,6 +277,19 @@ router.get('/stats', authMiddleware, (req, res) => {
     changelogPublished = db.prepare(`SELECT COUNT(*) as c FROM changelog_entries WHERE status='published'`).get()?.c ?? 0
   } catch {}
 
+  // CSAT summary (Phase 68)
+  let csatTotal = 0, csatScore = null
+  try {
+    const csatStats = db.prepare(`
+      SELECT COUNT(*) as total,
+             SUM(CASE WHEN rating >= 4 THEN 1 ELSE 0 END) as positive
+      FROM csat_ratings
+      WHERE created_at > datetime('now', '-30 days')
+    `).get()
+    csatTotal = csatStats?.total ?? 0
+    csatScore = csatTotal > 0 ? Math.round((csatStats.positive / csatTotal) * 100) : null
+  } catch {}
+
   // Recent bookings (for dashboard widget)
   let recentBookings = []
   try {
@@ -328,6 +341,7 @@ router.get('/stats', authMiddleware, (req, res) => {
     auto_discounts: { active: autoDiscountsActive },
     nps: { score: npsScore, total: npsTotal },
     changelog: { published: changelogPublished },
+    csat: { total: csatTotal, score: csatScore },
     recentPosts,
     recentActivity,
     recentBookings

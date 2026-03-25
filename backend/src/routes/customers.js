@@ -6,6 +6,7 @@ import multer from 'multer'
 import db from '../db.js'
 import { authMiddleware, adminOnly } from '../middleware/auth.js'
 import { logActivity } from './activity.js'
+import { sendCustomerWelcomeEmail } from '../email.js'
 
 const csvUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } })
 
@@ -55,6 +56,21 @@ router.post('/register', async (req, res) => {
   const customer = db.prepare('SELECT id, email, first_name, last_name, phone, created_at FROM customers WHERE id = ?').get(result.lastInsertRowid)
   const token = signCustomerToken(customer)
   res.status(201).json({ token, customer })
+
+  // Send welcome email (non-blocking)
+  try {
+    const settings = db.prepare(`SELECT key, value FROM settings WHERE key IN ('welcome_email_enabled','welcome_email_message','site_name','site_url')`).all()
+    const s = Object.fromEntries(settings.map(r => [r.key, r.value]))
+    if (s.welcome_email_enabled === '1') {
+      sendCustomerWelcomeEmail({
+        email: customer.email,
+        first_name: customer.first_name,
+        siteName: s.site_name || 'Pygmy CMS',
+        siteUrl: s.site_url || 'http://localhost:5174',
+        customMessage: s.welcome_email_message || '',
+      }).catch(() => {})
+    }
+  } catch (_) {}
 })
 
 // ─── Public: Login ─────────────────────────────────────────────────────────────
